@@ -1,0 +1,33 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Root env files
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/venv/
+**/.venv/
+
+# Java / Maven
+**/target/
+**/build/
+
+# Node (future frontend)
+**/node_modules/
+
+# Logs
+**/*.log
+
+# Runtime data
+backend-ai/uploads/
+backend-ai/models/

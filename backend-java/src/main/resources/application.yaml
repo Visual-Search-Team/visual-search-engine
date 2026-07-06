@@ -42,3 +42,9 @@ integration:
     health-path: /health
   qdrant:
     url: ${QDRANT_URL:http://localhost:6333}
+
+minio:
+  url: ${MINIO_ENDPOINT:http://minio:9000}
+  access-key: ${MINIO_ACCESS_KEY:admin}
+  secret-key: ${MINIO_SECRET_KEY:password123}
+  bucket-name: ${MINIO_BUCKET:images}

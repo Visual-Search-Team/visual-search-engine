@@ -29,6 +29,45 @@ services:
       - qdrant-data:/qdrant/storage
     restart: unless-stopped
 
+  minio:
+    image: minio/minio
+    container_name: visualsearch-minio
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+
+    command: server /data --console-address ":9001"
+
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  createbuckets:
+    image: minio/mc
+    container_name: visualsearch-createbuckets
+
+    depends_on:
+      minio:
+        condition: service_started
+
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 admin password123; do
+        echo 'waiting for minio...';
+        sleep 2;
+      done;
+      mc mb local/images || true;
+      mc anonymous set none local/images;
+      exit 0;
+      "
+
+    restart: "no"
+
   backend-ai:
     build:
       context: ./backend-ai
@@ -46,11 +85,21 @@ services:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: images
       BACKEND_JAVA_URL: http://backend-java:8080
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET: images
+      
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_started
+      minio:
+        condition: service_started
+      createbuckets:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     healthcheck:
@@ -79,11 +128,20 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       BACKEND_AI_BASE_URL: http://backend-ai:8000
       QDRANT_URL: http://qdrant:6333
+
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET: images
     depends_on:
       postgres:
         condition: service_healthy
       backend-ai:
         condition: service_healthy
+      minio:
+        condition: service_started
+      createbuckets:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -91,3 +149,4 @@ services:
 volumes:
   postgres-data:
   qdrant-data:
+  minio-data:

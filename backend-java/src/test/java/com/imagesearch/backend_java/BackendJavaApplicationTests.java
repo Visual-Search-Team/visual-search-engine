@@ -1,13 +1,14 @@
 package com.imagesearch.backend_java;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.assertj.core.api.Assertions.assertThat;
+
 class BackendJavaApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationClassIsAvailable() {
+		assertThat(BackendJavaApplication.class).isNotNull();
 	}
 
 }

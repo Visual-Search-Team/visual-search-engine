@@ -4,5 +4,6 @@ public enum BatchStatus {
     DRAFT,
     INDEXING,
     INDEXED,
-    FAILED
+    FAILED,
+    DELETED
 }

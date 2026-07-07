@@ -81,7 +81,7 @@ Refresh token được lưu trong **HttpOnly Cookie** và trình duyệt tự đ
 {
   "success": true,
   "data": {
-    "content": [],
+    "results": [],
     "page": 0,
     "size": 20,
     "totalElements": 0,
@@ -491,7 +491,7 @@ curl --location \
     "searchType": "IMAGE_TO_IMAGE",
     "queryImageUrl": "/search-queries/501/query-image.jpg",
     "processingTimeMs": 245,
-    "content": [
+    "results": [
       {
         "imageId": 1001,
         "originalFilename": "shoe-001.jpg",
@@ -591,7 +591,7 @@ curl --location --get \
     "queryText": "red running shoes",
     "mode": "semantic",
     "processingTimeMs": 128,
-    "content": [
+    "results": [
       {
         "imageId": 1002,
         "originalFilename": "red-shoe.jpg",
@@ -637,7 +637,7 @@ Người dùng chỉ được xem và xóa lịch sử tìm kiếm thuộc tài 
 ## 5.1. Lấy danh sách lịch sử tìm kiếm
 
 ```http
-GET /search-history?page=0&size=20
+GET /search-history?page=0&size=20&type=semantic
 ```
 
 ### Authorization
@@ -650,12 +650,15 @@ Yêu cầu Bearer access token.
 |---|---|---:|---:|
 | `page` | integer | Không | `0` |
 | `size` | integer | Không | `20` |
+| `type` | string | Không | - |
+
+`type` hỗ trợ: `image`, `semantic`, `ocr`.
 
 ### cURL
 
 ```bash
 curl --location \
-  'http://localhost:8080/visual-search/v1/search-history?page=0&size=20' \
+  'http://localhost:8080/visual-search/v1/search-history?page=0&size=20&type=semantic' \
   --header 'Authorization: Bearer <access_token>'
 ```
 
@@ -665,7 +668,7 @@ curl --location \
 {
   "success": true,
   "data": {
-    "content": [
+    "results": [
       {
         "id": 502,
         "searchType": "TEXT_SEMANTIC",
@@ -737,7 +740,7 @@ curl --location \
     "processingTimeMs": 128,
     "createdAt": "2026-07-03T10:25:00+07:00",
     "results": {
-      "content": [
+      "results": [
         {
           "imageId": 1002,
           "originalFilename": "red-shoe.jpg",
@@ -841,7 +844,7 @@ curl --location --request DELETE \
 }
 ```
 
-Khi xóa `search_history`, các bản ghi `search_results` liên quan được xóa theo cascade.
+Khi xóa `search_history`, backend xóa metadata lịch sử tìm kiếm tương ứng.
 
 ---
 
@@ -873,7 +876,7 @@ curl --location \
 {
   "success": true,
   "data": {
-    "content": [
+    "results": [
       {
         "bookmarkId": 801,
         "imageId": 1002,

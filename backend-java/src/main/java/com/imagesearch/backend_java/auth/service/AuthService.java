@@ -18,6 +18,7 @@ import com.imagesearch.backend_java.auth.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,6 +33,7 @@ import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j(topic = "AUTH-SERVICE")
 public class AuthService {
     private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh:";
 
@@ -44,10 +46,13 @@ public class AuthService {
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
+        log.info("Entered register service, username={}, email={}", request.getUsername(), request.getEmail());
         if (userRepository.existsByUsername(request.getUsername())) {
+            log.warn("Register service rejected, username already exists: {}", request.getUsername());
             throw new AuthException(HttpStatus.CONFLICT, "USERNAME_ALREADY_EXISTS", "Username already exists");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Register service rejected, email already exists: {}", request.getEmail());
             throw new AuthException(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "Email already exists");
         }
 
@@ -59,10 +64,13 @@ public class AuthService {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        return userMapper.toRegisterResponse(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        log.info("Completed register service, userId={}, username={}", savedUser.getId(), savedUser.getUsername());
+        return userMapper.toRegisterResponse(savedUser);
     }
 
     public LoginResult login(LoginRequest request) {
+        log.info("Entered login service, usernameOrEmail={}", request.getUsernameOrEmail());
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsernameOrEmail(), request.getPassword())
         );
@@ -71,6 +79,7 @@ public class AuthService {
         User user = userRepository.findByUsername(principal.getUsername())
                 .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
 
+        log.info("Login service authenticated principal, username={}", user.getUsername());
         validateActiveUser(user);
 
         String accessToken = jwtService.generateAccessToken(user);
@@ -82,11 +91,14 @@ public class AuthService {
                 .user(userMapper.toLoginUserResponse(user))
                 .build();
 
+        log.info("Completed login service, userId={}, username={}", user.getId(), user.getUsername());
         return new LoginResult(response, refreshToken);
     }
 
     public RefreshTokenResult refreshToken(String refreshToken) {
+        log.info("Entered refreshToken service, hasRefreshToken={}", hasText(refreshToken));
         if (refreshToken == null || refreshToken.isBlank()) {
+            log.warn("RefreshToken service rejected, refresh token is missing");
             throw new AuthException(
                     HttpStatus.UNAUTHORIZED,
                     "AUTH_REFRESH_TOKEN_INVALID",
@@ -98,13 +110,16 @@ public class AuthService {
             Claims claims = jwtService.extractRefreshTokenClaims(refreshToken);
             String tokenId = claims.getId();
             String username = claims.getSubject();
+            log.info("RefreshToken service extracted claims, tokenId={}, username={}", tokenId, username);
 
             if (tokenId == null || tokenId.isBlank() || username == null || username.isBlank()) {
+                log.warn("RefreshToken service rejected, missing tokenId or username claim");
                 throw invalidRefreshTokenException();
             }
 
             String storedUserId = redisTemplate.opsForValue().get(refreshTokenKey(tokenId));
             if (storedUserId == null) {
+                log.warn("RefreshToken service rejected, tokenId not found in Redis: {}", tokenId);
                 throw invalidRefreshTokenException();
             }
 
@@ -113,6 +128,11 @@ public class AuthService {
 
             validateActiveUser(user);
             if (!storedUserId.equals(String.valueOf(user.getId()))) {
+                log.warn(
+                        "RefreshToken service rejected, storedUserId={} does not match userId={}",
+                        storedUserId,
+                        user.getId()
+                );
                 throw invalidRefreshTokenException();
             }
 
@@ -125,8 +145,10 @@ public class AuthService {
                     .expiresIn(jwtService.getAccessTokenExpirationSeconds())
                     .build();
 
+            log.info("Completed refreshToken service, userId={}, username={}", user.getId(), user.getUsername());
             return new RefreshTokenResult(response, rotatedRefreshToken);
         } catch (JwtException | IllegalArgumentException exception) {
+            log.warn("RefreshToken service rejected, token parsing failed: {}", exception.getClass().getSimpleName());
             throw new AuthException(
                     HttpStatus.UNAUTHORIZED,
                     "AUTH_REFRESH_TOKEN_INVALID",
@@ -136,14 +158,18 @@ public class AuthService {
     }
 
     public MeResponse getCurrentUser(String username) {
+        log.info("Entered getCurrentUser service, username={}", username);
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
+        log.info("Completed getCurrentUser service, userId={}, username={}", user.getId(), user.getUsername());
         return userMapper.toMeResponse(user);
     }
 
     @Transactional
     public ChangePasswordResponse changePassword(String username, ChangePasswordRequest request) {
+        log.info("Entered changePassword service, username={}", username);
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            log.warn("ChangePassword service rejected, password confirmation mismatch for username={}", username);
             throw new AuthException(
                     HttpStatus.BAD_REQUEST,
                     "PASSWORD_CONFIRMATION_MISMATCH",
@@ -155,6 +181,7 @@ public class AuthService {
                 .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            log.warn("ChangePassword service rejected, current password incorrect for username={}", username);
             throw new AuthException(
                     HttpStatus.UNAUTHORIZED,
                     "CURRENT_PASSWORD_INCORRECT",
@@ -165,31 +192,41 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
+        log.info("Completed changePassword service, userId={}, username={}", user.getId(), user.getUsername());
         return new ChangePasswordResponse("Password changed successfully");
     }
 
     public LogoutResponse logout(String refreshToken) {
+        log.info("Entered logout service, hasRefreshToken={}", hasText(refreshToken));
         deleteRefreshToken(refreshToken);
+        log.info("Completed logout service");
         return new LogoutResponse("Logout successfully");
     }
 
     private void validateActiveUser(User user) {
+        log.info("Validating active user, userId={}, username={}, status={}", user.getId(), user.getUsername(), user.getStatus());
         if (user.getStatus() == UserStatus.INACTIVE) {
+            log.warn("User validation rejected, account inactive: userId={}", user.getId());
             throw new AuthException(HttpStatus.FORBIDDEN, "AUTH_ACCOUNT_INACTIVE", "Account is inactive");
         }
         if (user.getStatus() == UserStatus.BLOCKED) {
+            log.warn("User validation rejected, account blocked: userId={}", user.getId());
             throw new AuthException(HttpStatus.FORBIDDEN, "AUTH_ACCOUNT_BLOCKED", "Account is blocked");
         }
+        log.info("User validation passed, userId={}", user.getId());
     }
 
     public long getRefreshTokenExpirationSeconds() {
+        log.info("Entered getRefreshTokenExpirationSeconds service");
         return jwtService.getRefreshTokenExpirationSeconds();
     }
 
     private void storeRefreshToken(String refreshToken, User user) {
+        log.info("Entered storeRefreshToken service, userId={}", user.getId());
         Claims claims = jwtService.extractRefreshTokenClaims(refreshToken);
         String tokenId = claims.getId();
         if (tokenId == null || tokenId.isBlank()) {
+            log.warn("StoreRefreshToken service rejected, tokenId is missing");
             throw invalidRefreshTokenException();
         }
 
@@ -198,10 +235,13 @@ public class AuthService {
                 String.valueOf(user.getId()),
                 Duration.ofSeconds(jwtService.getRefreshTokenExpirationSeconds())
         );
+        log.info("Completed storeRefreshToken service, userId={}, tokenId={}", user.getId(), tokenId);
     }
 
     private void deleteRefreshToken(String refreshToken) {
+        log.info("Entered deleteRefreshToken service, hasRefreshToken={}", hasText(refreshToken));
         if (refreshToken == null || refreshToken.isBlank()) {
+            log.info("Skipped deleteRefreshToken service, refresh token is missing");
             return;
         }
 
@@ -210,8 +250,12 @@ public class AuthService {
             String tokenId = claims.getId();
             if (tokenId != null && !tokenId.isBlank()) {
                 redisTemplate.delete(refreshTokenKey(tokenId));
+                log.info("Deleted refresh token from Redis, tokenId={}", tokenId);
+            } else {
+                log.warn("Skipped Redis delete, tokenId is missing");
             }
         } catch (JwtException | IllegalArgumentException ignored) {
+            log.warn("Skipped Redis delete, refresh token parsing failed: {}", ignored.getClass().getSimpleName());
             // Logout should still clear the browser cookie even when the refresh token is already invalid.
         }
     }
@@ -225,7 +269,11 @@ public class AuthService {
                 HttpStatus.UNAUTHORIZED,
                 "AUTH_REFRESH_TOKEN_INVALID",
                 "Refresh token is invalid"
-        );
+            );
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     public record LoginResult(LoginResponse response, String refreshToken) {

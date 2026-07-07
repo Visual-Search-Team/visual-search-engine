@@ -4,6 +4,7 @@ import com.imagesearch.backend_java.auth.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -40,9 +41,16 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
-                                "/openapi/**"
+                                "/openapi/**",
+                                "/error"
                         ).permitAll()
-                        .anyRequest().authenticated()
+//                        .requestMatchers(HttpMethod.GET, "/search/text").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/search/**").permitAll()
+                        .requestMatchers(
+                                "/search-history/**",
+                                "/bookmarks/**"
+                        ).authenticated()
+                        .anyRequest().denyAll()//.authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

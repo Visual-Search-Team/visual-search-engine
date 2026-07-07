@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 
 import java.time.OffsetDateTime;
 
@@ -213,6 +214,25 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(response);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException exception
+    ) {
+        log.warn(
+                "Request method not supported: method={}, supported={}",
+                exception.getMethod(),
+                exception.getSupportedHttpMethods()
+        );
+        BaseResponse<Void> response = buildErrorResponse(
+                "METHOD_NOT_ALLOWED",
+                "Request method is not supported"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(response);
     }
 

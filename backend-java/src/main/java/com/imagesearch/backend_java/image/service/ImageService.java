@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -20,19 +19,23 @@ public class ImageService {
 
     private final MinIOService minIOService;
     private final ImageRepository imageRepository;
+    private final ImageThumbnailService imageThumbnailService;
 
     // Upload ảnh
     public ImageUploadResponse uploadImage(MultipartFile file) throws Exception {
         String storagePath = minIOService.uploadFile(file);
         String fileUrl = minIOService.getFileUrl(storagePath);
+        ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(file);
 
         ImageEntity imageEntity = ImageEntity.builder()
                 .originalFileName(file.getOriginalFilename())
                 .storagePath(storagePath)
+                .thumbnailPath(thumbnail.thumbnailPath())
                 .mimeType(file.getContentType())
                 .fileSize(file.getSize())
+                .width(thumbnail.width())
+                .height(thumbnail.height())
                 .indexStatus(ImageIndexStatus.PENDING)
-                .createAt(LocalDateTime.now())
                 .build();
 
         ImageEntity savedImage = imageRepository.save(imageEntity);
@@ -44,6 +47,10 @@ public class ImageService {
                 .originalFileName(file.getOriginalFilename())
                 .fileSize(file.getSize())
                 .mimeType(file.getContentType())
+                .thumbnailPath(savedImage.getThumbnailPath())
+                .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getFileUrl(savedImage.getThumbnailPath()))
+                .width(savedImage.getWidth())
+                .height(savedImage.getHeight())
                 .build();
     }
 

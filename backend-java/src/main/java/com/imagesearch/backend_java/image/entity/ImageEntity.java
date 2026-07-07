@@ -1,60 +1,101 @@
 package com.imagesearch.backend_java.image.entity;
 
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
-import jakarta.persistence.*;
-import lombok.*;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
+@Table(
+        name = "images",
+        indexes = {
+                @Index(name = "idx_images_batch_id", columnList = "batch_id"),
+                @Index(name = "idx_images_uploaded_by", columnList = "uploaded_by"),
+                @Index(name = "idx_images_index_status", columnList = "index_status"),
+                @Index(name = "idx_images_checksum", columnList = "checksum")
+        }
+)
 @Getter
 @Setter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "images")
+@AllArgsConstructor
 public class ImageEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "orginal_filename")
+    @Column(name = "batch_id")
+    private Long batchId;
+
+    @Column(name = "uploaded_by")
+    private Long uploadedBy;
+
+    @Column(name = "original_filename", length = 500)
     private String originalFileName;
 
-    @Column(name = "storage_path", nullable = false)
+    @Column(name = "storage_path", nullable = false, length = 1000)
     private String storagePath;
 
-    @Column(name = "thumbnail_path")
+    @Column(name = "thumbnail_path", length = 1000)
     private String thumbnailPath;
 
-    @Column(name = "mime_type")
+    @Column(name = "mime_type", length = 100)
     private String mimeType;
 
     @Column(name = "file_size")
     private Long fileSize;
 
-    @Column(name = "width")
     private Integer width;
 
-    @Column(name = "height")
     private Integer height;
 
-    @Column(name = "checksum")
-    private String checkSum;
+    @Column(name = "checksum", unique = true, length = 128)
+    private String checksum;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
-    private ImageIndexStatus indexStatus;
+    @Column(name = "index_status", length = 20)
+    private ImageIndexStatus indexStatus = ImageIndexStatus.PENDING;
 
-    @Column(name = "index_at")
-    private LocalDateTime indexAt;
+    @Column(name = "indexed_at")
+    private LocalDateTime indexedAt;
 
-    @CreatedDate
-    @Column(name = "create_at")
-    private LocalDateTime createAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    @LastModifiedDate
-    @Column(name = "update_at")
-    private LocalDateTime updateAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Transient
+    private List<Float> embedding;
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

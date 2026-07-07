@@ -12,11 +12,13 @@ import com.imagesearch.backend_java.auth.dto.response.RefreshTokenResponse;
 import com.imagesearch.backend_java.auth.dto.response.RegisterResponse;
 import com.imagesearch.backend_java.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,7 @@ import java.time.OffsetDateTime;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "APIs for account registration, login and session management")
+@Slf4j(topic = "AUTH-CONTROLLER")
 public class AuthController {
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
     private static final String REFRESH_TOKEN_COOKIE_PATH = "/visual-search/v1/auth";
@@ -44,6 +47,7 @@ public class AuthController {
     @Operation(summary = "Register user", description = "API creates a new user account with default USER role")
     @PostMapping("/register")
     public ResponseEntity<BaseResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        log.info("Entered register API, username={}, email={}", request.getUsername(), request.getEmail());
         RegisterResponse data = authService.register(request);
         BaseResponse<RegisterResponse> response = BaseResponse.<RegisterResponse>builder()
                 .success(true)
@@ -52,6 +56,7 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed register API, userId={}", data.getId());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
@@ -63,6 +68,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse servletResponse
     ) {
+        log.info("Entered login API, usernameOrEmail={}", request.getUsernameOrEmail());
         AuthService.LoginResult result = authService.login(request);
         addRefreshTokenCookie(servletResponse, result.refreshToken());
 
@@ -73,6 +79,7 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed login API, usernameOrEmail={}", request.getUsernameOrEmail());
         return ResponseEntity.ok(response);
     }
 
@@ -85,6 +92,7 @@ public class AuthController {
             @CookieValue(value = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken,
             HttpServletResponse servletResponse
     ) {
+        log.info("Entered refreshToken API, hasRefreshTokenCookie={}", hasText(refreshToken));
         AuthService.RefreshTokenResult result = authService.refreshToken(refreshToken);
         addRefreshTokenCookie(servletResponse, result.refreshToken());
 
@@ -95,6 +103,7 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed refreshToken API");
         return ResponseEntity.ok(response);
     }
 
@@ -102,6 +111,7 @@ public class AuthController {
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/me")
     public ResponseEntity<BaseResponse<MeResponse>> me(Authentication authentication) {
+        log.info("Entered me API, username={}", authentication.getName());
         MeResponse data = authService.getCurrentUser(authentication.getName());
         BaseResponse<MeResponse> response = BaseResponse.<MeResponse>builder()
                 .success(true)
@@ -110,6 +120,7 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed me API, username={}", authentication.getName());
         return ResponseEntity.ok(response);
     }
 
@@ -120,6 +131,7 @@ public class AuthController {
             Authentication authentication,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
+        log.info("Entered changePassword API, username={}", authentication.getName());
         ChangePasswordResponse data = authService.changePassword(authentication.getName(), request);
         BaseResponse<ChangePasswordResponse> response = BaseResponse.<ChangePasswordResponse>builder()
                 .success(true)
@@ -128,6 +140,7 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed changePassword API, username={}", authentication.getName());
         return ResponseEntity.ok(response);
     }
 
@@ -135,9 +148,11 @@ public class AuthController {
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
     public ResponseEntity<BaseResponse<LogoutResponse>> logout(
+            @Parameter(hidden = true)
             @CookieValue(value = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken,
             HttpServletResponse servletResponse
     ) {
+        log.info("Entered logout API, hasRefreshTokenCookie={}", hasText(refreshToken));
         clearRefreshTokenCookie(servletResponse);
 
         LogoutResponse data = authService.logout(refreshToken);
@@ -148,11 +163,13 @@ public class AuthController {
                 .timestamp(OffsetDateTime.now())
                 .build();
 
+        log.info("Completed logout API");
         return ResponseEntity.ok(response);
     }
 
     // Refresh token is stored in an HttpOnly cookie so JavaScript cannot read it directly.
     private void addRefreshTokenCookie(HttpServletResponse servletResponse, String refreshToken) {
+        log.info("Adding refreshToken cookie");
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
                 .secure(true)
@@ -165,6 +182,7 @@ public class AuthController {
 
     // Expiring the cookie keeps logout stateless and aligned with JWT-based authentication.
     private void clearRefreshTokenCookie(HttpServletResponse servletResponse) {
+        log.info("Clearing refreshToken cookie");
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
                 .httpOnly(true)
                 .secure(true)
@@ -173,5 +191,9 @@ public class AuthController {
                 .maxAge(0)
                 .build();
         servletResponse.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

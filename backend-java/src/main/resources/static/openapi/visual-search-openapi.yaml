@@ -104,12 +104,6 @@ paths:
       summary: Refresh access token
       description: Requires refreshToken HttpOnly cookie. Does not require Bearer access token.
       security: []
-      parameters:
-        - name: refreshToken
-          in: cookie
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           description: Access token refreshed successfully
@@ -133,15 +127,9 @@ paths:
     post:
       tags: [Authentication]
       summary: Logout
-      description: Requires Bearer access token. Clears refreshToken cookie.
+      description: Requires Bearer access token. The refreshToken is read from the HttpOnly cookie and cleared.
       security:
         - bearerAuth: []
-      parameters:
-        - name: refreshToken
-          in: cookie
-          required: false
-          schema:
-            type: string
       responses:
         '200':
           description: Logout successfully
@@ -332,6 +320,13 @@ paths:
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/SizeParam'
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [image, semantic, ocr]
+          description: Filter history by search type
       responses:
         '200':
           description: Search history list
@@ -771,7 +766,7 @@ components:
         processingTimeMs:
           type: integer
           format: int64
-        content:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/SearchResultItem'
@@ -838,7 +833,7 @@ components:
     SearchHistoryListResponse:
       type: object
       properties:
-        content:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/SearchHistoryItem'
@@ -865,7 +860,7 @@ components:
     SearchHistoryResultPage:
       type: object
       properties:
-        content:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/SearchHistoryResultItem'
@@ -965,7 +960,7 @@ components:
     BookmarkListResponse:
       type: object
       properties:
-        content:
+        results:
           type: array
           items:
             $ref: '#/components/schemas/BookmarkItem'

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -28,7 +29,7 @@ public class MinIOService {
     public String uploadFile(MultipartFile file) throws Exception {
         ensureBucketExists();
 
-        String objectName = generateObjectName(file.getOriginalFilename());
+        String objectName = generateObjectName(Objects.requireNonNull(file.getOriginalFilename()));
         try (InputStream stream = file.getInputStream()) {
             minioClient.putObject(
                     PutObjectArgs.builder()

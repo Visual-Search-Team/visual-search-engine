@@ -5,6 +5,8 @@ import com.imagesearch.backend_java.search.dto.response.ImageSearchResponse;
 import com.imagesearch.backend_java.search.dto.response.TextSearchResponse;
 import com.imagesearch.backend_java.search.exception.SearchException;
 import com.imagesearch.backend_java.search.service.SearchService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +24,15 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-CONTROLLER")
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+@SecurityRequirement(name = "bearerAuth")
 public class SearchController {
     private final SearchService searchService;
 
     @PostMapping("/image")
+    @Operation(
+            summary = "Search images by uploaded image",
+            description = "Searches visually similar images from an uploaded image and stores the search history for the authenticated user."
+    )
     public ResponseEntity<BaseResponse<ImageSearchResponse>> searchByImage(
             @RequestParam("image") MultipartFile image,
             @RequestParam(value = "limit", required = false) Integer limit,
@@ -50,6 +57,10 @@ public class SearchController {
     }
 
     @GetMapping("/text")
+    @Operation(
+            summary = "Search images by text",
+            description = "Searches images using a text query and search mode, then stores the search history for the authenticated user."
+    )
     public ResponseEntity<BaseResponse<TextSearchResponse>> searchByText(
             @RequestParam(value = "q") String query,
             @RequestParam(value = "mode") String mode,

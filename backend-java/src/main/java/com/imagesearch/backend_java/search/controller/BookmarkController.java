@@ -6,10 +6,12 @@ import com.imagesearch.backend_java.search.dto.response.CreateBookmarkResponse;
 import com.imagesearch.backend_java.search.dto.response.DeleteBookmarkResponse;
 import com.imagesearch.backend_java.search.exception.SearchException;
 import com.imagesearch.backend_java.search.service.BookmarkService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,20 +25,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/bookmarks")
 @RequiredArgsConstructor
 @Slf4j(topic = "BOOKMARK-CONTROLLER")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 public class BookmarkController {
     private final BookmarkService bookmarkService;
 
     @GetMapping
+    @Operation(
+            summary = "Get bookmarked images",
+            description = "Returns a paginated list of images bookmarked by the authenticated user."
+    )
     public ResponseEntity<BaseResponse<BookmarkListResponse>> getBookmarks(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(value = "page",defaultValue = "0") int page,
+            @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
             Authentication authentication
     ) {
         try {
             log.info("Entered getBookmarks API");
-            validatePagination(page, size);
-            BookmarkListResponse data = bookmarkService.getBookmarks(username(authentication), page, size);
+            validatePagination(page, pageSize);
+            BookmarkListResponse data = bookmarkService.getBookmarks(username(authentication), page, pageSize);
             log.info("Completed getBookmarks API");
             return ResponseEntity.ok(BaseResponse.success(data));
         } catch (SearchException e) {
@@ -48,6 +55,10 @@ public class BookmarkController {
     }
 
     @PostMapping("/{imageId}")
+    @Operation(
+            summary = "Create bookmark",
+            description = "Adds the specified image to the authenticated user's bookmarks."
+    )
     public ResponseEntity<BaseResponse<CreateBookmarkResponse>> createBookmark(
             @PathVariable Long imageId,
             Authentication authentication
@@ -66,6 +77,10 @@ public class BookmarkController {
     }
 
     @DeleteMapping("/{imageId}")
+    @Operation(
+            summary = "Delete bookmark",
+            description = "Removes the specified image from the authenticated user's bookmarks."
+    )
     public ResponseEntity<BaseResponse<DeleteBookmarkResponse>> deleteBookmark(
             @PathVariable Long imageId,
             Authentication authentication

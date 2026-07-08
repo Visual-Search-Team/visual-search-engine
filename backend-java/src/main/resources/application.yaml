@@ -1,6 +1,10 @@
 spring:
   application:
     name: backend-java
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/imagesearch}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -10,19 +14,47 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:2000ms}
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /visual-search/v1
+
+jwt:
+  secret: ${JWT_SECRET:1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij}
+  access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:86400000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:604800000}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+#    url: /openapi/visual-search-openapi.yaml
+    operations-sorter: method
+    tags-sorter: alpha
 
 integration:
   backend-ai:
     base-url: ${BACKEND_AI_BASE_URL:http://localhost:8000}
     health-path: /health
+    mock-embedding: ${BACKEND_AI_MOCK_EMBEDDING:true}
   qdrant:
     url: ${QDRANT_URL:http://localhost:6333}
+    collection-name: ${QDRANT_COLLECTION_NAME:images}
+    vector-name: ${QDRANT_VECTOR_NAME:embedding}
+    vector-size: ${QDRANT_VECTOR_SIZE:512}
+    distance: ${QDRANT_DISTANCE:Cosine}
+    initialize-on-startup: ${QDRANT_INITIALIZE_ON_STARTUP:true}
 
 minio:
-  url: ${MINIO_ENDPOINT:http://minio:9000}
+  url: ${MINIO_ENDPOINT:http://localhost:9000}
   access-key: ${MINIO_ACCESS_KEY:admin}
   secret-key: ${MINIO_SECRET_KEY:password123}
   bucket-name: ${MINIO_BUCKET:images}

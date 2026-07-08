@@ -26,4 +26,14 @@ public class ImageUploadResponse {
 
     @JsonProperty("mime_type")
     private String mimeType;
+
+    @JsonProperty("thumbnail_path")
+    private String thumbnailPath;
+
+    @JsonProperty("thumbnail_url")
+    private String thumbnailUrl;
+
+    private Integer width;
+
+    private Integer height;
 }

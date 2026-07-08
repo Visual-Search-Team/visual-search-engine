@@ -51,8 +51,8 @@ public class SearchController {
 
     @GetMapping("/text")
     public ResponseEntity<BaseResponse<TextSearchResponse>> searchByText(
-            @RequestParam("q") String query,
-            @RequestParam("mode") String mode,
+            @RequestParam(value = "q") String query,
+            @RequestParam(value = "mode") String mode,
             @RequestParam(value = "limit", required = false) Integer limit,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "pageSize", required = false) Integer pageSize,

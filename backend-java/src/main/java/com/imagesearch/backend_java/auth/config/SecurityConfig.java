@@ -50,7 +50,7 @@ public class SecurityConfig {
                                 "/search-history/**",
                                 "/bookmarks/**"
                         ).authenticated()
-                        .anyRequest().denyAll()//.authenticated()
+                        .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

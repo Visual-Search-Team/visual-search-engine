@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/search-history")
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-HISTORY-CONTROLLER")
-@SecurityRequirement(name = "bearerAuth")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+
 public class SearchHistoryController {
     private final SearchHistoryService searchHistoryService;
 

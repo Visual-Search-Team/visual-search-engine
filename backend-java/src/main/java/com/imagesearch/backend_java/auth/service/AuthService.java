@@ -19,6 +19,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -84,7 +85,7 @@ public class AuthService {
 
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
-        storeRefreshToken(refreshToken, user);
+        storeRefreshTokenBestEffort(refreshToken, user);
         LoginResponse response = LoginResponse.builder()
                 .accessToken(accessToken)
                 .expiresIn(jwtService.getAccessTokenExpirationSeconds())
@@ -219,6 +220,18 @@ public class AuthService {
     public long getRefreshTokenExpirationSeconds() {
         log.info("Entered getRefreshTokenExpirationSeconds service");
         return jwtService.getRefreshTokenExpirationSeconds();
+    }
+
+    private void storeRefreshTokenBestEffort(String refreshToken, User user) {
+        try {
+            storeRefreshToken(refreshToken, user);
+        } catch (RedisConnectionFailureException exception) {
+            log.error(
+                    "Login continues without storing refresh token because Redis is unavailable, userId={}",
+                    user.getId(),
+                    exception
+            );
+        }
     }
 
     private void storeRefreshToken(String refreshToken, User user) {

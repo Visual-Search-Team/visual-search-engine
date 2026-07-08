@@ -260,16 +260,12 @@ class AuthControllerTest {
     }
 
     @Test
-    void loginReturnsServiceUnavailableWhenRedisCannotConnect() throws Exception {
-        when(authService.login(any(LoginRequest.class)))
+    void refreshTokenReturnsServiceUnavailableWhenRedisCannotConnect() throws Exception {
+        when(authService.refreshToken("old-refresh-token"))
                 .thenThrow(new RedisConnectionFailureException("Unable to connect to Redis"));
 
-        mockMvc.perform(post("/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(asJson(Map.of(
-                                "usernameOrEmail", "john",
-                                "password", "Password123"
-                        ))))
+        mockMvc.perform(post("/auth/refresh-token")
+                        .cookie(new Cookie(REFRESH_TOKEN_COOKIE_NAME, "old-refresh-token")))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("REDIS_UNAVAILABLE"))

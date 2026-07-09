@@ -4,7 +4,6 @@ import com.imagesearch.backend_java.batch.enums.BatchStatus;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -16,4 +15,18 @@ public class BatchSearch {
     private BatchStatus status;
     private LocalDate fromDate;
     private LocalDate toDate;
+    private Integer page;
+    private Integer size;
+
+    public int getPage() {
+        return page != null ? page : 0;
+    }
+
+    public int getSize() {
+        return size != null ? size : 20;
+    }
+
+    public int getOffset() {
+        return getPage() * getSize();
+    }
 }

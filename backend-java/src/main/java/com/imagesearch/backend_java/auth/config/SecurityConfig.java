@@ -44,13 +44,18 @@ public class SecurityConfig {
                                 "/openapi/**",
                                 "/error"
                         ).permitAll()
-//                        .requestMatchers(HttpMethod.GET, "/search/text").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/search/**").permitAll()
+                        // Batch Admin endpoints - ALL HTTP methods
+                        .requestMatchers(HttpMethod.GET, "/admin/batches").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/admin/batches/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/batches").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/admin/batches/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/admin/batches/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/search-history/**",
                                 "/bookmarks/**"
                         ).authenticated()
-                        .anyRequest().denyAll()//.authenticated()
+                        .anyRequest().denyAll()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

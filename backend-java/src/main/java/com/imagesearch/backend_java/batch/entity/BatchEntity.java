@@ -1,5 +1,6 @@
 package com.imagesearch.backend_java.batch.entity;
 
+import com.imagesearch.backend_java.auth.entity.User;
 import com.imagesearch.backend_java.batch.enums.BatchStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,7 +29,9 @@ public class BatchEntity {
     @Column(name = "description")
     private String description;
 
-    // Chưa tham chiếu đến user
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "created_by", nullable = false)
+    private User createdBy;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")

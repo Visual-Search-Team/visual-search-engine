@@ -127,6 +127,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       BACKEND_AI_BASE_URL: http://backend-ai:8000
+      BACKEND_AI_MOCK_EMBEDDING: "false"
       QDRANT_URL: http://qdrant:6333
 
       MINIO_ENDPOINT: http://minio:9000

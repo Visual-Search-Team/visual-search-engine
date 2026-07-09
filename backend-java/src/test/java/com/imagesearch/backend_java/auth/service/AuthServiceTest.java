@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -117,6 +119,51 @@ class AuthServiceTest {
                 "1",
                 Duration.ofSeconds(REFRESH_TOKEN_EXPIRATION_SECONDS)
         );
+    }
+
+    @Test
+    void loginReturnsAccessTokenWhenRedisCannotStoreRefreshToken() {
+        User user = activeUser();
+        UserDetails principal = org.springframework.security.core.userdetails.User
+                .withUsername("john")
+                .password("hash")
+                .roles("USER")
+                .build();
+        LoginRequest request = new LoginRequest();
+        request.setUsernameOrEmail("john");
+        request.setPassword("Password123");
+
+        when(authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken("john", "Password123")
+        )).thenReturn(authentication);
+        when(authentication.getPrincipal()).thenReturn(principal);
+        when(userRepository.findByUsername("john")).thenReturn(Optional.of(user));
+        when(jwtService.generateAccessToken(user)).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(user)).thenReturn("refresh-token");
+        when(jwtService.extractRefreshTokenClaims("refresh-token")).thenReturn(claims);
+        when(claims.getId()).thenReturn("refresh-jti");
+        when(jwtService.getRefreshTokenExpirationSeconds()).thenReturn(REFRESH_TOKEN_EXPIRATION_SECONDS);
+        when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(86_400L);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        doThrow(new RedisConnectionFailureException("Unable to connect to Redis"))
+                .when(valueOperations)
+                .set(
+                        "auth:refresh:refresh-jti",
+                        "1",
+                        Duration.ofSeconds(REFRESH_TOKEN_EXPIRATION_SECONDS)
+                );
+        when(userMapper.toLoginUserResponse(user)).thenReturn(LoginUserResponse.builder()
+                .id(1L)
+                .username("john")
+                .email("john@example.com")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+
+        AuthService.LoginResult result = authService.login(request);
+
+        assertThat(result.response().getAccessToken()).isEqualTo("access-token");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test

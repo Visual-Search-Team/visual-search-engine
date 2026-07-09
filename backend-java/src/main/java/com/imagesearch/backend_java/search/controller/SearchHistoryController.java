@@ -7,10 +7,12 @@ import com.imagesearch.backend_java.search.dto.response.SearchHistoryDetailRespo
 import com.imagesearch.backend_java.search.dto.response.SearchHistoryListResponse;
 import com.imagesearch.backend_java.search.exception.SearchException;
 import com.imagesearch.backend_java.search.service.SearchHistoryService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,11 +25,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/search-history")
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-HISTORY-CONTROLLER")
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 public class SearchHistoryController {
     private final SearchHistoryService searchHistoryService;
 
     @GetMapping
+    @Operation(
+            summary = "Get search history",
+            description = "Returns a paginated list of search history records for the authenticated user, optionally filtered by search type."
+    )
     public ResponseEntity<BaseResponse<SearchHistoryListResponse>> getHistoryList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -49,6 +56,10 @@ public class SearchHistoryController {
     }
 
     @GetMapping("/{historyId}")
+    @Operation(
+            summary = "Get search history detail",
+            description = "Returns a paginated detail view for one search history record that belongs to the authenticated user."
+    )
     public ResponseEntity<BaseResponse<SearchHistoryDetailResponse>> getHistoryDetail(
             @PathVariable Long historyId,
             @RequestParam(defaultValue = "0") int page,
@@ -70,6 +81,10 @@ public class SearchHistoryController {
     }
 
     @DeleteMapping("/{historyId}")
+    @Operation(
+            summary = "Delete search history",
+            description = "Deletes one search history record that belongs to the authenticated user."
+    )
     public ResponseEntity<BaseResponse<DeleteSearchHistoryResponse>> deleteHistory(
             @PathVariable Long historyId,
             Authentication authentication
@@ -88,6 +103,10 @@ public class SearchHistoryController {
     }
 
     @DeleteMapping
+    @Operation(
+            summary = "Delete all search history",
+            description = "Deletes all search history records for the authenticated user."
+    )
     public ResponseEntity<BaseResponse<DeleteAllSearchHistoryResponse>> deleteAllHistory(Authentication authentication) {
         try {
             log.info("Entered deleteAllHistory API");

@@ -18,6 +18,7 @@ import com.imagesearch.backend_java.index.exception.InvalidBatchForIndexingExcep
 import com.imagesearch.backend_java.index.mapper.IndexingJobItemMapper;
 import com.imagesearch.backend_java.index.mapper.IndexingJobMapper;
 import com.imagesearch.backend_java.index.repository.IndexingJobItemRepository;
+import com.imagesearch.backend_java.index.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.index.repository.IndexingJobRepository;
 import com.imagesearch.backend_java.batch.dto.PageableRequest;
 import lombok.RequiredArgsConstructor;
@@ -228,6 +229,73 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             return pageResponse;
         } catch (Exception ex) {
             log.error("Error fetching job items: {}", ex.getMessage(), ex);
+            throw ex;
+        }
+    }
+
+    @Transactional
+    @Override
+    public IndexingJobResponse retryIndexing(Long jobId) {
+        log.info("Retrying failed items for indexing job: {}", jobId);
+        try {
+            IndexingJobEntity job = indexingJobRepository.findById(jobId)
+                    .orElseThrow(() -> {
+                        log.warn("Indexing job not found: {}", jobId);
+                        return new IndexingJobNotFoundException("Indexing job not found: " + jobId);
+                    });
+
+            if (job.getStatus() == JobStatus.RUNNING) {
+                log.warn("Cannot retry indexing job while it is RUNNING: {}", jobId);
+                throw new InvalidBatchForIndexingException("Cannot retry indexing job while it is RUNNING");
+            }
+
+            List<IndexingJobItemEntity> failedItems = indexingJobItemRepository.findByIndexingJobIdAndStatus(jobId, ImageIndexStatus.FAILED);
+            for (IndexingJobItemEntity item : failedItems) {
+                item.setStatus(ImageIndexStatus.PENDING);
+                item.setRetryCount((item.getRetryCount() == null ? 0 : item.getRetryCount()) + 1);
+                item.setErrorMessage(null);
+                item.setProcessedAt(null);
+            }
+            if (!failedItems.isEmpty()) {
+                indexingJobItemRepository.saveAll(failedItems);
+            }
+
+            job.setStatus(JobStatus.PENDING);
+            job.setFinishedAt(null);
+            job.setErrorMessage(null);
+            job.setFailedCount(0);
+            indexingJobRepository.save(job);
+
+            log.info("Retry scheduled for {} items in job {}", failedItems.size(), jobId);
+            return indexingJobMapper.toResponse(job);
+        } catch (IndexingJobNotFoundException | InvalidBatchForIndexingException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Error retrying indexing job: {}", ex.getMessage(), ex);
+            throw ex;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public java.util.Map<String, Long> getStats() {
+        log.debug("Gathering indexing stats");
+        try {
+            long total = indexingJobRepository.count();
+            long pending = indexingJobRepository.findByStatus(JobStatus.PENDING).size();
+            long running = indexingJobRepository.findByStatus(JobStatus.RUNNING).size();
+            long completed = indexingJobRepository.findByStatus(JobStatus.COMPLETED).size();
+            long failed = indexingJobRepository.findByStatus(JobStatus.FAILED).size();
+
+            java.util.Map<String, Long> stats = new java.util.HashMap<>();
+            stats.put("totalJobs", total);
+            stats.put("pendingJobs", pending);
+            stats.put("runningJobs", running);
+            stats.put("completedJobs", completed);
+            stats.put("failedJobs", failed);
+            return stats;
+        } catch (Exception ex) {
+            log.error("Error gathering stats: {}", ex.getMessage(), ex);
             throw ex;
         }
     }

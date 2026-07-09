@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import com.imagesearch.backend_java.index.dto.request.IndexingJobRetryRequest;
 
 @RestController
 @RequestMapping("/admin/indexing-jobs")
@@ -92,6 +93,37 @@ public class IndexingJobController {
             log.error("Error fetching job items", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(BaseResponse.error("JOB_ITEMS_FETCH_ERROR", ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/status/{jobId}")
+    public ResponseEntity<BaseResponse<Map<String, Object>>> getIndexingJobStatus(@PathVariable Long jobId) {
+        log.info("GET /indexing-jobs/status/{}: Fetch indexing job status", jobId);
+        try {
+            IndexingJobResponse response = indexingJobService.getIndexingJob(jobId);
+            Map<String, Object> payload = Map.of(
+                    "id", response.getId(),
+                    "status", response.getStatus(),
+                    "progressPercentage", response.getProgressPercentage()
+            );
+            return ResponseEntity.ok(BaseResponse.success(payload));
+        } catch (Exception ex) {
+            log.error("Error fetching indexing job status", ex);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(BaseResponse.error("INDEXING_JOB_NOT_FOUND", ex.getMessage()));
+        }
+    }
+
+    @PostMapping("/retry")
+    public ResponseEntity<BaseResponse<IndexingJobResponse>> retryIndexingJob(@RequestBody IndexingJobRetryRequest request) {
+        log.info("POST /indexing-jobs/retry: Retry indexing job {}", request.getJobId());
+        try {
+            IndexingJobResponse response = indexingJobService.retryIndexing(request.getJobId());
+            return ResponseEntity.ok(BaseResponse.success(response));
+        } catch (Exception ex) {
+            log.error("Error retrying indexing job", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("INDEXING_JOB_RETRY_ERROR", ex.getMessage()));
         }
     }
 }

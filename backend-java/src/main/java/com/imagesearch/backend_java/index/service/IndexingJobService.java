@@ -20,4 +20,8 @@ public interface IndexingJobService {
     void cancelIndexing(Long jobId);
 
     PageResponse<IndexingJobItemResponse> getJobItems(Long jobId, Map<String, Object> params);
+
+    IndexingJobResponse retryIndexing(Long jobId);
+
+    Map<String, Long> getStats();
 }

@@ -1,8 +1,8 @@
 const MOCK_IMAGES = [
-  { id: 1025, width: 1200, height: 800 },
-  { id: 1071, width: 1200, height: 900 },
-  { id: 111, width: 1200, height: 800 },
-  { id: 133, width: 1000, height: 750 },
+  { id: 1, imageSourceId: 1025, canBookmark: true, width: 1200, height: 800 },
+  { id: 2, imageSourceId: 1071, canBookmark: true, width: 1200, height: 900 },
+  { id: 3, imageSourceId: 111, canBookmark: true, width: 1200, height: 800 },
+  { id: 4, imageSourceId: 133, canBookmark: true, width: 1000, height: 750 },
   { id: 180, width: 1200, height: 900 },
   { id: 201, width: 1100, height: 850 },
   { id: 240, width: 1200, height: 800 },
@@ -61,11 +61,13 @@ export const getMockSearchResponse = ({
 
         return {
           imageId: image.id,
+          isMock: true,
+          canBookmark: image.canBookmark || false,
           rankPosition,
           score,
           originalFilename: `mock-result-${rankPosition}.jpg`,
-          storagePath: `https://picsum.photos/id/${image.id}/1200/900`,
-          thumbnailPath: `https://picsum.photos/id/${image.id}/600/750`,
+          imageUrl: `https://picsum.photos/id/${image.imageSourceId || image.id}/1200/900`,
+          thumbnailUrl: `https://picsum.photos/id/${image.imageSourceId || image.id}/600/750`,
           mimeType: "image/jpeg",
           width: image.width,
           height: image.height,

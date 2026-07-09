@@ -1,8 +1,12 @@
 import { FaExpandAlt, FaSearch } from "react-icons/fa";
 import { formatScore } from "../../utils/formatScore";
+import { resolveImageUrl } from "../../utils/imageUrl";
 
 export const SearchResultCard = ({ result, onViewDetails }) => {
-  const imageUrl = result.thumbnailPath || result.storagePath;
+  const imageUrl = resolveImageUrl(
+    result.thumbnailUrl || result.imageUrl || result.thumbnailPath || result.storagePath,
+    result.imageId
+  );
   const fileName = result.originalFilename || `Ảnh #${result.imageId}`;
 
   return (
@@ -22,7 +26,7 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
         )}
 
         <div className="absolute bottom-3 right-3 rounded-full bg-zinc-900/85 px-3 py-1 text-xs font-semibold text-white shadow-sm">
-          {formatScore(result.score || 0)}
+          {formatScore(result.score ?? result.similarityScore ?? 0)}
         </div>
 
         <div className="absolute inset-0 flex items-center justify-center gap-2 bg-indigo-700/0 opacity-0 transition group-hover:bg-indigo-700/35 group-hover:opacity-100">

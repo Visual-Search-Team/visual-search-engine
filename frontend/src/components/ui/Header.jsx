@@ -37,9 +37,9 @@ export const Header = () => {
         <a href="#" className="text-gray-500 transition hover:text-gray-900">
           Lịch sử tìm kiếm
         </a>
-        <a href="#" className="text-gray-500 transition hover:text-gray-900">
+        <NavLink to="/bookmarks" className={navLinkClass}>
           Ảnh đã lưu
-        </a>
+        </NavLink>
       </nav>
 
       {isAuthenticated ? (

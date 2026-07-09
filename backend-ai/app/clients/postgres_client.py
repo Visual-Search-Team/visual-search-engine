@@ -24,20 +24,6 @@ class ImageEntity(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-
-class ImageOcr(Base):
-    __tablename__ = 'image_ocr'
-    
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    image_id = Column(BigInteger, nullable=False)
-    extracted_text = Column(Text, nullable=True)
-    language = Column(String(20), nullable=True)
-    confidence = Column(Numeric(5, 4), nullable=True)
-    bounding_boxes = Column(Text, nullable=True) # JSON stored as string/text
-    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-
-
 # Construct Database URL from env
 host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")

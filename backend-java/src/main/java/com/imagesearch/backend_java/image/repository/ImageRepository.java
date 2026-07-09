@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
     Optional<ImageEntity> findByStoragePath(String storagePath);
+
+    Optional<ImageEntity> findByChecksum(String checksum);
 }

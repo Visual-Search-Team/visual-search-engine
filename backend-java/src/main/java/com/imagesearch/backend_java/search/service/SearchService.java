@@ -69,7 +69,7 @@ public class SearchService {
             ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(image);
 
             ImageEntity queryImage = ImageEntity.builder()
-                    .uploadedBy(resolveUserId(username))
+                    .uploadedBy(resolveUser(username))
                     .originalFileName(image.getOriginalFilename())
                     .storagePath(storagePath)
                     .thumbnailPath(thumbnail.thumbnailPath())
@@ -343,6 +343,13 @@ public class SearchService {
         return userRepository.findByUsername(username)
                 .map(User::getId)
                 .orElse(null);
+    }
+
+    private User resolveUser(String username) {
+        if (username == null) {
+            return null;
+        }
+        return userRepository.findByUsername(username).orElse(null);
     }
 
     private record QdrantHit(Long imageId, Float score) {

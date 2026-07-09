@@ -8,7 +8,7 @@ import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 
 const PAGE_SIZE = 20;
-const USE_MOCK_SEARCH_RESULTS = true;
+const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
 
 const getModeLabel = (type, mode) => {
   if (type === "image") return "Tìm bằng ảnh";
@@ -26,7 +26,10 @@ const normalizeSearchResponse = (response) => {
   const data = response?.data || {};
 
   return {
-    results: data.results || [],
+    results: (data.results || []).map((result) => ({
+      ...result,
+      score: result.score ?? result.similarityScore ?? 0,
+    })),
     pageNumber: data.pageNumber || 0,
     pageSize: data.pageSize || PAGE_SIZE,
     totalElements: data.totalElements || 0,
@@ -50,6 +53,7 @@ export const SearchResult = () => {
 
   const isImageSearch = type === "image";
   const canSearch = isImageSearch ? !!imageFile : !!query.trim();
+  const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const searchQuery = useQuery({
     queryKey: ["search-results", type, query, mode, page, imageFile?.name],
@@ -68,7 +72,7 @@ export const SearchResult = () => {
 
       return searchByText({ query, mode, page, size: PAGE_SIZE });
     },
-    enabled: canSearch,
+    enabled: canShowResults,
     placeholderData: keepPreviousData,
   });
 
@@ -79,7 +83,11 @@ export const SearchResult = () => {
 
   const modeLabel = getModeLabel(type, mode);
   const descriptionLabel = getDescriptionLabel(type, mode);
-  const descriptionValue = isImageSearch ? imageFile?.name || "ảnh đã tải lên" : query;
+  const descriptionValue = USE_MOCK_SEARCH_RESULTS
+    ? "dữ liệu mock"
+    : isImageSearch
+      ? imageFile?.name || "ảnh đã tải lên"
+      : query;
   const currentPage = searchData.pageNumber + 1;
   const totalPages = searchData.totalPages || 1;
 
@@ -96,7 +104,7 @@ export const SearchResult = () => {
     );
   };
 
-  if (!canSearch) {
+  if (!canShowResults) {
     return (
       <section className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
         <h1 className="text-3xl font-semibold text-zinc-900">Kết quả tìm kiếm</h1>

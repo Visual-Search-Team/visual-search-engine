@@ -6,6 +6,7 @@ import Home from '../pages/Home';
 import { Login } from '../pages/Login';
 import { Register } from '../pages/Register';
 import { SearchResult } from '../pages/SearchResult';
+import { BookMark } from '../pages/BookMark';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
@@ -25,7 +26,6 @@ export default function AppRoutes() {
         </AuthLayout>
       } />
 
-      {/* Route sử dụng MainLayout (Có Header, Footer) */}
       <Route path="/" element={
         <MainLayout>
           <Home />
@@ -36,6 +36,11 @@ export default function AppRoutes() {
         <Route path="/search-result" element={
           <MainLayout>
             <SearchResult />
+          </MainLayout>
+        } />
+        <Route path="/bookmarks" element={
+          <MainLayout>
+            <BookMark />
           </MainLayout>
         } />
       </Route>

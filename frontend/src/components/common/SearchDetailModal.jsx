@@ -1,4 +1,5 @@
 import {
+  FaBookmark,
   FaFileImage,
   FaHashtag,
   FaImage,
@@ -8,7 +9,11 @@ import {
   FaStar,
   FaTimes,
 } from "react-icons/fa";
+import { useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
+import { resolveImageUrl } from "../../utils/imageUrl";
+import { saveBookmark } from "../../services/bookmarkService";
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -27,14 +32,56 @@ const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   </div>
 );
 
+const getSaveBookmarkErrorMessage = (error) => {
+  const status = error?.response?.status;
+  const apiError = error?.response?.data?.error;
+
+  if (status === 401 || status === 403 || apiError?.code === "UNAUTHORIZED") {
+    return "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
+  }
+
+  if (status === 404) {
+    return "Không tìm thấy ảnh này trong backend. Nếu bạn đang dùng mock data, hãy đổi sang dữ liệu tìm kiếm thật rồi lưu lại.";
+  }
+
+  if (apiError?.message) {
+    return apiError.message;
+  }
+
+  return "Không thể lưu ảnh. Vui lòng thử lại.";
+};
+
 export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) => {
+  const queryClient = useQueryClient();
+  const saveBookmarkMutation = useMutation({
+    mutationFn: saveBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+  const { reset: resetSaveBookmark } = saveBookmarkMutation;
+
+  useEffect(() => {
+    resetSaveBookmark();
+  }, [isOpen, result?.imageId, resetSaveBookmark]);
+
   if (!isOpen || !result) return null;
 
-  const imageUrl = result.storagePath || result.thumbnailPath;
+  const imageUrl = resolveImageUrl(
+    result.imageUrl || result.storagePath || result.thumbnailUrl || result.thumbnailPath,
+    result.imageId
+  );
   const fileName = result.originalFilename || `Ảnh #${result.imageId}`;
   const dimensions =
     result.width && result.height ? `${result.width} x ${result.height} px` : "Chưa có dữ liệu";
   const ocrText = result.ocrText || result.extractedText || result.textContent;
+  const isMockOnly = result.isMock && !result.canBookmark;
+  const canSave = !!result.imageId && !isMockOnly && !saveBookmarkMutation.isPending;
+
+  const handleSaveBookmark = () => {
+    if (!result.imageId) return;
+    saveBookmarkMutation.mutate(result.imageId);
+  };
 
   return (
     <div
@@ -96,7 +143,7 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
             <DetailRow
               icon={FaStar}
               label="Điểm tương đồng"
-              value={formatScore(result.score || 0)}
+              value={formatScore(result.score ?? result.similarityScore ?? 0)}
               highlight
             />
             <DetailRow icon={FaRulerCombined} label="Kích thước" value={dimensions} />
@@ -113,14 +160,47 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
           </div>
 
           <div className="mt-6 border-t border-zinc-200/70 pt-5">
-            <button
-              type="button"
-              onClick={() => onSearchSimilar?.(result)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-800"
-            >
-              <FaSearch className="h-4 w-4" />
-              Tìm ảnh tương tự
-            </button>
+            {saveBookmarkMutation.isSuccess && (
+              <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                Đã lưu ảnh vào Bookmark.
+              </p>
+            )}
+            {saveBookmarkMutation.isError && (
+              <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                {getSaveBookmarkErrorMessage(saveBookmarkMutation.error)}
+              </p>
+            )}
+            {isMockOnly && (
+              <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+                Đây là ảnh mock chỉ để xem giao diện, không thể lưu vào Bookmark.
+              </p>
+            )}
+            {result.isMock && result.canBookmark && (
+              <p className="mb-3 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700">
+                Ảnh mock này đang trỏ tới ảnh thật IMG-{result.imageId}, có thể lưu vào Bookmark.
+              </p>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => onSearchSimilar?.(result)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-800"
+              >
+                <FaSearch className="h-4 w-4" />
+                Tìm ảnh tương tự
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveBookmark}
+                disabled={!canSave}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FaBookmark className="h-4 w-4" />
+                {isMockOnly ? "Ảnh mock" : saveBookmarkMutation.isPending ? "Đang lưu..." : "Lưu ảnh"}
+              </button>
+            </div>
           </div>
         </aside>
       </div>

@@ -2,6 +2,8 @@ package com.imagesearch.backend_java.batch.entity;
 
 import com.imagesearch.backend_java.auth.entity.User;
 import com.imagesearch.backend_java.batch.enums.BatchStatus;
+import com.imagesearch.backend_java.image.entity.ImageEntity;
+import com.imagesearch.backend_java.index.entity.IndexingJobEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -9,6 +11,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -45,6 +48,12 @@ public class BatchEntity {
 
     @Column(name = "failed_images")
     private Integer failedImages;
+
+    @OneToMany(mappedBy = "batch")
+    private List<IndexingJobEntity> indexingJobs;
+
+    @OneToMany(mappedBy = "batch")
+    private List<ImageEntity> images;
 
     @CreatedDate
     @Column(name = "created_at")

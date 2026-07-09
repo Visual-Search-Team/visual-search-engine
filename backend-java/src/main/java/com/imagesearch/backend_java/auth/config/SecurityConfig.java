@@ -51,6 +51,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/admin/batches").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/admin/batches/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/admin/batches/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/images/batches/{batchId}/upload").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/admin/indexing-jobs/{jobId}").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs/{jobId}/start").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs/{jobId}/cancel").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/admin/indexing-jobs/{jobId}/items").hasRole("ADMIN")
                         .requestMatchers(
                                 "/search-history/**",
                                 "/bookmarks/**"

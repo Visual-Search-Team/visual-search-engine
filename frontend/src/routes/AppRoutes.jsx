@@ -7,6 +7,7 @@ import { Login } from '../pages/Login';
 import { Register } from '../pages/Register';
 import { SearchResult } from '../pages/SearchResult';
 import { BookMark } from '../pages/BookMark';
+import { SearchHistory } from '../pages/SearchHistory';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
@@ -41,6 +42,11 @@ export default function AppRoutes() {
         <Route path="/bookmarks" element={
           <MainLayout>
             <BookMark />
+          </MainLayout>
+        } />
+        <Route path="/search-history" element={
+          <MainLayout>
+            <SearchHistory />
           </MainLayout>
         } />
       </Route>

@@ -4,6 +4,7 @@ import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash } from "rea
 import { useSearchParams } from "react-router-dom";
 import { deleteBookmark, getBookmarks } from "../services/bookmarkService";
 import { getImageBlob } from "../services/imageService";
+import { resolveStorageUrl } from "../utils/imageUrl";
 
 const PAGE_SIZE = 20;
 
@@ -20,18 +21,29 @@ const normalizeBookmarkResponse = (response) => {
 };
 
 const isDirectImageUrl = (value) => /^https?:\/\//i.test(value) || value?.startsWith("data:") || value?.startsWith("blob:");
+const isInternalMinioUrl = (value) => {
+  if (!/^https?:\/\//i.test(value || "")) return false;
+
+  try {
+    const url = new URL(value);
+    return ["minio", "visualsearch-minio"].includes(url.hostname);
+  } catch {
+    return false;
+  }
+};
 
 const BookmarkImage = ({ bookmark, fileName }) => {
   const directUrl = bookmark.thumbnailUrl || bookmark.imageUrl || bookmark.thumbnailPath || bookmark.storagePath;
   const [blobUrl, setBlobUrl] = useState("");
   const [hasError, setHasError] = useState(false);
-  const imageUrl = isDirectImageUrl(directUrl) ? directUrl : blobUrl;
+  const canUseDirectUrl = isDirectImageUrl(directUrl) && !isInternalMinioUrl(directUrl);
+  const imageUrl = canUseDirectUrl ? resolveStorageUrl(directUrl) : blobUrl;
 
   useEffect(() => {
     let isMounted = true;
     let objectUrl = "";
 
-    if (!bookmark.imageId || isDirectImageUrl(directUrl)) {
+    if (!bookmark.imageId || canUseDirectUrl) {
       return undefined;
     }
 
@@ -53,7 +65,7 @@ const BookmarkImage = ({ bookmark, fileName }) => {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [bookmark.imageId, directUrl]);
+  }, [bookmark.imageId, canUseDirectUrl]);
 
   if (hasError) {
     return (

@@ -34,9 +34,9 @@ export const Header = () => {
         <NavLink to="/" className={navLinkClass}>
           Trang chủ
         </NavLink>
-        <a href="#" className="text-gray-500 transition hover:text-gray-900">
+        <NavLink to="/search-history" className={navLinkClass}>
           Lịch sử tìm kiếm
-        </a>
+        </NavLink>
         <NavLink to="/bookmarks" className={navLinkClass}>
           Ảnh đã lưu
         </NavLink>

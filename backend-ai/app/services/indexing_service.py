@@ -12,21 +12,23 @@ from app.qdrant.client import qdrant_client_wrapper
 
 logger = logging.getLogger(__name__)
 
-def process_pending_images(db: Session):
+def process_pending_images(db: Session, batch_id: int | None = None):
     """
     Polls the database for images with index_status='PENDING' and processes them:
     - Generates CLIP embedding and upserts to Qdrant.
     - Updates status to 'INDEXED'.
     """
-    # Find up to 10 pending images per batch
-    pending_images = db.execute(
-        select(ImageEntity).where(ImageEntity.index_status == 'PENDING').limit(10)
-    ).scalars().all()
+    # Find up to 10 pending images. If batch_id is provided, only process that batch.
+    query = select(ImageEntity).where(ImageEntity.index_status == 'PENDING')
+    if batch_id is not None:
+        query = query.where(ImageEntity.batch_id == batch_id)
+
+    pending_images = db.execute(query.limit(10)).scalars().all()
 
     if not pending_images:
         return
 
-    logger.info(f"Found {len(pending_images)} pending images to index.")
+    logger.info(f"Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
 
     for image in pending_images:
         logger.info(f"Processing image id={image.id}, path={image.storage_path}")

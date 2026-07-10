@@ -4,7 +4,10 @@ import com.imagesearch.backend_java.auth.entity.User;
 import com.imagesearch.backend_java.auth.repository.UserRepository;
 import com.imagesearch.backend_java.batch.dto.response.PageResponse;
 import com.imagesearch.backend_java.batch.entity.BatchEntity;
+import com.imagesearch.backend_java.batch.enums.BatchStatus;
 import com.imagesearch.backend_java.batch.repository.BatchRepository;
+import com.imagesearch.backend_java.image.entity.ImageEntity;
+import com.imagesearch.backend_java.image.repository.ImageRepository;
 import com.imagesearch.backend_java.index.converter.IndexingJobSearchConverter;
 import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
@@ -25,11 +28,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,10 +46,12 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     private final IndexingJobRepository indexingJobRepository;
     private final IndexingJobItemRepository indexingJobItemRepository;
     private final BatchRepository batchRepository;
+    private final ImageRepository imageRepository;
     private final UserRepository userRepository;
     private final IndexingJobMapper indexingJobMapper;
     private final IndexingJobItemMapper indexingJobItemMapper;
     private final IndexingJobSearchConverter searchConverter;
+    private final BackendAiIndexingClient backendAiIndexingClient;
 
     @Transactional
     @Override
@@ -90,7 +99,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
     public IndexingJobResponse getIndexingJob(Long jobId) {
         log.info("Fetching indexing job: {}", jobId);
@@ -100,6 +109,8 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                         log.warn("Indexing job not found: {}", jobId);
                         return new IndexingJobNotFoundException("Indexing job not found: " + jobId);
                     });
+
+            refreshJobProgress(job);
 
             log.info("Indexing job fetched successfully: {}", jobId);
             return indexingJobMapper.toResponse(job);
@@ -111,7 +122,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
     public PageResponse<IndexingJobSummaryResponse> getIndexingJobsByBatch(Long batchId, Map<String, Object> params) {
         log.debug("Fetching indexing jobs for batch: {} with params: {}", batchId, params);
@@ -122,6 +133,8 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             List<IndexingJobEntity> jobs = indexingJobRepository.findByBatchIdPaged(
                     batchId, offset, pageRequest.getSize());
             Long total = indexingJobRepository.countByBatchId(batchId);
+
+                jobs.forEach(this::refreshJobProgress);
 
             List<IndexingJobSummaryResponse> responses = indexingJobMapper.toListResponse(jobs);
             PageResponse<IndexingJobSummaryResponse> pageResponse = PageResponse.of(
@@ -155,9 +168,23 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 throw new InvalidBatchForIndexingException("Indexing job is not in PENDING status");
             }
 
+            upsertJobItemsFromBatchImages(job);
+
             job.setStatus(JobStatus.RUNNING);
             job.setStartedAt(java.time.LocalDateTime.now());
             indexingJobRepository.save(job);
+
+            try {
+                Long batchId = job.getBatch() != null ? job.getBatch().getId() : null;
+                backendAiIndexingClient.triggerIndexing(batchId);
+                refreshJobProgress(job);
+            } catch (Exception ex) {
+                job.setStatus(JobStatus.FAILED);
+                job.setFinishedAt(java.time.LocalDateTime.now());
+                job.setErrorMessage("Could not trigger backend-ai indexing: " + ex.getMessage());
+                indexingJobRepository.save(job);
+                throw new InvalidBatchForIndexingException("Could not trigger backend-ai indexing: " + ex.getMessage());
+            }
 
             log.info("Indexing job started successfully: {}", jobId);
             return indexingJobMapper.toResponse(job);
@@ -264,6 +291,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             job.setFinishedAt(null);
             job.setErrorMessage(null);
             job.setFailedCount(0);
+            job.setSuccessCount(0);
             indexingJobRepository.save(job);
 
             log.info("Retry scheduled for {} items in job {}", failedItems.size(), jobId);
@@ -276,16 +304,19 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     @Override
     public java.util.Map<String, Long> getStats() {
         log.debug("Gathering indexing stats");
         try {
-            long total = indexingJobRepository.count();
-            long pending = indexingJobRepository.findByStatus(JobStatus.PENDING).size();
-            long running = indexingJobRepository.findByStatus(JobStatus.RUNNING).size();
-            long completed = indexingJobRepository.findByStatus(JobStatus.COMPLETED).size();
-            long failed = indexingJobRepository.findByStatus(JobStatus.FAILED).size();
+            List<IndexingJobEntity> allJobs = indexingJobRepository.findAll();
+            allJobs.forEach(this::refreshJobProgress);
+
+            long total = allJobs.size();
+            long pending = allJobs.stream().filter(job -> job.getStatus() == JobStatus.PENDING).count();
+            long running = allJobs.stream().filter(job -> job.getStatus() == JobStatus.RUNNING).count();
+            long completed = allJobs.stream().filter(job -> job.getStatus() == JobStatus.COMPLETED).count();
+            long failed = allJobs.stream().filter(job -> job.getStatus() == JobStatus.FAILED).count();
 
             java.util.Map<String, Long> stats = new java.util.HashMap<>();
             stats.put("totalJobs", total);
@@ -298,5 +329,156 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             log.error("Error gathering stats: {}", ex.getMessage(), ex);
             throw ex;
         }
+    }
+
+    @Scheduled(initialDelay = 5000, fixedDelay = 15000)
+    @Transactional
+    public void reconcileRunningJobs() {
+        List<IndexingJobEntity> runningJobs = indexingJobRepository.findByStatus(JobStatus.RUNNING);
+        if (runningJobs.isEmpty()) {
+            return;
+        }
+
+        log.debug("Reconciling {} running indexing jobs", runningJobs.size());
+        runningJobs.forEach(this::refreshJobProgress);
+    }
+
+    private void refreshJobProgress(IndexingJobEntity job) {
+        if (job == null || job.getBatch() == null || job.getBatch().getId() == null) {
+            return;
+        }
+
+        upsertJobItemsFromBatchImages(job);
+        syncJobItemStatuses(job.getId());
+
+        Long batchId = job.getBatch().getId();
+        int totalImages = imageRepository.countByBatchId(batchId).intValue();
+        int indexedImages = imageRepository.countByBatchIdAndIndexStatus(
+                batchId,
+                com.imagesearch.backend_java.image.enums.ImageIndexStatus.INDEXED
+        ).intValue();
+        int failedImages = imageRepository.countByBatchIdAndIndexStatus(
+                batchId,
+                com.imagesearch.backend_java.image.enums.ImageIndexStatus.FAILED
+        ).intValue();
+        int pendingImages = imageRepository.countByBatchIdAndIndexStatus(
+                batchId,
+                com.imagesearch.backend_java.image.enums.ImageIndexStatus.PENDING
+        ).intValue();
+        int processingImages = imageRepository.countByBatchIdAndIndexStatus(
+                batchId,
+                com.imagesearch.backend_java.image.enums.ImageIndexStatus.PROCESSING
+        ).intValue();
+
+        job.setTotalImages(totalImages);
+        job.setSuccessCount(indexedImages);
+        job.setFailedCount(failedImages);
+
+        int completedImages = indexedImages + failedImages;
+        boolean hasWorkInProgress = (pendingImages + processingImages) > 0;
+
+        if (totalImages > 0 && completedImages >= totalImages) {
+            if (failedImages == 0) {
+                job.setStatus(JobStatus.COMPLETED);
+            } else if (indexedImages == 0) {
+                job.setStatus(JobStatus.FAILED);
+            } else {
+                job.setStatus(JobStatus.PARTIALLY_FAILED);
+            }
+
+            if (job.getFinishedAt() == null) {
+                job.setFinishedAt(LocalDateTime.now());
+            }
+        } else if (hasWorkInProgress && (job.getStatus() == JobStatus.RUNNING || job.getStatus() == JobStatus.PENDING)) {
+            job.setStatus(JobStatus.RUNNING);
+            job.setFinishedAt(null);
+        }
+
+        BatchEntity batch = job.getBatch();
+        batch.setTotalImages(totalImages);
+        batch.setIndexedImages(indexedImages);
+        batch.setFailedImages(failedImages);
+
+        if (totalImages > 0 && completedImages >= totalImages) {
+            batch.setStatus(failedImages > 0 ? BatchStatus.FAILED : BatchStatus.INDEXED);
+        } else if (hasWorkInProgress) {
+            batch.setStatus(BatchStatus.INDEXING);
+        }
+
+        batchRepository.save(batch);
+        indexingJobRepository.save(job);
+    }
+
+    private void upsertJobItemsFromBatchImages(IndexingJobEntity job) {
+        if (job == null || job.getId() == null || job.getBatch() == null || job.getBatch().getId() == null) {
+            return;
+        }
+
+        List<ImageEntity> batchImages = imageRepository.findByBatchId(job.getBatch().getId());
+        if (batchImages.isEmpty()) {
+            return;
+        }
+
+        List<IndexingJobItemEntity> existingItems = indexingJobItemRepository.findByIndexingJobId(job.getId());
+        Set<Long> existingImageIds = new HashSet<>();
+        for (IndexingJobItemEntity item : existingItems) {
+            if (item.getImage() != null && item.getImage().getId() != null) {
+                existingImageIds.add(item.getImage().getId());
+            }
+        }
+
+        List<IndexingJobItemEntity> newItems = batchImages.stream()
+                .filter(image -> image.getId() != null && !existingImageIds.contains(image.getId()))
+                .map(image -> IndexingJobItemEntity.builder()
+                        .indexingJob(job)
+                        .image(image)
+                        .status(mapImageStatus(image.getIndexStatus()))
+                        .retryCount(0)
+                        .errorMessage(null)
+                        .build())
+                .toList();
+
+        if (!newItems.isEmpty()) {
+            indexingJobItemRepository.saveAll(newItems);
+        }
+    }
+
+    private void syncJobItemStatuses(Long jobId) {
+        if (jobId == null) {
+            return;
+        }
+
+        List<IndexingJobItemEntity> items = indexingJobItemRepository.findByIndexingJobId(jobId);
+        if (items.isEmpty()) {
+            return;
+        }
+
+        boolean changed = false;
+        for (IndexingJobItemEntity item : items) {
+            if (item.getImage() == null) {
+                continue;
+            }
+
+            ImageIndexStatus mappedStatus = mapImageStatus(item.getImage().getIndexStatus());
+            if (mappedStatus != item.getStatus()) {
+                item.setStatus(mappedStatus);
+                if (mappedStatus == ImageIndexStatus.INDEXED || mappedStatus == ImageIndexStatus.FAILED) {
+                    item.setProcessedAt(LocalDateTime.now());
+                }
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            indexingJobItemRepository.saveAll(items);
+        }
+    }
+
+    private ImageIndexStatus mapImageStatus(com.imagesearch.backend_java.image.enums.ImageIndexStatus status) {
+        if (status == null) {
+            return ImageIndexStatus.PENDING;
+        }
+
+        return ImageIndexStatus.valueOf(status.name());
     }
 }

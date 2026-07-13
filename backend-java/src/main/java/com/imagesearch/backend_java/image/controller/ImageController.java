@@ -1,25 +1,64 @@
 package com.imagesearch.backend_java.image.controller;
 
+import com.imagesearch.backend_java.auth.dto.BaseResponse;
 import com.imagesearch.backend_java.image.dto.response.ImageUploadResponse;
 import com.imagesearch.backend_java.image.dto.response.URLResponse;
 import com.imagesearch.backend_java.image.service.ImageService;
+import com.imagesearch.backend_java.index.dto.UploadImageBatchResponse;
+import com.imagesearch.backend_java.index.service.ImageUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/visual-search/v1/images")
+@RequestMapping("/images")
 @RequiredArgsConstructor
 @Slf4j
 public class ImageController {
 
     private final ImageService imageService;
+    private final ImageUploadService imageUploadService;
+
+    // Upload nhiều ảnh vào batch
+    @PostMapping("/batches/{batchId}/upload")
+    public ResponseEntity<BaseResponse<List<UploadImageBatchResponse>>> uploadImageBatch(
+            @PathVariable Long batchId,
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam(value = "file", required = false) MultipartFile singleFile) {
+        log.info("POST /images/batches/{}/upload: Upload images", batchId);
+        try {
+            MultipartFile[] filesToUpload = files;
+            
+            // Handle single file sent as 'file' parameter
+            if ((files == null || files.length == 0) && singleFile != null) {
+                filesToUpload = new MultipartFile[]{singleFile};
+            }
+            
+            // Handle case where no files provided
+            if (filesToUpload == null || filesToUpload.length == 0) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(BaseResponse.error("NO_FILES_PROVIDED", "No files provided in request"));
+            }
+
+            log.info("Uploading {} files to batch: {}", filesToUpload.length, batchId);
+            List<UploadImageBatchResponse> responses = imageUploadService.uploadImageBatch(batchId, filesToUpload);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(BaseResponse.success(responses));
+        } catch (Exception ex) {
+            log.error("Error uploading images to batch", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("IMAGE_UPLOAD_ERROR", ex.getMessage()));
+        }
+    }
 
     // Upload 1 ảnh
     @PostMapping("/upload")

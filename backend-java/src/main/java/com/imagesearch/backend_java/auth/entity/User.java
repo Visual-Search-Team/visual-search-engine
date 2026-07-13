@@ -2,16 +2,10 @@ package com.imagesearch.backend_java.auth.entity;
 
 import com.imagesearch.backend_java.auth.common.UserRole;
 import com.imagesearch.backend_java.auth.common.UserStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import com.imagesearch.backend_java.batch.entity.BatchEntity;
+import com.imagesearch.backend_java.image.entity.ImageEntity;
+import com.imagesearch.backend_java.index.entity.IndexingJobEntity;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -40,6 +35,15 @@ public class User {
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    @OneToMany(mappedBy = "createdBy", fetch = FetchType.LAZY)
+    private List<BatchEntity> batches;
+
+    @OneToMany(mappedBy = "triggeredBy", fetch = FetchType.LAZY)
+    private List<IndexingJobEntity> indexingJobs;
+
+    @OneToMany(mappedBy = "uploadedBy", fetch = FetchType.LAZY)
+    private List<ImageEntity> images;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

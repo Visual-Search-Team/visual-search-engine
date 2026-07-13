@@ -9,31 +9,14 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ImageUploadResponse {
-    @JsonProperty("image_id")
     private Long imageId;
-
-    @JsonProperty("storage_path")
     private String storagePath;
-
-    @JsonProperty("file_url")
     private String fileUrl;
-
-    @JsonProperty("original_filename")
     private String originalFileName;
-
-    @JsonProperty("file_size")
     private Long fileSize;
-
-    @JsonProperty("mime_type")
     private String mimeType;
-
-    @JsonProperty("thumbnail_path")
     private String thumbnailPath;
-
-    @JsonProperty("thumbnail_url")
     private String thumbnailUrl;
-
     private Integer width;
-
     private Integer height;
 }

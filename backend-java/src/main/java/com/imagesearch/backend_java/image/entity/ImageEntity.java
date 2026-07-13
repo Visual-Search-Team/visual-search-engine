@@ -1,18 +1,10 @@
 package com.imagesearch.backend_java.image.entity;
 
+import com.imagesearch.backend_java.auth.entity.User;
+import com.imagesearch.backend_java.batch.entity.BatchEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
+import com.imagesearch.backend_java.index.entity.IndexingJobItemEntity;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -42,11 +34,16 @@ public class ImageEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "batch_id")
-    private Long batchId;
+    @ManyToOne
+    @JoinColumn(name = "batch_id")
+    private BatchEntity batch;
 
-    @Column(name = "uploaded_by")
-    private Long uploadedBy;
+    @ManyToOne
+    @JoinColumn(name = "uploaded_by")
+    private User uploadedBy;
+
+    @OneToMany(mappedBy = "image", fetch = FetchType.LAZY)
+    private List<IndexingJobItemEntity> indexingJobItems;
 
     @Column(name = "original_filename", length = 500)
     private String originalFileName;

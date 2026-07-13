@@ -1,10 +1,12 @@
 package com.imagesearch.backend_java.search.service;
 
 import com.imagesearch.backend_java.search.config.QdrantProperties;
+import com.imagesearch.backend_java.search.config.SearchConfig;
 import com.imagesearch.backend_java.search.dto.request.EmbeddingRequest;
 import com.imagesearch.backend_java.search.dto.response.EmbeddingResponse;
 import com.imagesearch.backend_java.search.network.OkHttpHelper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +16,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
+@Slf4j(topic = "AI-EMBEDDING-CLIENT")
 @Service
 @RequiredArgsConstructor
 public class AiEmbeddingClient {
-    private static final String IMAGE_EMBEDDING_PATH = "/api/v1/embeddings/image";
-    private static final String TEXT_EMBEDDING_PATH = "/api/v1/embeddings/text";
-
     private final OkHttpHelper okHttpHelper;
     private final QdrantProperties qdrantProperties;
+    private final SearchConfig searchConfig;
 
     @Value("${integration.backend-ai.base-url:http://localhost:8000}")
     private String backendAiBaseUrl;
@@ -30,7 +31,7 @@ public class AiEmbeddingClient {
     private boolean mockEmbedding;
 
     public List<Float> getImageEmbedding(EmbeddingRequest request) throws IOException {
-        return getEmbedding(buildUrl(IMAGE_EMBEDDING_PATH), request, "image:" + request.getStoragePath());
+        return getEmbedding(buildUrl(searchConfig.getImageEmbeddingPath()), request, "image:" + request.getStoragePath());
     }
 
     public List<Float> getTextEmbedding(String text) throws IOException {
@@ -38,7 +39,7 @@ public class AiEmbeddingClient {
                 .type("text")
                 .text(text)
                 .build();
-        return getEmbedding(buildUrl(TEXT_EMBEDDING_PATH), request, "text:" + text);
+        return getEmbedding(buildUrl(searchConfig.getTextEmbeddingPath()), request, "text:" + text);
     }
 
     private List<Float> getEmbedding(String url, EmbeddingRequest request, String mockSeed) throws IOException {
@@ -47,6 +48,7 @@ public class AiEmbeddingClient {
         }
 
         EmbeddingResponse response = okHttpHelper.httpPost(url, null, request, EmbeddingResponse.class, null, null);
+        log.info("embedding response: {}",response.getEmbedding().toString());
         if (response == null || response.getEmbedding() == null || response.getEmbedding().isEmpty()) {
             throw new IOException("AI embedding response is empty");
         }

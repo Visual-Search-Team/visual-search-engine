@@ -43,7 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            log.warn("username: "+username +"&& role: "+role);
+//            log.warn("username: "+username +"&& role: "+role);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 var authentication = new UsernamePasswordAuthenticationToken(
                         username,

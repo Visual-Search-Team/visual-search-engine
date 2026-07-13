@@ -10,6 +10,7 @@ import com.imagesearch.backend_java.image.repository.ImageRepository;
 import com.imagesearch.backend_java.image.service.ImageThumbnailService;
 import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.search.common.SearchType;
+import com.imagesearch.backend_java.search.config.SearchConfig;
 import com.imagesearch.backend_java.search.dto.request.EmbeddingRequest;
 import com.imagesearch.backend_java.search.dto.response.ImageSearchResponse;
 import com.imagesearch.backend_java.search.dto.response.SearchResultItem;
@@ -42,12 +43,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-SERVICE")
 public class SearchService {
-    private static final long MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
-    private static final int DEFAULT_SEARCH_LIMIT = 20;
-    private static final int DEFAULT_PAGE = 0;
-    private static final int DEFAULT_PAGE_SIZE = 20;
-    private static final Set<String> SUPPORTED_IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-
     private final MinIOService minIOService;
     private final ImageThumbnailService imageThumbnailService;
     private final ImageRepository imageRepository;
@@ -56,6 +51,7 @@ public class SearchService {
     private final UserRepository userRepository;
     private final AiEmbeddingClient aiEmbeddingClient;
     private final QdrantVectorService qdrantVectorService;
+    private final SearchConfig searchConfig;
 
     public ImageSearchResponse searchByImage(MultipartFile image, String username, Integer limit, Integer page, Integer pageSize) {
         long startTime = System.currentTimeMillis();
@@ -82,7 +78,7 @@ public class SearchService {
                     .build();
             queryImage = imageRepository.save(queryImage);
 
-            log.warn("start call api AI");
+            log.info("start call api AI embedding image");
 
             List<Float> embedding = aiEmbeddingClient.getImageEmbedding(EmbeddingRequest.builder()
                     .type("image")
@@ -90,7 +86,7 @@ public class SearchService {
                     .storagePath(storagePath)
                     .mimeType(queryImage.getMimeType())
                     .build());
-
+            log.info("Result embeddings: {}",embedding);
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
             SearchHistory history = saveHistory(username, SearchType.IMAGE_TO_IMAGE, null, storagePath, startTime);
 
@@ -106,6 +102,7 @@ public class SearchService {
         } catch (SearchException e) {
             throw e;
         } catch (Exception e) {
+            log.error(e.getMessage());
             throw new SearchException("SEARCH_ERROR", "Could not search by image", HttpStatus.INTERNAL_SERVER_ERROR, e);
         }
     }
@@ -133,7 +130,9 @@ public class SearchService {
 
     private TextSearchResponse searchTextSemantic(String query, String username, long startTime, SearchPageCriteria pageCriteria) {
         try {
+            log.info("Call AI embedding text");
             List<Float> embedding = aiEmbeddingClient.getTextEmbedding(query);
+            log.info("Result Embedding: {}",embedding);
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
             SearchHistory history = saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, startTime);
             return buildTextResponse(query, "semantic", SearchType.TEXT_SEMANTIC, history, results, pageCriteria);
@@ -143,6 +142,7 @@ public class SearchService {
     }
 
     private TextSearchResponse searchTextOcr(String query, String username, long startTime, SearchPageCriteria pageCriteria) {
+        log.info("search OCR with query: {}", query);
         List<ImageOcr> ocrMatches = imageOcrRepository.findByExtractedTextContainingIgnoreCaseOrderByCreatedAtDesc(
                 query,
                 PageRequest.of(0, pageCriteria.limit())
@@ -267,9 +267,9 @@ public class SearchService {
     }
 
     private SearchPageCriteria resolvePageCriteria(Integer limit, Integer page, Integer pageSize) {
-        int resolvedLimit = limit == null ? DEFAULT_SEARCH_LIMIT : limit;
-        int requestedPage = page == null ? DEFAULT_PAGE : page;
-        int resolvedPageSize = pageSize == null ? DEFAULT_PAGE_SIZE : pageSize;
+        int resolvedLimit = limit == null ? searchConfig.getDefaultSearchLimit() : limit;
+        int requestedPage = page == null ? searchConfig.getDefaultPage() : page;
+        int resolvedPageSize = pageSize == null ? searchConfig.getDefaultPageSize() : pageSize;
 
         if (resolvedLimit <= 0) {
             throw new SearchException("INVALID_LIMIT", "Limit must be greater than 0", HttpStatus.BAD_REQUEST);
@@ -282,7 +282,7 @@ public class SearchService {
         }
 
         // API accepts page=0 as the first page, while page>0 is treated as a 1-based page number from clients.
-        int zeroBasedPage = requestedPage > 0 ? requestedPage - 1 : DEFAULT_PAGE;
+        int zeroBasedPage = requestedPage > 0 ? requestedPage - 1 : searchConfig.getDefaultPage();
         return new SearchPageCriteria(resolvedLimit, zeroBasedPage, resolvedPageSize);
     }
 
@@ -309,12 +309,12 @@ public class SearchService {
         if (image == null || image.isEmpty()) {
             throw new SearchException("IMAGE_REQUIRED", "Image is required", HttpStatus.BAD_REQUEST);
         }
-        if (image.getSize() > MAX_IMAGE_SIZE_BYTES) {
+        if (image.getSize() > searchConfig.getMaxImageSizeBytes()) {
             throw new SearchException("FILE_TOO_LARGE", "Image size must not exceed 10MB", HttpStatus.PAYLOAD_TOO_LARGE);
         }
 
         String contentType = normalizeContentType(image.getContentType());
-        if (!SUPPORTED_IMAGE_TYPES.contains(contentType)) {
+        if (!searchConfig.getSupportedImageTypes().contains(contentType)) {
             throw new SearchException("UNSUPPORTED_IMAGE_TYPE", "Only JPG, PNG and WebP images are supported", HttpStatus.UNSUPPORTED_MEDIA_TYPE);
         }
     }

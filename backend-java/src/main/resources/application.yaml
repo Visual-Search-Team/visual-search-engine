@@ -50,7 +50,7 @@ integration:
   backend-ai:
     base-url: ${BACKEND_AI_BASE_URL:http://localhost:8000}
     health-path: /health
-    mock-embedding: ${BACKEND_AI_MOCK_EMBEDDING:true}
+    mock-embedding: ${BACKEND_AI_MOCK_EMBEDDING:false}
   qdrant:
     url: ${QDRANT_URL:http://localhost:6333}
     collection-name: ${QDRANT_COLLECTION_NAME:images}

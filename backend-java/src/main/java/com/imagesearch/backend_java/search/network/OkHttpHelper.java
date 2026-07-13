@@ -32,7 +32,6 @@ public class OkHttpHelper {
         }
         url = urlBuilder.build().toString();
 
-
         Request.Builder requestBuilder = new Request.Builder().url(url);
         if (headers != null && !headers.isEmpty()) {
             for (Map.Entry<String, String> entry : headers.entrySet()) {
@@ -68,7 +67,7 @@ public class OkHttpHelper {
         Call call = okHttpClient.newCall(request);
         try (Response response = call.execute()) {
             String raw = response.body().string();
-
+//            log.info(raw);
             return gson.fromJson(raw, valueType);
         } catch (IOException e) {
             log.error("Error in call api with url:{} and body{} - message {}",url,body,e.getMessage());

@@ -1,5 +1,6 @@
 import { FaAlignLeft, FaClock, FaFont, FaHashtag, FaImage } from "react-icons/fa";
 import { resolveImageUrl } from "../../utils/imageUrl";
+import { ImageWithFallback } from "../common/ImageWithFallback";
 
 const searchTypeConfig = {
   IMAGE_TO_IMAGE: {
@@ -69,7 +70,7 @@ export const SearchHistoryCard = ({ history }) => {
     <article className="group overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {isImageSearch && imageUrl ? (
-          <img
+          <ImageWithFallback
             src={imageUrl}
             alt={`Lịch sử tìm kiếm #${historyId}`}
             loading="lazy"

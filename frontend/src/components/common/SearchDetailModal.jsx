@@ -14,6 +14,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { saveBookmark } from "../../services/bookmarkService";
+import { ImageWithFallback } from "./ImageWithFallback";
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -106,9 +107,11 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
 
         <div className="relative flex min-h-[420px] items-center justify-center bg-white lg:min-h-[720px]">
           {imageUrl ? (
-            <img
+            <ImageWithFallback
               src={imageUrl}
+              imageId={result.imageId}
               alt={fileName}
+              loading="eager"
               className="h-full max-h-[92vh] w-full object-contain"
             />
           ) : (

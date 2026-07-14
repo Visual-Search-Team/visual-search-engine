@@ -1,6 +1,7 @@
 import { FaExpandAlt, FaSearch } from "react-icons/fa";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
+import { ImageWithFallback } from "../common/ImageWithFallback";
 
 export const SearchResultCard = ({ result, onViewDetails }) => {
   const imageUrl = resolveImageUrl(
@@ -13,8 +14,9 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
     <article className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
       <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
         {imageUrl ? (
-          <img
+          <ImageWithFallback
             src={imageUrl}
+            imageId={result.imageId}
             alt={fileName}
             loading="lazy"
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
@@ -33,14 +35,14 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
           <button
             type="button"
             onClick={() => onViewDetails?.(result)}
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-zinc-900 shadow-sm transition hover:bg-gray-50"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-zinc-900 shadow-sm transition hover:bg-gray-50"
           >
             <FaExpandAlt className="h-3 w-3" />
             Chi tiết
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-700 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-800"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-700 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-800"
           >
             <FaSearch className="h-3 w-3" />
             Tương tự

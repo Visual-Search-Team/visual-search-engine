@@ -48,7 +48,6 @@ public class AiEmbeddingClient {
         }
 
         EmbeddingResponse response = okHttpHelper.httpPost(url, null, request, EmbeddingResponse.class, null, null);
-        log.info("embedding response: {}",response.getEmbedding().toString());
         if (response == null || response.getEmbedding() == null || response.getEmbedding().isEmpty()) {
             throw new IOException("AI embedding response is empty");
         }

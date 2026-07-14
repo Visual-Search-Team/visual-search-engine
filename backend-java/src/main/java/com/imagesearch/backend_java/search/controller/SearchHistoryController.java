@@ -9,6 +9,7 @@ import com.imagesearch.backend_java.search.exception.SearchException;
 import com.imagesearch.backend_java.search.service.SearchHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/search-history")
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-HISTORY-CONTROLLER")
+@Tag(name = "Search History", description = "APIs for viewing and deleting authenticated user search history")
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 public class SearchHistoryController {

@@ -86,7 +86,7 @@ public class SearchService {
                     .storagePath(storagePath)
                     .mimeType(queryImage.getMimeType())
                     .build());
-            log.info("Result embeddings: {}",embedding);
+            log.info("Get embedding success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
             SearchHistory history = saveHistory(username, SearchType.IMAGE_TO_IMAGE, null, storagePath, startTime);
 
@@ -132,7 +132,7 @@ public class SearchService {
         try {
             log.info("Call AI embedding text");
             List<Float> embedding = aiEmbeddingClient.getTextEmbedding(query);
-            log.info("Result Embedding: {}",embedding);
+            log.info("Get embedding text success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
             SearchHistory history = saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, startTime);
             return buildTextResponse(query, "semantic", SearchType.TEXT_SEMANTIC, history, results, pageCriteria);

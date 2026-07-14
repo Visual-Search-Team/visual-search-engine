@@ -3,8 +3,8 @@ spring:
     name: backend-java
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 20MB
+      max-request-size: 1GB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/imagesearch}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}

@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../config/constants';
 // Khởi tạo một bản sao của Axios với cấu hình mặc định
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -46,6 +46,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: images
       BACKEND_JAVA_URL: http://backend-java:8080
+      LORA_WEIGHTS_DIR: /app/lora-weights
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,6 +65,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    volumes:
+      - ../Lora_weights:/app/lora-weights:ro
+      - base-model-cache:/app/base_model_cache
     restart: unless-stopped
 
   backend-java:
@@ -91,3 +95,4 @@ services:
 volumes:
   postgres-data:
   qdrant-data:
+  base-model-cache:

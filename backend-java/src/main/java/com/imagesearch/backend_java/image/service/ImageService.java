@@ -24,7 +24,7 @@ public class ImageService {
     // Upload ảnh
     public ImageUploadResponse uploadImage(MultipartFile file) throws Exception {
         String storagePath = minIOService.uploadFile(file);
-        String fileUrl = minIOService.getFileUrl(storagePath);
+        String fileUrl = minIOService.getPresignedFileUrl(storagePath);
         ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(file);
 
         ImageEntity imageEntity = ImageEntity.builder()
@@ -48,7 +48,7 @@ public class ImageService {
                 .fileSize(file.getSize())
                 .mimeType(file.getContentType())
                 .thumbnailPath(savedImage.getThumbnailPath())
-                .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getFileUrl(savedImage.getThumbnailPath()))
+                .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
                 .width(savedImage.getWidth())
                 .height(savedImage.getHeight())
                 .build();
@@ -79,7 +79,7 @@ public class ImageService {
         ImageEntity imageEntity = imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
 
-        return minIOService.getFileUrl(imageEntity.getStoragePath());
+        return minIOService.getPresignedFileUrl(imageEntity.getStoragePath());
     }
 
     // Lấy URL presigned download

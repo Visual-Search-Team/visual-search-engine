@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.search.config.QdrantProperties;
+import com.imagesearch.backend_java.search.config.SearchConfig;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,7 +12,6 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -28,11 +28,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class QdrantVectorService {
-    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-
     private final OkHttpClient okHttpClient;
     private final Gson gson;
     private final QdrantProperties properties;
+    private final SearchConfig searchConfig;
 
     /**
      * Chạy sau khi Spring Boot khởi động xong và tạo collection Qdrant nếu được cấu hình.
@@ -79,7 +78,7 @@ public class QdrantVectorService {
 
         Request putRequest = new Request.Builder()
                 .url(collectionUrl)
-                .put(RequestBody.create(gson.toJson(body), JSON))
+                .put(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
                 .build();
 
         try (Response response = okHttpClient.newCall(putRequest).execute()) {
@@ -125,7 +124,7 @@ public class QdrantVectorService {
 
         Request request = new Request.Builder()
                 .url(url)
-                .put(RequestBody.create(gson.toJson(body), JSON))
+                .put(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
                 .build();
 
         try (Response response = okHttpClient.newCall(request).execute()) {
@@ -149,7 +148,7 @@ public class QdrantVectorService {
 
         Request request = new Request.Builder()
                 .url(collectionUrl() + "/points/search")
-                .post(RequestBody.create(gson.toJson(body), JSON))
+                .post(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
                 .build();
 
         try (Response response = okHttpClient.newCall(request).execute()) {

@@ -53,7 +53,7 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 //                        .requestMatchers(HttpMethod.GET, "/search/text").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/search/**").permitAll()
+                        .requestMatchers("/search/**").authenticated()
                         // Batch Admin endpoints - ALL HTTP methods
                         .requestMatchers(HttpMethod.GET, "/admin/batches").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/batches/**").hasRole("ADMIN")

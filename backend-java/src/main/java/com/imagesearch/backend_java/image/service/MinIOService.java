@@ -25,6 +25,9 @@ public class MinIOService {
     @Value("${minio.url}")
     private String minioUrl;
 
+    @Value("${minio.presigned-url-expiration-seconds:3600}")
+    private int presignedUrlExpirationSeconds;
+
     // Upload file tới MinIO và trả về object name
     public String uploadFile(MultipartFile file) throws Exception {
         ensureBucketExists();
@@ -143,6 +146,7 @@ public class MinIOService {
                         .method(Method.GET)
                         .bucket(bucketName)
                         .object(objectName)
+                        .expiry(expirationSeconds)
                         .build()
         );
     }
@@ -154,6 +158,7 @@ public class MinIOService {
                         .method(Method.PUT)
                         .bucket(bucketName)
                         .object(objectName)
+                        .expiry(expirationSeconds)
                         .build()
         );
     }
@@ -176,5 +181,14 @@ public class MinIOService {
     // Lấy URL của file
     public String getFileUrl(String objectName) {
         return String.format("%s/%s/%s", minioUrl, bucketName, objectName);
+    }
+
+    // Tao URL GET tam thoi de client co the doc object trong bucket private.
+    public String getPresignedFileUrl(String objectName) {
+        try {
+            return getPresignedDownloadUrl(objectName, presignedUrlExpirationSeconds);
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not create presigned URL for object: " + objectName, e);
+        }
     }
 }

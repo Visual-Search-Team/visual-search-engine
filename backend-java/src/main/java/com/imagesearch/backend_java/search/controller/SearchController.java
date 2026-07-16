@@ -7,6 +7,7 @@ import com.imagesearch.backend_java.search.exception.SearchException;
 import com.imagesearch.backend_java.search.service.SearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/search")
 @RequiredArgsConstructor
 @Slf4j(topic = "SEARCH-CONTROLLER")
+@Tag(name = "Search", description = "APIs for searching images by uploaded image or text")
 @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
 public class SearchController {

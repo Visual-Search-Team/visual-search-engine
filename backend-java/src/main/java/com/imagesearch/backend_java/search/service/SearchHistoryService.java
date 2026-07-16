@@ -93,7 +93,7 @@ public class SearchHistoryService {
                 .id(history.getId())
                 .searchType(history.getSearchType() == null ? null : history.getSearchType().name())
                 .queryText(history.getQueryText())
-                .queryImageUrl(history.getQueryImagePath() == null ? null : minIOService.getFileUrl(history.getQueryImagePath()))
+                .queryImageUrl(history.getQueryImagePath() == null ? null : minIOService.getPresignedFileUrl(history.getQueryImagePath()))
                 .resultCount(0)
                 .processingTimeMs(history.getProcessingTimeMs())
                 .createdAt(history.getCreatedAt())

@@ -64,3 +64,4 @@ minio:
   access-key: ${MINIO_ACCESS_KEY:admin}
   secret-key: ${MINIO_SECRET_KEY:password123}
   bucket-name: ${MINIO_BUCKET:images}
+  presigned-url-expiration-seconds: ${MINIO_PRESIGNED_URL_EXPIRATION_SECONDS:3600}

@@ -59,7 +59,7 @@ public class SearchService {
         SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
 
         String storagePath = uploadQueryImage(image);
-        String imageUrl = minIOService.getFileUrl(storagePath);
+        String imageUrl = minIOService.getPresignedFileUrl(storagePath);
 
         try {
             ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(image);
@@ -227,8 +227,8 @@ public class SearchService {
         return SearchResultItem.builder()
                 .imageId(image.getId())
                 .originalFilename(image.getOriginalFileName())
-                .imageUrl(minIOService.getFileUrl(image.getStoragePath()))
-                .thumbnailUrl(image.getThumbnailPath() == null ? null : minIOService.getFileUrl(image.getThumbnailPath()))
+                .imageUrl(minIOService.getPresignedFileUrl(image.getStoragePath()))
+                .thumbnailUrl(image.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(image.getThumbnailPath()))
                 .similarityScore(score)
                 .rankPosition(rank)
                 .width(image.getWidth())

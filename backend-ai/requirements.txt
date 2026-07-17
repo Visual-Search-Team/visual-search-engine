@@ -16,3 +16,5 @@ torch
 pillow
 minio
 apscheduler
+sentence-transformers==3.0.1
+peft==0.12.0

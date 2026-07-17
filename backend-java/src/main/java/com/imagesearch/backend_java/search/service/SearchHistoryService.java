@@ -93,6 +93,7 @@ public class SearchHistoryService {
                 .id(history.getId())
                 .searchType(history.getSearchType() == null ? null : history.getSearchType().name())
                 .queryText(history.getQueryText())
+                .queryImageId(history.getQueryImageId())
                 .queryImageUrl(history.getQueryImagePath() == null ? null : minIOService.getPresignedFileUrl(history.getQueryImagePath()))
                 .resultCount(0)
                 .processingTimeMs(history.getProcessingTimeMs())
@@ -104,6 +105,7 @@ public class SearchHistoryService {
         target.setId(source.getId());
         target.setSearchType(source.getSearchType());
         target.setQueryText(source.getQueryText());
+        target.setQueryImageId(source.getQueryImageId());
         target.setQueryImageUrl(source.getQueryImageUrl());
         target.setResultCount(source.getResultCount());
         target.setProcessingTimeMs(source.getProcessingTimeMs());

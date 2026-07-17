@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaChevronLeft, FaChevronRight, FaTrash } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft } from "react-icons/fa";
 import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
 
@@ -29,6 +30,7 @@ const normalizeHistoryResponse = (response) => {
 
 export const SearchHistory = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("");
   const [page, setPage] = useState(0);
 
@@ -74,6 +76,16 @@ export const SearchHistory = () => {
 
   return (
     <section className="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
+      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+          >
+            <FaArrowLeft />
+            <span>Quay lại trang chủ</span>
+          </button>
+        </div>
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -105,11 +117,10 @@ export const SearchHistory = () => {
                   key={filter.label}
                   type="button"
                   onClick={() => handleFilterChange(filter.value)}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                    isActive
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${isActive
                       ? "border-indigo-700 bg-indigo-700 text-white"
                       : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                  }`}
+                    }`}
                 >
                   {filter.label}
                 </button>

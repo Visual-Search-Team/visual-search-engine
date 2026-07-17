@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
         "id",
         "searchType",
         "queryText",
+        "queryImageId",
         "queryImageUrl",
         "resultCount",
         "processingTimeMs",
@@ -27,6 +28,7 @@ public class SearchHistoryItem {
     private Long id;
     private String searchType;
     private String queryText;
+    private Long queryImageId;
     private String queryImageUrl;
     private Integer resultCount;
     private Long processingTimeMs;

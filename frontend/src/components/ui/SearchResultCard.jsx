@@ -12,7 +12,7 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
 
   return (
     <article className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-      <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
+      <div onClick={() => onViewDetails?.(result)} className="relative cursor-pointer aspect-[4/5] overflow-hidden bg-gray-100">
         {imageUrl ? (
           <ImageWithFallback
             src={imageUrl}
@@ -31,7 +31,7 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
           {formatScore(result.score ?? result.similarityScore ?? 0)}
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-indigo-700/0 opacity-0 transition group-hover:bg-indigo-700/35 group-hover:opacity-100">
+        {/* <div className="absolute inset-0 flex items-center justify-center gap-2 bg-indigo-700/0 opacity-0 transition group-hover:bg-indigo-700/35 group-hover:opacity-100">
           <button
             type="button"
             onClick={() => onViewDetails?.(result)}
@@ -47,7 +47,7 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
             <FaSearch className="h-3 w-3" />
             Tương tự
           </button>
-        </div>
+        </div> */}
       </div>
 
       <div className="space-y-1 p-3">

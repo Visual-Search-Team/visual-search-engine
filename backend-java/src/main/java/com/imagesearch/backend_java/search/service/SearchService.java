@@ -88,7 +88,14 @@ public class SearchService {
                     .build());
             log.info("Get embedding success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
-            SearchHistory history = saveHistory(username, SearchType.IMAGE_TO_IMAGE, null, storagePath, startTime);
+            SearchHistory history = saveHistory(
+                    username,
+                    SearchType.IMAGE_TO_IMAGE,
+                    null,
+                    storagePath,
+                    queryImage.getId(),
+                    startTime
+            );
 
             ImageSearchResponse response = new ImageSearchResponse();
             response.setSearchId(history.getId());
@@ -134,7 +141,7 @@ public class SearchService {
             List<Float> embedding = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
-            SearchHistory history = saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, startTime);
+            SearchHistory history = saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime);
             return buildTextResponse(query, "semantic", SearchType.TEXT_SEMANTIC, history, results, pageCriteria);
         } catch (IOException e) {
             throw new SearchException("AI_SERVICE_ERROR", "Could not create text embedding", HttpStatus.INTERNAL_SERVER_ERROR, e);
@@ -164,7 +171,7 @@ public class SearchService {
             }
         }
 
-        SearchHistory history = saveHistory(username, SearchType.TEXT_OCR, query, null, startTime);
+        SearchHistory history = saveHistory(username, SearchType.TEXT_OCR, query, null, null, startTime);
         return buildTextResponse(query, "ocr", SearchType.TEXT_OCR, history, results, pageCriteria);
     }
 
@@ -237,12 +244,20 @@ public class SearchService {
                 .build();
     }
 
-    private SearchHistory saveHistory(String username, SearchType searchType, String queryText, String queryImagePath, long startTime) {
+    private SearchHistory saveHistory(
+            String username,
+            SearchType searchType,
+            String queryText,
+            String queryImagePath,
+            Long queryImageId,
+            long startTime
+    ) {
         SearchHistory history = SearchHistory.builder()
                 .userId(resolveUserId(username))
                 .searchType(searchType)
                 .queryText(queryText)
                 .queryImagePath(queryImagePath)
+                .queryImageId(queryImageId)
                 .processingTimeMs(System.currentTimeMillis() - startTime)
                 .build();
         return searchHistoryRepository.save(history);

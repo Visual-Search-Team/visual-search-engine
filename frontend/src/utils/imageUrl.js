@@ -17,6 +17,12 @@ export const resolveStorageUrl = (value) => {
     const url = new URL(value);
 
     if (INTERNAL_MINIO_HOSTS.has(url.hostname)) {
+
+      // if (url.searchParams.has("X-Amz-Signature")) {
+      //   console.log("Chuyển qua proxy!", `/minio-proxy${url.pathname}${url.search}`);
+      //   return `/minio-proxy${url.pathname}${url.search}`;
+      // }
+
       const publicBaseUrl = new URL(MINIO_PUBLIC_URL);
       url.protocol = publicBaseUrl.protocol;
       url.hostname = publicBaseUrl.hostname;

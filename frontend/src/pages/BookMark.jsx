@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash } from "react-icons/fa";
-import { useSearchParams } from "react-router-dom";
+import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash, FaArrowLeft } from "react-icons/fa";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { deleteBookmark, getBookmarks } from "../services/bookmarkService";
 import { getImageBlob } from "../services/imageService";
 import { resolveStorageUrl } from "../utils/imageUrl";
@@ -36,6 +36,7 @@ const BookmarkImage = ({ bookmark, fileName }) => {
   const directUrl = bookmark.thumbnailUrl || bookmark.imageUrl || bookmark.thumbnailPath || bookmark.storagePath;
   const [blobUrl, setBlobUrl] = useState("");
   const [hasError, setHasError] = useState(false);
+
   const canUseDirectUrl = isDirectImageUrl(directUrl) && !isInternalMinioUrl(directUrl);
   const imageUrl = canUseDirectUrl ? resolveStorageUrl(directUrl) : blobUrl;
 
@@ -96,6 +97,7 @@ export const BookMark = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const page = Math.max(Number(searchParams.get("page") || 0), 0);
+  const navigate = useNavigate();
 
   const bookmarkQuery = useQuery({
     queryKey: ["bookmarks", page],
@@ -120,21 +122,34 @@ export const BookMark = () => {
 
   return (
     <section className="mx-auto w-full max-w-[1280px] space-y-8">
-      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-xs font-semibold text-indigo-700">
-            <FaBookmark className="h-3.5 w-3.5" />
-            Bookmark
-          </p>
-          <h1 className="text-3xl font-semibold leading-10 text-zinc-900">Ảnh đã lưu</h1>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Xem lại những hình ảnh bạn đã lưu trong quá trình tìm kiếm.
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+          >
+            <FaArrowLeft />
+            <span>Quay lại trang chủ</span>
+          </button>
         </div>
 
-        <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          Tổng cộng:{" "}
-          <span className="font-semibold text-zinc-900">{bookmarkData.totalElements}</span> ảnh
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-xs font-semibold text-indigo-700">
+              <FaBookmark className="h-3.5 w-3.5" />
+              Bookmark
+            </p>
+            <h1 className="text-3xl font-semibold leading-10 text-zinc-900">Ảnh đã lưu</h1>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Xem lại những hình ảnh bạn đã lưu trong quá trình tìm kiếm.
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            Tổng cộng:{" "}
+            <span className="font-semibold text-zinc-900">{bookmarkData.totalElements}</span> ảnh
+          </div>
         </div>
       </div>
 

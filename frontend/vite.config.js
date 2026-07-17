@@ -11,10 +11,20 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',//'http://host.docker.internal:8080',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
+      // '/minio-proxy': {
+      //   target: 'http://localhost:9000', 
+      //   changeOrigin: false, 
+      //   rewrite: (path) => path.replace(/^\/minio-proxy/, ''),
+      //   configure: (proxy, _options) => {
+      //     proxy.on('proxyReq', (proxyReq, req, res) => {
+      //       proxyReq.setHeader('Host', 'minio:9000');
+      //     });
+      //   }
+      // },
     }
   }
 })

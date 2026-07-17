@@ -60,6 +60,8 @@ integration:
     initialize-on-startup: ${QDRANT_INITIALIZE_ON_STARTUP:true}
 
 minio:
+  # Local defaults to localhost; Docker Compose overrides this with
+  # MINIO_ENDPOINT=http://minio:9000 so the backend reaches the MinIO container.
   url: ${MINIO_ENDPOINT:http://localhost:9000}
   access-key: ${MINIO_ACCESS_KEY:admin}
   secret-key: ${MINIO_SECRET_KEY:password123}

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+yeucau.md
+frontend/frontend-summary-report.md
+frontend/frontend-technical-report.md

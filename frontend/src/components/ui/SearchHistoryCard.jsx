@@ -72,6 +72,7 @@ export const SearchHistoryCard = ({ history }) => {
         {isImageSearch && imageUrl ? (
           <ImageWithFallback
             src={imageUrl}
+            imageId={history.queryImageId}
             alt={`Lịch sử tìm kiếm #${historyId}`}
             loading="lazy"
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
@@ -124,11 +125,11 @@ export const SearchHistoryCard = ({ history }) => {
           </p>
         )}
 
-        {isImageSearch && imagePath && (
+        {/* {isImageSearch && imagePath && (
           <p className="truncate text-xs text-gray-400" title={imagePath}>
             {imagePath}
           </p>
-        )}
+        )} */}
       </div>
     </article>
   );

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage } from "react-icons/fa";
+import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
+import { ImageWithFallback } from "../components/common/ImageWithFallback";
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
@@ -125,16 +126,52 @@ export const SearchResult = () => {
   return (
     <section className="mx-auto w-full max-w-[1280px] space-y-8">
       <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+          >
+            <FaArrowLeft />
+            <span>Quay lại trang chủ</span>
+          </button>
+        </div>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold leading-10 text-zinc-900">
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <p className="text-base leading-7 text-gray-700">
+              {isImageSearch ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-base leading-7 text-gray-700">
+                    {descriptionLabel}:
+                  </span>
+
+                  <div className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+                    <ImageWithFallback
+                      src={URL.createObjectURL(imageFile)}
+                      imageId={imageFile?.name}
+                      alt={imageFile?.name}
+                      className="h-full w-full object-cover p-1"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-base leading-7 text-gray-700">
+                  {descriptionLabel}:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {descriptionValue}
+                  </span>
+                </p>
+              )}
+              {/* <p className="text-base leading-7 text-gray-700">
                 {descriptionLabel}:{" "}
                 <span className="font-medium text-zinc-900">{descriptionValue}</span>
-              </p>
+              </p> */}
+
               <span className="inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-sm font-medium text-indigo-700">
                 {type === "image" ? (
                   <FaImage className="h-3.5 w-3.5" />

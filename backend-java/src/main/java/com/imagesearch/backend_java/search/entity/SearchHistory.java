@@ -51,6 +51,9 @@ public class SearchHistory {
     @Column(name = "query_image_path", length = 1000)
     private String queryImagePath;
 
+    @Column(name = "query_image_id")
+    private Long queryImageId;
+
     @Column(name = "processing_time_ms")
     private Long processingTimeMs;
 

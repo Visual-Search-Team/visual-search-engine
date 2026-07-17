@@ -137,8 +137,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      backend-ai:
-        condition: service_healthy
+      
       minio:
         condition: service_started
       createbuckets:

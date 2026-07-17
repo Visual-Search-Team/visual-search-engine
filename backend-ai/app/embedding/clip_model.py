@@ -97,19 +97,19 @@ class CLIPModelWrapper:
             else:
                 # Chưa có cache → tải từ HuggingFace
                 logger.info("=" * 60)
-                logger.info(f"⬇️  ĐANG TẢI BASE MODEL TỪ HUGGINGFACE...")
+                logger.info(f"ĐANG TẢI BASE MODEL TỪ HUGGINGFACE...")
                 logger.info(f"   Model: {_BASE_MCLIP_NAME}")
                 logger.info(f"   Kích thước: ~500MB — vui lòng chờ...")
                 logger.info("=" * 60)
                 base_mclip = SentenceTransformer(_BASE_MCLIP_NAME)
                 base_transformer = base_mclip[0].auto_model
-                logger.info("✅ Tải model xong!")
+                logger.info("Tải model xong!")
 
                 # Lưu TOÀN BỘ SentenceTransformer (bao gồm tokenizer, pooling, dense)
                 logger.info(f"💾 Đang lưu cache vào: {base_cache} ...")
                 os.makedirs(base_cache, exist_ok=True)
                 base_mclip.save(base_cache)
-                logger.info(f"✅ Đã lưu cache xong! Lần sau sẽ load nhanh hơn.")
+                logger.info(f"Đã lưu cache xong! Lần sau sẽ load nhanh hơn.")
 
             # ── Bước 2: Gắn LoRA adapter vào base model ──────────────────
             logger.info(f"Gắn LoRA adapter từ: {lora_dir}")
@@ -149,6 +149,17 @@ class CLIPModelWrapper:
             feat = self.model.encode_image(img_t)
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
+
+    def get_image_embeddings(self, imgs: list[Image.Image]) -> list[list[float]]:
+        """Trích xuất vector đặc trưng từ danh sách ảnh (Batch Inference)."""
+        if not imgs:
+            return []
+        img_tensors = [self.preprocess(img) for img in imgs]
+        batch_t = torch.stack(img_tensors).to(self.device)
+        with torch.no_grad():
+            feat = self.model.encode_image(batch_t)
+            feat = F.normalize(feat, dim=-1)
+        return feat.cpu().numpy().tolist()
 
     def get_text_embedding(self, text: str) -> list[float]:
         """

@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, Numeric, Text, select
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, Numeric, Text, select, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
 import datetime
 
 Base = declarative_base()
+
 
 class ImageEntity(Base):
     __tablename__ = 'images'
@@ -24,7 +25,21 @@ class ImageEntity(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-# Construct Database URL from env
+
+class ImageOcrEntity(Base):
+    """Maps to the image_ocr table created by Java/Hibernate."""
+    __tablename__ = 'image_ocr'
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    image_id = Column(BigInteger, nullable=False)
+    extracted_text = Column(Text, nullable=True)
+    language = Column(String(20), nullable=True)
+    confidence = Column(Numeric(5, 4), nullable=True)
+    bounding_boxes = Column(JSON, nullable=True)   # Use JSON directly
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
 host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")
 db = os.environ.get("POSTGRES_DB", "imagesearch")

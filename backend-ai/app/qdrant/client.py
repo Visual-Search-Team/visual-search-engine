@@ -30,4 +30,22 @@ class QdrantClientWrapper:
             wait=True
         )
 
+    def upsert_vectors(self, point_ids: list[int], vectors: list[list[float]]):
+        """
+        Upserts multiple vectors efficiently in one batch.
+        """
+        if not point_ids or not vectors or len(point_ids) != len(vectors):
+            return
+            
+        points = [
+            PointStruct(id=pid, vector=vec, payload={})
+            for pid, vec in zip(point_ids, vectors)
+        ]
+        
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=points,
+            wait=True
+        )
+
 qdrant_client_wrapper = QdrantClientWrapper()

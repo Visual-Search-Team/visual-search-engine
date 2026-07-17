@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d imagesearch"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d imagesearch" ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -56,16 +56,10 @@ services:
         condition: service_started
 
     entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 admin password123; do
+      /bin/sh -c " until mc alias set local http://minio:9000 admin password123; do
         echo 'waiting for minio...';
         sleep 2;
-      done;
-      mc mb local/images || true;
-      mc anonymous set none local/images;
-      exit 0;
-      "
-
+      done; mc mb local/images || true; mc anonymous set none local/images; exit 0; "
     restart: "no"
 
   backend-ai:
@@ -93,6 +87,9 @@ services:
       MINIO_BUCKET: images
       LORA_WEIGHTS_DIR: /app/lora-weights
       BASE_MODEL_CACHE: /app/base_model_cache
+      OCR_MODEL_CACHE: /app/ocr_model_cache
+      HF_HOME: /app/base_model_cache/huggingface
+      TORCH_HOME: /app/base_model_cache/torch
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,19 +102,15 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
-        ]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
       interval: 10s
       timeout: 5s
       retries: 10
     volumes:
+      - ./backend-ai/app:/app/app
       - ./Lora_weights:/app/lora-weights:ro
       - base-model-cache:/app/base_model_cache
+      - ocr-model-cache:/app/ocr_model_cache
     restart: unless-stopped
 
   backend-java:
@@ -126,6 +119,7 @@ services:
       dockerfile: Dockerfile
     container_name: visualsearch-backend-java
     environment:
+      JAVA_TOOL_OPTIONS: "-Xmx512m -Xms256m"
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/imagesearch
@@ -142,7 +136,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      
+      backend-ai:
+        condition: service_healthy
       minio:
         condition: service_started
       createbuckets:
@@ -156,3 +151,4 @@ volumes:
   qdrant-data:
   minio-data:
   base-model-cache:
+  ocr-model-cache:

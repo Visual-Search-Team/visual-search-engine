@@ -4,7 +4,7 @@ import contextlib
 from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from app.api.routes import search, indexing
+from app.api.routes import search, indexing, ocr
 from app.services.indexing_service import process_pending_images
 from app.clients.postgres_client import SessionLocal
 
@@ -41,6 +41,7 @@ app = FastAPI(title="visual-search-backend-ai", version="0.1.0", lifespan=lifesp
 # Include Routers
 app.include_router(search.router)
 app.include_router(indexing.router)
+app.include_router(ocr.router)
 
 @app.get("/health")
 def health_check() -> dict:

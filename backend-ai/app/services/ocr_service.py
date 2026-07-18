@@ -9,6 +9,7 @@ import os
 import logging
 
 import numpy as np
+import torch
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -28,15 +29,17 @@ class OCRService:
         """Lazy-init: chỉ tải model khi cần lần đầu tiên."""
         if self._reader is None:
             import easyocr  # import lazy để không làm chậm startup nếu OCR chưa dùng
+            use_gpu = torch.cuda.is_available()
             logger.info("=" * 55)
             logger.info("⬇️  Đang khởi tạo EasyOCR Reader...")
             logger.info(f"   Ngôn ngữ: {_OCR_LANGUAGES}")
             logger.info(f"   Cache model: {_OCR_MODEL_CACHE}")
+            logger.info(f"   GPU: {'CÓ (' + torch.cuda.get_device_name(0) + ')' if use_gpu else 'KHÔNG (fallback CPU)'}")
             logger.info("=" * 55)
             os.makedirs(_OCR_MODEL_CACHE, exist_ok=True)
             self._reader = easyocr.Reader(
                 _OCR_LANGUAGES,
-                gpu=False,
+                gpu=use_gpu,
                 model_storage_directory=_OCR_MODEL_CACHE,
                 verbose=False,
             )
@@ -52,7 +55,9 @@ class OCRService:
         img_array = np.array(pil_img)
 
         reader = self._get_reader()
-        raw_results = reader.readtext(img_array, detail=1)
+        # batch_size > 1: các vùng text phát hiện được trong 1 ảnh sẽ được
+        # nhận dạng theo lô thay vì từng vùng một -> tận dụng GPU tốt hơn.
+        raw_results = reader.readtext(img_array, detail=1, batch_size=8)
 
         regions = []
         text_parts = []

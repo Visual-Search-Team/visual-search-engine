@@ -145,7 +145,7 @@ class CLIPModelWrapper:
     def get_image_embedding(self, img: Image.Image) -> list[float]:
         """Trích xuất vector đặc trưng từ ảnh (Image Encoder CLIP, 512 chiều)."""
         img_t = self.preprocess(img).unsqueeze(0).to(self.device)
-        with torch.no_grad():
+        with torch.inference_mode():
             feat = self.model.encode_image(img_t)
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
@@ -156,7 +156,7 @@ class CLIPModelWrapper:
             return []
         img_tensors = [self.preprocess(img) for img in imgs]
         batch_t = torch.stack(img_tensors).to(self.device)
-        with torch.no_grad():
+        with torch.inference_mode():
             feat = self.model.encode_image(batch_t)
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy().tolist()
@@ -169,7 +169,7 @@ class CLIPModelWrapper:
         """
         if self.mclip is not None:
             # === Multilingual Text Encoder (LoRA fine-tuned mCLIP) ===
-            with torch.no_grad():
+            with torch.inference_mode():
                 text_inputs = self.mclip_tokenizer(
                     [text],
                     padding=True,
@@ -190,7 +190,7 @@ class CLIPModelWrapper:
         else:
             # === Fallback: CLIP gốc (English only) ===
             text_tokens = self.tokenizer([text]).to(self.device)
-            with torch.no_grad():
+            with torch.inference_mode():
                 feat = self.model.encode_text(text_tokens)
                 feat = F.normalize(feat, dim=-1)
             return feat.cpu().numpy()[0].tolist()

@@ -1,7 +1,9 @@
 import logging
 import io
 import json
+import time
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -15,18 +17,22 @@ from app.services.ocr_service import ocr_service
 
 logger = logging.getLogger(__name__)
 
+# Số luồng tải song song từ MinIO. Đây là I/O-bound (network call) nên chạy
+# song song giúp giảm tổng thời gian chờ thay vì tải tuần tự từng ảnh.
+_DOWNLOAD_WORKERS = 8
+
 def process_pending_images(db: Session, batch_id: int | None = None):
     """
     Polls the database for images with index_status='PENDING' and processes them:
     - Generates CLIP embedding and upserts to Qdrant.
     - Updates status to 'INDEXED'.
     """
-    # Find up to 32 pending images. If batch_id is provided, only process that batch.
+    # Find up to 64 pending images. If batch_id is provided, only process that batch.
     query = select(ImageEntity).where(ImageEntity.index_status == 'PENDING')
     if batch_id is not None:
         query = query.where(ImageEntity.batch_id == batch_id)
 
-    pending_images = db.execute(query.limit(32)).scalars().all()
+    pending_images = db.execute(query.limit(64)).scalars().all()
 
     if not pending_images:
         return
@@ -39,16 +45,28 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     # tránh phải tải + decode lại ảnh 2 lần từ MinIO.
     image_cache_dict: dict[int, Image.Image] = {}
 
+    clip_start_time = time.time()
+
     # 1. Download images from MinIO (chỉ 1 lần cho cả CLIP lẫn OCR)
-    for image in pending_images:
-        try:
-            image_bytes = minio_client_wrapper.download_image(image.storage_path)
-            pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            image_cache_dict[image.id] = pil_image
-            valid_ids.append(image.id)
-        except Exception as e:
-            logger.error(f"Failed to load image id={image.id}: {e}")
-            failed_ids.append(image.id)
+    # Tải song song bằng thread pool vì đây là I/O-bound (network call tới MinIO),
+    # tải tuần tự sẽ cộng dồn độ trễ của từng request lại với nhau.
+    def _download_and_decode(image: ImageEntity) -> Image.Image:
+        image_bytes = minio_client_wrapper.download_image(image.storage_path)
+        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    with ThreadPoolExecutor(max_workers=_DOWNLOAD_WORKERS) as executor:
+        future_to_image = {
+            executor.submit(_download_and_decode, image): image
+            for image in pending_images
+        }
+        for future in as_completed(future_to_image):
+            image = future_to_image[future]
+            try:
+                image_cache_dict[image.id] = future.result()
+                valid_ids.append(image.id)
+            except Exception as e:
+                logger.error(f"Failed to load image id={image.id}: {e}")
+                failed_ids.append(image.id)
 
     # 2 & 3. Batch Generate CLIP embeddings & Upsert to Qdrant
     if image_cache_dict:
@@ -65,6 +83,13 @@ def process_pending_images(db: Session, batch_id: int | None = None):
                     image.updated_at = datetime.datetime.utcnow()
             
             logger.info(f"Successfully batch indexed {len(valid_ids)} images.")
+
+            clip_duration = time.time() - clip_start_time
+            speed = len(valid_ids) / clip_duration if clip_duration > 0 else 0
+            logger.info(
+                f"⏱️ [SPEED CLIP] Xử lý xong {len(valid_ids)} ảnh trong "
+                f"{clip_duration:.2f}s. Tốc độ: {speed:.2f} ảnh/giây."
+            )
         except Exception as e:
             logger.error(f"Batch embedding or upsert failed: {e}")
             # If batch fails, mark all valid ones as failed to retry later
@@ -99,6 +124,11 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
     if not image_cache_dict:
         return
 
+    ocr_start_time = time.time()
+    # Gom các record OCR lại, chỉ commit 1 lần cuối thay vì mỗi ảnh 1 lần
+    # commit -> giảm số round-trip đồng bộ tới Postgres.
+    pending_ocr_records = []
+
     for image_id, pil_img in image_cache_dict.items():
         try:
             logger.info(f"[OCR] Đang chạy OCR cho image id={image_id} (ảnh dùng chung từ cache)")
@@ -115,14 +145,29 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
                 confidence=Decimal(str(min(ocr_result['avgConfidence'], 0.9999))),
                 bounding_boxes=ocr_result['regions'],
             )
-            db.add(ocr_record)
-            db.commit()
+            pending_ocr_records.append(ocr_record)
             logger.info(
-                f"[OCR] ✅ Đã lưu OCR cho image id={image_id}: "
+                f"[OCR] ✅ Trích xuất xong image id={image_id}: "
                 f"{ocr_result['regionCount']} vùng text, "
                 f"text='{ocr_result['extractedText'][:60]}'"
             )
         except Exception as e:
             logger.error(f"[OCR] ❌ Lỗi khi xử lý OCR image id={image_id}: {e}", exc_info=True)
+
+    if pending_ocr_records:
+        try:
+            db.add_all(pending_ocr_records)
+            db.commit()
+            logger.info(f"[OCR] 💾 Đã lưu {len(pending_ocr_records)} bản ghi OCR vào DB (1 lần commit).")
+        except Exception as e:
+            logger.error(f"[OCR] ❌ Lỗi khi commit batch OCR: {e}", exc_info=True)
             db.rollback()
+
+    ocr_duration = time.time() - ocr_start_time
+    total_ocr = len(image_cache_dict)
+    speed_ocr = total_ocr / ocr_duration if ocr_duration > 0 else 0
+    logger.info(
+        f"⏱️ [SPEED OCR] Quét chữ xong {total_ocr} ảnh trong "
+        f"{ocr_duration:.2f}s. Tốc độ: {speed_ocr:.2f} ảnh/giây."
+    )
 

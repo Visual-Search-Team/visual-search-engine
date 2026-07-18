@@ -10,6 +10,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { useEffect } from "react";
+// import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
@@ -52,7 +53,12 @@ const getSaveBookmarkErrorMessage = (error) => {
   return "Không thể lưu ảnh. Vui lòng thử lại.";
 };
 
+
 export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) => {
+
+
+  // const navigate = useNavigate();
+
   const queryClient = useQueryClient();
   const saveBookmarkMutation = useMutation({
     mutationFn: saveBookmark,
@@ -83,6 +89,51 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
     if (!result.imageId) return;
     saveBookmarkMutation.mutate(result.imageId);
   };
+
+ 
+  // const onSearchSimilar = async () => {
+  //   try {
+  //     const imageUrl = resolveImageUrl(
+  //       result.imageUrl || result.storagePath || result.thumbnailUrl || result.thumbnailPath,
+  //       result.imageId
+  //     );
+
+  //     const response = await fetch(imageUrl);
+      
+  //     if (!response.ok) throw new Error("Không thể tải ảnh");
+      
+  //     const blob = await response.blob();
+      
+  //     const filename = result.originalFilename || `similar-${result.imageId}.jpg`;
+  //     const mimeType = result.mimeType || blob.type || "image/jpeg";
+      
+  //     const imageFile = new File([blob], filename, { type: mimeType });
+
+  //     onClose(); 
+
+  //     const nextParams = new URLSearchParams({
+  //       type: "image",
+  //       page: "0",
+  //       size: "20"
+  //     });
+
+  //     navigate(
+  //       {
+  //         pathname: "/search-result",
+  //         search: nextParams.toString(),
+  //       },
+  //       { 
+  //         state: { 
+  //           type: "image",
+  //           imageFile: imageFile 
+  //         } 
+  //       }
+  //     );
+
+  //   } catch (error) {
+  //     console.error("Lỗi tải ảnh tìm tương tự:", error);
+  //   }
+  // };
 
   return (
     <div
@@ -188,7 +239,8 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
               <button
                 type="button"
                 onClick={() => onSearchSimilar?.(result)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-800"
+                // onClick={onSearchSimilar}
+                className="cursor-pointer inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-800"
               >
                 <FaSearch className="h-4 w-4" />
                 Tìm ảnh tương tự

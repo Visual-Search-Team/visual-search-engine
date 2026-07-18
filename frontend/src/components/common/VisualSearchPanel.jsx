@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload } from 'react-icons/fa';
+import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload, FaTimes } from 'react-icons/fa';
 import { MAX_FILE_SIZE } from '../../config/constants';
 import SearchModeTabs from './SearchModeTabs';
 
@@ -74,6 +74,16 @@ export default function VisualSearchPanel() {
     }
   };
 
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFileError("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleDrop = (event) => {
     event.preventDefault();
 
@@ -143,7 +153,7 @@ export default function VisualSearchPanel() {
           <div
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleDrop}
-            className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl bg-gray-50 px-4 py-16 text-center outline outline-2 outline-offset-[-2px] outline-indigo-700/20"
+            className="group flex min-h-[320px] flex-col items-center justify-center rounded-2xl border-2 border-indigo-700/20 bg-gray-50 px-4 py-16 text-center transition-all duration-200 hover:border-indigo-600 hover:bg-indigo-50/30"
           >
             <input
               ref={fileInputRef}
@@ -154,23 +164,44 @@ export default function VisualSearchPanel() {
             />
 
             {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Ảnh đã chọn"
-                className="mb-5 h-36 w-36 rounded-xl object-cover shadow-sm"
-              />
+              // <img
+              //   src={previewUrl}
+              //   alt="Ảnh đã chọn"
+              //   className="mb-5 h-36 w-36 rounded-xl object-cover shadow-sm"
+              // />
+              <div 
+                className="relative mb-5 cursor-pointer" 
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <img
+                  src={previewUrl}
+                  alt="Ảnh đã chọn"
+                  className="h-36 w-36 rounded-xl object-cover shadow-sm"
+                />
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveImage();
+                  }}
+                  className="absolute -right-2 -top-2 cursor-pointer flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-600 shadow transition hover:bg-red-500 hover:text-white"
+                >
+                  <FaTimes className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ) : (
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-700/10 text-indigo-700">
                 <FaUpload className="h-6 w-6" />
               </div>
             )}
 
-            <h2 className="text-lg font-semibold leading-7 text-zinc-900">
+            {/* <h2 className="text-lg font-semibold leading-7 text-zinc-900">
               Kéo thả ảnh vào đây hoặc chọn ảnh từ máy
             </h2>
             <p className="mt-2 text-xs leading-4 text-gray-700">
               Hỗ trợ JPG, PNG, WebP. Tối đa 10MB.
-            </p>
+            </p> */}
 
             {selectedFile && (
               <p className="mt-3 max-w-full truncate text-sm font-medium text-indigo-700">
@@ -184,23 +215,44 @@ export default function VisualSearchPanel() {
               </p>
             )}
 
-            <button
+            {/* <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="mt-6 rounded-full bg-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition hover:bg-indigo-800"
             >
               Chọn tệp
-            </button>
+            </button> */}
 
-            {selectedFile && (
-              <button
-                type="button"
-                onClick={handleImageSearch}
-                className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-indigo-700 transition hover:bg-indigo-50"
-              >
-                <FaSearch className="h-4 w-4" />
-                Tìm kiếm
-              </button>
+            {selectedFile ? (
+              <div className="">
+                <p className="mt-2 text-xs leading-4 text-gray-700 text-[20px]">
+                  Click vào ảnh để chọn ảnh khác!
+                </p>
+                <button
+                  type="button"
+                  onClick={handleImageSearch}
+                  className="cursor-pointer mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white transition hover:bg-gray-100 hover:text-indigo-700 bg-indigo-700"
+                >
+                  <FaSearch className="h-4 w-4" />
+                  Tìm kiếm
+                </button>
+              </div>
+            ) : (
+              <div className="">
+                <h2 className="text-lg font-semibold leading-7 text-zinc-900">
+                  Kéo thả ảnh vào đây hoặc chọn ảnh từ máy
+                </h2>
+                <p className="mt-2 text-xs leading-4 text-gray-700">
+                  Hỗ trợ JPG, PNG, WebP. Tối đa 10MB.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-pointer mt-6 rounded-full bg-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition hover:bg-indigo-800"
+                >
+                  Chọn tệp
+                </button>
+              </div>
             )}
           </div>
         ) : (

@@ -32,10 +32,18 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     if batch_id is not None:
         query = query.where(ImageEntity.batch_id == batch_id)
 
-    pending_images = db.execute(query.limit(64)).scalars().all()
+    # Dùng SKIP LOCKED để khóa dòng, ngăn các worker khác lấy trùng ảnh
+    pending_images = db.execute(
+        query.limit(64).with_for_update(skip_locked=True)
+    ).scalars().all()
 
     if not pending_images:
         return
+        
+    # Đánh dấu trạng thái PROCESSING ngay lập tức sau khi khóa thành công
+    for img in pending_images:
+        img.index_status = 'PROCESSING'
+    db.commit()
 
     logger.info(f"Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
 
@@ -50,13 +58,14 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     # 1. Download images from MinIO (chỉ 1 lần cho cả CLIP lẫn OCR)
     # Tải song song bằng thread pool vì đây là I/O-bound (network call tới MinIO),
     # tải tuần tự sẽ cộng dồn độ trễ của từng request lại với nhau.
-    def _download_and_decode(image: ImageEntity) -> Image.Image:
-        image_bytes = minio_client_wrapper.download_image(image.storage_path)
+    def _download_and_decode(storage_path: str) -> Image.Image:
+        """Download from MinIO and decode via PIL."""
+        image_bytes = minio_client_wrapper.download_image(storage_path)
         return Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     with ThreadPoolExecutor(max_workers=_DOWNLOAD_WORKERS) as executor:
         future_to_image = {
-            executor.submit(_download_and_decode, image): image
+            executor.submit(_download_and_decode, image.storage_path): image
             for image in pending_images
         }
         for future in as_completed(future_to_image):
@@ -170,4 +179,3 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
         f"⏱️ [SPEED OCR] Quét chữ xong {total_ocr} ảnh trong "
         f"{ocr_duration:.2f}s. Tốc độ: {speed_ocr:.2f} ảnh/giây."
     )
-

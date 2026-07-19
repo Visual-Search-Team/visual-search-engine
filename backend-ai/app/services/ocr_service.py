@@ -12,6 +12,14 @@ import numpy as np
 import torch
 from PIL import Image
 
+from app.utils.text_preprocessing import preprocess_ocr_text
+from app.utils.ocr_image_preprocessing import (
+    preprocess_image, 
+    ImageCategory, 
+    CATEGORY_CONFIGS, 
+    FALLBACK_CONFIG
+)
+
 logger = logging.getLogger(__name__)
 
 # Thư mục cache model EasyOCR (tránh tải lại mỗi lần restart Docker)
@@ -47,12 +55,25 @@ class OCRService:
         return self._reader
 
     # Trích xuất text từ ảnh
-    def extract_text(self, pil_img: Image.Image) -> dict:
+    def extract_text(self, pil_img: Image.Image, category: str | None = None) -> dict:
 
         # Đảm bảo ảnh ở chế độ RGB phòng trường hợp caller quên convert
         if pil_img.mode != "RGB":
             pil_img = pil_img.convert("RGB")
         img_array = np.array(pil_img)
+        
+        # --- Tiền xử lý hình ảnh ---
+        config = FALLBACK_CONFIG
+        if category:
+            try:
+                cat_enum = ImageCategory(category)
+                config = CATEGORY_CONFIGS.get(cat_enum, FALLBACK_CONFIG)
+            except ValueError:
+                logger.warning(f"[OCR] Invalid category '{category}', using FALLBACK_CONFIG.")
+                pass
+        
+        upscale_factor = config.upscale_factor
+        img_array = preprocess_image(img_array, config)
 
         reader = self._get_reader()
         # batch_size > 1: các vùng text phát hiện được trong 1 ảnh sẽ được
@@ -66,12 +87,26 @@ class OCRService:
             text = text.strip()
             if not text:
                 continue
+                
+            # --- Tiền xử lý text (bỏ khoảng trắng, ký tự rác, spell-check) ---
+            cleaned_text = preprocess_ocr_text(text, language='vi')
+            
+            if not cleaned_text.strip():
+                continue
+            
+            # Khôi phục tọa độ bounding box nếu ảnh đã bị upscale
+            original_bbox = []
+            for p in bbox:
+                orig_x = int(p[0] / upscale_factor)
+                orig_y = int(p[1] / upscale_factor)
+                original_bbox.append([orig_x, orig_y])
+                
             regions.append({
-                "text": text,
-                "boundingBox": [[int(p[0]), int(p[1])] for p in bbox],
+                "text": cleaned_text,
+                "boundingBox": original_bbox,
                 "confidence": round(float(conf), 4),
             })
-            text_parts.append(text)
+            text_parts.append(cleaned_text)
 
         extracted_text = " ".join(text_parts)
         avg_conf = (

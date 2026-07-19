@@ -35,7 +35,8 @@ _BASE_MODEL_CACHE = os.environ.get(
 
 class CLIPModelWrapper:
     def __init__(self, model_name: str = "ViT-B-32-quickgelu", pretrained: str = "openai"):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Bắt buộc dùng CPU cho CLIP để nhường toàn bộ GPU (VRAM) cho EasyOCR
+        self.device = "cpu"
         logger.info(f"Loading CLIP model {model_name} on {self.device}...")
 
         # ── Image Encoder (CLIP ViT-B-32, đóng băng hoàn toàn) ──────────

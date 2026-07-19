@@ -8,7 +8,7 @@ Base = declarative_base()
 
 class ImageEntity(Base):
     __tablename__ = 'images'
-    
+
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     batch_id = Column(BigInteger, nullable=True)
     uploaded_by = Column(BigInteger, nullable=True)
@@ -25,7 +25,6 @@ class ImageEntity(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-
 class ImageOcrEntity(Base):
     """Maps to the image_ocr table created by Java/Hibernate."""
     __tablename__ = 'image_ocr'
@@ -38,8 +37,6 @@ class ImageOcrEntity(Base):
     bounding_boxes = Column(JSON, nullable=True)   # Use JSON directly
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-
-
 host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")
 db = os.environ.get("POSTGRES_DB", "imagesearch")

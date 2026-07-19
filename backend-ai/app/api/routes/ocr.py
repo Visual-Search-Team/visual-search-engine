@@ -1,31 +1,86 @@
 import logging
 import io
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, BackgroundTasks
+from typing import Optional
+from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import select, or_, func
 from PIL import Image
 
 from app.services.ocr_service import ocr_service
 from app.services.ocr_batch_service import run_ocr_for_all_indexed
 from app.clients.minio_client import minio_client_wrapper
-from app.clients.postgres_client import get_db, ImageOcrEntity
+from app.clients.postgres_client import get_db, ImageEntity, ImageOcrEntity
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ocr", tags=["OCR"])
+
+@router.get("/search")
+def search_by_ocr(
+    q: str = Query(..., min_length=1, description="Văn bản cần tìm kiếm"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """
+    Tìm kiếm hình ảnh dựa trên văn bản đã được trích xuất bởi OCR.
+    Sử dụng PostgreSQL full-text search (tsvector) kết hợp với ILIKE để tối ưu kết quả.
+    """
+    logger.info(f"Tìm kiếm OCR với từ khóa: '{q}' (limit={limit}, offset={offset})")
+    
+    try:
+        stmt = (
+            select(ImageEntity, ImageOcrEntity)
+            .join(ImageOcrEntity, ImageEntity.id == ImageOcrEntity.image_id)
+            .where(
+                or_(
+                    ImageOcrEntity.extracted_text.ilike(f"%{q}%"),
+                    func.to_tsvector('simple', ImageOcrEntity.extracted_text).op('@@')(func.plainto_tsquery('simple', q))
+                )
+            )
+            .order_by(ImageEntity.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        
+        results = db.execute(stmt).all()
+        
+        response = []
+        for img, ocr in results:
+            response.append({
+                "image_id": img.id,
+                "storage_path": img.storage_path,
+                "thumbnail_path": img.thumbnail_path,
+                "original_filename": img.original_filename,
+                "mime_type": img.mime_type,
+                "extracted_text": ocr.extracted_text,
+                "language": ocr.language,
+                "confidence": float(ocr.confidence) if ocr.confidence is not None else None,
+                "created_at": img.created_at
+            })
+            
+        return {
+            "query": q,
+            "count": len(response),
+            "data": response
+        }
+        
+    except Exception as e:
+        logger.error(f"Lỗi khi tìm kiếm OCR: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi server nội bộ")
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
 
 class OcrRequest(BaseModel):
     storagePath: str
-
+    category: Optional[str] = None
 
 class OcrRegion(BaseModel):
     text: str
     boundingBox: list[list[int]]
     confidence: float
-
 
 class OcrResponse(BaseModel):
     extractedText: str
@@ -49,7 +104,7 @@ async def extract_text_from_storage(request: OcrRequest):
     try:
         image_bytes = minio_client_wrapper.download_image(request.storagePath)
         pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        result = ocr_service.extract_text(pil_img)
+        result = ocr_service.extract_text(pil_img, category=request.category)
         logger.info(f"[OCR] ✅ Trích xuất xong: {result['regionCount']} vùng text, "
                     f"text='{result['extractedText'][:80]}'")
         return result
@@ -59,17 +114,20 @@ async def extract_text_from_storage(request: OcrRequest):
 
 
 @router.post("/test-upload", response_model=OcrResponse)
-async def test_ocr_with_upload(file: UploadFile = File(...)):
+async def test_ocr_with_upload(
+    file: UploadFile = File(...),
+    category: Optional[str] = Form(None)
+):
     """
     TEST ENDPOINT: Upload ảnh trực tiếp để test OCR, không cần qua MinIO.
     Dùng để kiểm tra xem EasyOCR có hoạt động hay không.
-    Gọi: POST /api/v1/ocr/test-upload với form-data key 'file'
+    Gọi: POST /api/v1/ocr/test-upload với form-data key 'file' và 'category' (tuỳ chọn)
     """
-    logger.info(f"[OCR TEST] Nhận file: {file.filename}, type={file.content_type}")
+    logger.info(f"[OCR TEST] Nhận file: {file.filename}, type={file.content_type}, category={category}")
     try:
         image_bytes = await file.read()
         pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        result = ocr_service.extract_text(pil_img)
+        result = ocr_service.extract_text(pil_img, category=category)
         logger.info(f"[OCR TEST] ✅ Kết quả: {result['regionCount']} vùng, "
                     f"text='{result['extractedText'][:120]}'")
         return result

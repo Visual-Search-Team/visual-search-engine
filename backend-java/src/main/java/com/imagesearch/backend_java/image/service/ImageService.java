@@ -2,8 +2,8 @@ package com.imagesearch.backend_java.image.service;
 
 import com.imagesearch.backend_java.image.dto.response.ImageUploadResponse;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
-import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
+import com.imagesearch.backend_java.index.service.ImageUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
@@ -19,39 +19,13 @@ public class ImageService {
 
     private final MinIOService minIOService;
     private final ImageRepository imageRepository;
-    private final ImageThumbnailService imageThumbnailService;
+    private final ImageUploadService imageUploadService;
 
     // Upload ảnh
     public ImageUploadResponse uploadImage(MultipartFile file) throws Exception {
-        String storagePath = minIOService.uploadFile(file);
-        String fileUrl = minIOService.getPresignedFileUrl(storagePath);
-        ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(file);
-
-        ImageEntity imageEntity = ImageEntity.builder()
-                .originalFileName(file.getOriginalFilename())
-                .storagePath(storagePath)
-                .thumbnailPath(thumbnail.thumbnailPath())
-                .mimeType(file.getContentType())
-                .fileSize(file.getSize())
-                .width(thumbnail.width())
-                .height(thumbnail.height())
-                .indexStatus(ImageIndexStatus.PENDING)
-                .build();
-
-        ImageEntity savedImage = imageRepository.save(imageEntity);
-
-        return ImageUploadResponse.builder()
-                .imageId(savedImage.getId())
-                .storagePath(storagePath)
-                .fileUrl(fileUrl)
-                .originalFileName(file.getOriginalFilename())
-                .fileSize(file.getSize())
-                .mimeType(file.getContentType())
-                .thumbnailPath(savedImage.getThumbnailPath())
-                .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
-                .width(savedImage.getWidth())
-                .height(savedImage.getHeight())
-                .build();
+        return imageUploadService.uploadImages(new MultipartFile[]{file}).stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No upload result returned"));
     }
 
     // Download ảnh

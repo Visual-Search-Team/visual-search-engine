@@ -10,6 +10,7 @@ import lombok.*;
 @NoArgsConstructor
 public class ImageUploadResponse {
     private Long imageId;
+    private Long indexJobId;
     private String storagePath;
     private String fileUrl;
     private String originalFileName;
@@ -19,4 +20,6 @@ public class ImageUploadResponse {
     private String thumbnailUrl;
     private Integer width;
     private Integer height;
+    private String status;
 }
+

@@ -2,9 +2,7 @@ package com.imagesearch.backend_java.auth.entity;
 
 import com.imagesearch.backend_java.auth.common.UserRole;
 import com.imagesearch.backend_java.auth.common.UserStatus;
-import com.imagesearch.backend_java.batch.entity.BatchEntity;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
-import com.imagesearch.backend_java.index.entity.IndexingJobEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,12 +33,6 @@ public class User {
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
-
-    @OneToMany(mappedBy = "createdBy", fetch = FetchType.LAZY)
-    private List<BatchEntity> batches;
-
-    @OneToMany(mappedBy = "triggeredBy", fetch = FetchType.LAZY)
-    private List<IndexingJobEntity> indexingJobs;
 
     @OneToMany(mappedBy = "uploadedBy", fetch = FetchType.LAZY)
     private List<ImageEntity> images;

@@ -2,14 +2,14 @@ package com.imagesearch.backend_java.index.service;
 
 import com.imagesearch.backend_java.auth.entity.User;
 import com.imagesearch.backend_java.auth.repository.UserRepository;
-import com.imagesearch.backend_java.batch.entity.BatchEntity;
-import com.imagesearch.backend_java.batch.repository.BatchRepository;
+import com.imagesearch.backend_java.image.dto.response.ImageUploadResponse;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
+import com.imagesearch.backend_java.image.service.ImageIndexingService;
+import com.imagesearch.backend_java.image.service.ImageThumbnailService;
 import com.imagesearch.backend_java.image.service.MinIOService;
-import com.imagesearch.backend_java.index.dto.UploadImageBatchResponse;
-import com.imagesearch.backend_java.index.exception.InvalidBatchForIndexingException;
+import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
 import com.imagesearch.backend_java.index.exception.ImageUploadFailedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,33 +17,31 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j(topic = "IMAGE-UPLOAD-SERVICE")
 public class ImageUploadService {
 
-    private final BatchRepository batchRepository;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
     private final MinIOService minIOService;
+    private final ImageIndexingService imageIndexingService;
+    private final IndexingJobService indexingJobService;
+    private final ImageThumbnailService imageThumbnailService;
 
     @Transactional
-    public List<UploadImageBatchResponse> uploadImageBatch(Long batchId, MultipartFile[] files) {
-        log.info("Uploading {} images to batch: {}", files.length, batchId);
-
-        BatchEntity batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> {
-                    log.warn("Batch not found: {}", batchId);
-                    return new InvalidBatchForIndexingException("Batch not found: " + batchId);
-                });
+    public List<ImageUploadResponse> uploadImages(MultipartFile[] files) {
+        log.info("Uploading {} images directly", files == null ? 0 : files.length);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication != null ? authentication.getName() : null;
@@ -53,11 +51,12 @@ public class ImageUploadService {
             uploadedBy = userRepository.findByUsername(username).orElse(null);
         }
 
-        List<UploadImageBatchResponse> responses = new ArrayList<>();
+        List<ImageUploadResponse> responses = new ArrayList<>();
+        List<ImageEntity> savedImages = new ArrayList<>();
 
         for (MultipartFile file : files) {
             try {
-                if (file.isEmpty()) {
+                if (file == null || file.isEmpty()) {
                     log.warn("Skipping empty file");
                     continue;
                 }
@@ -71,35 +70,28 @@ public class ImageUploadService {
                 }
 
                 String storagePath = minIOService.uploadFile(file);
+                ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(file);
                 String originalFileName = file.getOriginalFilename();
                 String mimeType = file.getContentType();
                 Long fileSize = file.getSize();
 
                 ImageEntity image = ImageEntity.builder()
-                        .batch(batch)
                         .uploadedBy(uploadedBy)
                         .originalFileName(originalFileName)
                         .storagePath(storagePath)
+                        .thumbnailPath(thumbnail.thumbnailPath())
                         .mimeType(mimeType)
                         .fileSize(fileSize)
+                        .width(thumbnail.width())
+                        .height(thumbnail.height())
                         .checksum(checksum)
-                        .indexStatus(ImageIndexStatus.PENDING)
+                        .indexStatus(ImageIndexStatus.PROCESSING)
                         .build();
 
-                imageRepository.save(image);
+                ImageEntity savedImage = imageRepository.save(image);
+                    savedImages.add(savedImage);
 
-                log.info("Image uploaded successfully: {} (batch: {}, size: {})", originalFileName, batchId, fileSize);
-
-                UploadImageBatchResponse response = UploadImageBatchResponse.builder()
-                        .id(image.getId())
-                        .fileName(originalFileName)
-                        .batchId(batchId)
-                        .storagePath(storagePath)
-                        .fileSize(fileSize)
-                        .uploadedAt(LocalDateTime.now())
-                        .build();
-
-                responses.add(response);
+                log.info("Image uploaded successfully: {} (size: {})", originalFileName, fileSize);
 
             } catch (IOException ex) {
                 log.error("Error uploading file: {}", file.getOriginalFilename(), ex);
@@ -110,24 +102,31 @@ public class ImageUploadService {
             }
         }
 
-        log.info("Uploaded {} images to batch: {}", responses.size(), batchId);
+        if (!savedImages.isEmpty()) {
+            IndexingJobResponse indexingJob = indexingJobService.trackUploadedImages(savedImages);
+            scheduleIndexingAfterCommit(savedImages);
 
-        // Update batch totalImages
-        try {
-            int uploadedCount = responses.size();
-            if (uploadedCount > 0) {
-                Integer currentTotal = batch.getTotalImages();
-                if (currentTotal == null) {
-                    currentTotal = 0;
-                }
-                batch.setTotalImages(currentTotal + uploadedCount);
-                batchRepository.save(batch);
-                log.info("Updated batch {} totalImages to {}", batchId, batch.getTotalImages());
+            for (ImageEntity savedImage : savedImages) {
+                ImageUploadResponse response = ImageUploadResponse.builder()
+                        .imageId(savedImage.getId())
+                        .indexJobId(indexingJob.getId())
+                        .storagePath(savedImage.getStoragePath())
+                        .fileUrl(minIOService.getPresignedFileUrl(savedImage.getStoragePath()))
+                        .originalFileName(savedImage.getOriginalFileName())
+                        .fileSize(savedImage.getFileSize())
+                        .mimeType(savedImage.getMimeType())
+                        .thumbnailPath(savedImage.getThumbnailPath())
+                        .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
+                        .width(savedImage.getWidth())
+                        .height(savedImage.getHeight())
+                        .status(savedImage.getIndexStatus().name())
+                        .build();
+
+                responses.add(response);
             }
-        } catch (Exception ex) {
-            log.error("Failed to update batch totalImages for batch {}", batchId, ex);
-            // Do not fail the whole upload if batch total update fails
         }
+
+        log.info("Uploaded {} images directly", responses.size());
 
         return responses;
     }
@@ -135,5 +134,30 @@ public class ImageUploadService {
     private String generateChecksum(MultipartFile file) throws IOException {
         byte[] fileBytes = file.getBytes();
         return UUID.nameUUIDFromBytes(fileBytes).toString();
+    }
+
+    private void scheduleIndexingAfterCommit(List<ImageEntity> images) {
+        List<Long> imageIds = images.stream()
+                .filter(image -> image != null && image.getId() != null)
+                .map(ImageEntity::getId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (imageIds.isEmpty()) {
+            return;
+        }
+
+        Runnable dispatch = () -> imageIds.forEach(imageIndexingService::indexImageAsync);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            dispatch.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                dispatch.run();
+            }
+        });
     }
 }

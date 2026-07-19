@@ -4,7 +4,6 @@ import com.imagesearch.backend_java.auth.dto.BaseResponse;
 import com.imagesearch.backend_java.image.dto.response.ImageUploadResponse;
 import com.imagesearch.backend_java.image.dto.response.URLResponse;
 import com.imagesearch.backend_java.image.service.ImageService;
-import com.imagesearch.backend_java.index.dto.UploadImageBatchResponse;
 import com.imagesearch.backend_java.index.service.ImageUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,47 +27,30 @@ public class ImageController {
     private final ImageService imageService;
     private final ImageUploadService imageUploadService;
 
-    // Upload nhiều ảnh vào batch
-    @PostMapping("/batches/{batchId}/upload")
-    public ResponseEntity<BaseResponse<List<UploadImageBatchResponse>>> uploadImageBatch(
-            @PathVariable Long batchId,
+    @PostMapping("/upload")
+    public ResponseEntity<BaseResponse<List<ImageUploadResponse>>> uploadImages(
             @RequestParam(value = "files", required = false) MultipartFile[] files,
             @RequestParam(value = "file", required = false) MultipartFile singleFile) {
-        log.info("POST /images/batches/{}/upload: Upload images", batchId);
+        log.info("POST /images/upload: Upload images");
         try {
             MultipartFile[] filesToUpload = files;
-            
-            // Handle single file sent as 'file' parameter
+
             if ((files == null || files.length == 0) && singleFile != null) {
                 filesToUpload = new MultipartFile[]{singleFile};
             }
-            
-            // Handle case where no files provided
+
             if (filesToUpload == null || filesToUpload.length == 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(BaseResponse.error("NO_FILES_PROVIDED", "No files provided in request"));
             }
 
-            log.info("Uploading {} files to batch: {}", filesToUpload.length, batchId);
-            List<UploadImageBatchResponse> responses = imageUploadService.uploadImageBatch(batchId, filesToUpload);
+            List<ImageUploadResponse> responses = imageUploadService.uploadImages(filesToUpload);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(BaseResponse.success(responses));
+                    .body(BaseResponse.success(responses, "Images uploaded successfully. Indexing has started."));
         } catch (Exception ex) {
-            log.error("Error uploading images to batch", ex);
+            log.error("Error uploading images", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(BaseResponse.error("IMAGE_UPLOAD_ERROR", ex.getMessage()));
-        }
-    }
-
-    // Upload 1 ảnh
-    @PostMapping("/upload")
-    public ResponseEntity<ImageUploadResponse> uploadImage(@RequestParam("file") MultipartFile file) {
-        try {
-            ImageUploadResponse response = imageService.uploadImage(file);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error uploading image", e);
-            return ResponseEntity.badRequest().build();
         }
     }
 
@@ -94,8 +76,18 @@ public class ImageController {
     public ResponseEntity<InputStreamResource> getImage(@PathVariable Long imageId) {
         try {
             InputStreamResource resource = imageService.downloadImage(imageId);
+            String mimeType = imageService.getImageMetadata(imageId).getMimeType();
+            MediaType mediaType;
+            try {
+                mediaType = (mimeType == null || mimeType.isBlank())
+                        ? MediaType.APPLICATION_OCTET_STREAM
+                        : MediaType.parseMediaType(mimeType);
+            } catch (Exception ignored) {
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+
             return ResponseEntity.ok()
-                    .contentType(MediaType.IMAGE_JPEG)
+                    .contentType(mediaType)
                     .body(resource);
         } catch (Exception e) {
             log.error("Error getting image", e);

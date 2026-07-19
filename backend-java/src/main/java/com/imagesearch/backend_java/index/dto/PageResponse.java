@@ -1,4 +1,4 @@
-package com.imagesearch.backend_java.batch.dto.response;
+package com.imagesearch.backend_java.index.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,14 +21,15 @@ public class PageResponse<T> {
     private boolean hasPrevious;
 
     public static <T> PageResponse<T> of(List<T> content, int page, int size, long totalElements) {
-        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int safeSize = Math.max(size, 1);
+        int totalPages = (int) Math.ceil((double) totalElements / safeSize);
         return PageResponse.<T>builder()
                 .content(content)
                 .page(page)
                 .size(size)
                 .totalElements(totalElements)
                 .totalPages(totalPages)
-                .hasNext(page < totalPages - 1)
+                .hasNext(page + 1 < totalPages)
                 .hasPrevious(page > 0)
                 .build();
     }

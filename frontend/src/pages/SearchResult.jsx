@@ -7,6 +7,7 @@ import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
+import { searchStore } from "../utils/searchStore";
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
@@ -50,7 +51,12 @@ export const SearchResult = () => {
   const query = searchParams.get("q") || searchState.query || "";
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
   const page = Math.max(Number(searchParams.get("page") || 0), 0);
-  const imageFile = searchState.imageFile;
+  const imageFile = searchState.imageFile || searchStore.imageFile;
+
+  const previewImageUrl = useMemo(() => {
+    if (imageFile) return URL.createObjectURL(imageFile);
+    return null;
+  }, [imageFile]);
 
   const isImageSearch = type === "image";
   const canSearch = isImageSearch ? !!imageFile : !!query.trim();
@@ -115,7 +121,7 @@ export const SearchResult = () => {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="mt-6 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+          className="mt-6 cursor-pointer rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
         >
           Quay lại tìm kiếm
         </button>
@@ -152,7 +158,8 @@ export const SearchResult = () => {
 
                   <div className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
                     <ImageWithFallback
-                      src={URL.createObjectURL(imageFile)}
+                      src={previewImageUrl}
+                      // src={URL.createObjectURL(imageFile)}
                       imageId={imageFile?.name}
                       alt={imageFile?.name}
                       className="h-full w-full object-cover p-1"

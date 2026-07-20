@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft, FaHome } from "react-icons/fa";
 import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
 import { SearchHistoryDetailModal } from "../components/common/SearchHistoryDetail";
@@ -82,7 +82,26 @@ export const SearchHistory = () => {
 
   return (
     <section className="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
-      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+      <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
+        >
+          <FaArrowLeft />
+          <span>Quay lại trang trước</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+        >
+          <FaHome className="h-4 w-4" />
+          <span>Quay lại trang chủ</span>
+        </button>
+      </div>
+      {/* <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -91,7 +110,7 @@ export const SearchHistory = () => {
           <FaArrowLeft />
           <span>Quay lại trang chủ</span>
         </button>
-      </div>
+      </div> */}
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>

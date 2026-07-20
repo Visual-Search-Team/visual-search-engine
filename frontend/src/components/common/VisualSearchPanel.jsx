@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload, FaTimes } from 'react-icons/fa';
 import { MAX_FILE_SIZE } from '../../config/constants';
 import SearchModeTabs from './SearchModeTabs';
+import { searchStore } from '../../utils/searchStore';
 
 const searchModes = [
   {
@@ -105,6 +106,8 @@ export default function VisualSearchPanel() {
       return;
     }
 
+    searchStore.imageFile = selectedFile;
+
     navigate('/search-result?type=image&page=0&size=20', {
       state: {
         type: 'image',
@@ -136,6 +139,11 @@ export default function VisualSearchPanel() {
         mode,
       },
     });
+  };
+
+  const handleTextSearchSubmit = (event) => {
+    event.preventDefault(); 
+    handleTextSearch(); 
   };
 
   const isImageMode = activeMode.id === 'image';
@@ -260,7 +268,7 @@ export default function VisualSearchPanel() {
             <label htmlFor="visual-search-query" className="mb-3 block text-sm font-medium text-gray-800">
               {activeMode.label}
             </label>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleTextSearchSubmit}>
               <input
                 id="visual-search-query"
                 type="text"
@@ -270,7 +278,7 @@ export default function VisualSearchPanel() {
                 className="min-h-12 flex-1 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
               />
               <button
-                type="button"
+                type="submit"
                 onClick={handleTextSearch}
                 disabled={!query.trim()}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
@@ -278,7 +286,7 @@ export default function VisualSearchPanel() {
                 <FaSearch className="h-4 w-4" />
                 Tìm kiếm
               </button>
-            </div>
+            </form>
           </div>
         )}
       </div>

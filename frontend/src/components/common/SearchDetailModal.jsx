@@ -1,14 +1,4 @@
-import {
-  FaBookmark,
-  FaFileImage,
-  FaHashtag,
-  FaImage,
-  FaInfoCircle,
-  FaRulerCombined,
-  FaSearch,
-  FaStar,
-  FaTimes,
-} from "react-icons/fa";
+import { FaBookmark, FaFileImage, FaHashtag, FaImage, FaInfoCircle, FaRulerCombined, FaSearch, FaStar, FaTimes, } from "react-icons/fa";
 import { useEffect } from "react";
 // import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +6,7 @@ import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { saveBookmark } from "../../services/bookmarkService";
 import { ImageWithFallback } from "./ImageWithFallback";
+import { Link } from "react-router-dom";
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -24,9 +15,8 @@ const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
       {label}
     </div>
     <div
-      className={`max-w-[220px] truncate text-right text-sm font-semibold ${
-        highlight ? "text-indigo-700" : "text-zinc-900"
-      }`}
+      className={`max-w-[220px] truncate text-right text-sm font-semibold ${highlight ? "text-indigo-700" : "text-zinc-900"
+        }`}
       title={String(value)}
     >
       {value}
@@ -90,7 +80,7 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
     saveBookmarkMutation.mutate(result.imageId);
   };
 
- 
+
   // const onSearchSimilar = async () => {
   //   try {
   //     const imageUrl = resolveImageUrl(
@@ -99,14 +89,14 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
   //     );
 
   //     const response = await fetch(imageUrl);
-      
+
   //     if (!response.ok) throw new Error("Không thể tải ảnh");
-      
+
   //     const blob = await response.blob();
-      
+
   //     const filename = result.originalFilename || `similar-${result.imageId}.jpg`;
   //     const mimeType = result.mimeType || blob.type || "image/jpeg";
-      
+
   //     const imageFile = new File([blob], filename, { type: mimeType });
 
   //     onClose(); 
@@ -151,7 +141,7 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
           type="button"
           onClick={onClose}
           aria-label="Đóng modal"
-          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm transition hover:bg-white hover:text-zinc-900"
+          className="absolute cursor-pointer right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm transition hover:bg-red-600 hover:text-white sm:right-6 sm:top-6"
         >
           <FaTimes className="h-4 w-4" />
         </button>
@@ -216,12 +206,25 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
           <div className="mt-6 border-t border-zinc-200/70 pt-5">
             {saveBookmarkMutation.isSuccess && (
               <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-                Đã lưu ảnh vào Bookmark.
+                Đã lưu ảnh vào Bookmark! {' '}
+                <Link
+                  to="/bookmarks"
+                  className="underline hover:text-emerald-900 transition-colors"
+                >
+                  Click vào đây để xem ảnh đã lưu
+                </Link>
               </p>
             )}
             {saveBookmarkMutation.isError && (
               <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                {getSaveBookmarkErrorMessage(saveBookmarkMutation.error)}
+                Ảnh đã có trong Bookmark! {' '}
+                <Link
+                  to="/bookmarks"
+                  className="underline hover:text-emerald-900 transition-colors"
+                >
+                  Click vào đây để xem ảnh đã lưu
+                </Link>
+                {/* {getSaveBookmarkErrorMessage(saveBookmarkMutation.error)} */}
               </p>
             )}
             {isMockOnly && (
@@ -250,7 +253,7 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
                 type="button"
                 onClick={handleSaveBookmark}
                 disabled={!canSave}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex cursor-pointer w-full items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <FaBookmark className="h-4 w-4" />
                 {isMockOnly ? "Ảnh mock" : saveBookmarkMutation.isPending ? "Đang lưu..." : "Lưu ảnh"}

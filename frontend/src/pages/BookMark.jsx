@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash, FaArrowLeft } from "react-icons/fa";
+import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash, FaArrowLeft, FaHome } from "react-icons/fa";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { deleteBookmark, getBookmarks } from "../services/bookmarkService";
 import { getImageBlob } from "../services/imageService";
@@ -123,13 +123,23 @@ export const BookMark = () => {
   return (
     <section className="mx-auto w-full max-w-[1280px] space-y-8">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+
+        <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
+          >
+            <FaArrowLeft />
+            <span>Quay lại trang trước</span>
+          </button>
+
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
           >
-            <FaArrowLeft />
+            <FaHome className="h-4 w-4" />
             <span>Quay lại trang chủ</span>
           </button>
         </div>

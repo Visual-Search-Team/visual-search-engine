@@ -56,7 +56,7 @@ const getHistoryImagePath = (history) => {
   );
 };
 
-export const SearchHistoryCard = ({ history }) => {
+export const SearchHistoryCard = ({ history, onClick }) => {
   const searchType = getHistorySearchType(history);
   const config = searchTypeConfig[searchType] || searchTypeConfig.TEXT_SEMANTIC;
   const Icon = config.Icon;
@@ -67,7 +67,7 @@ export const SearchHistoryCard = ({ history }) => {
   const queryText = history.queryText || history.query_text || history.query || "Không có nội dung tìm kiếm";
 
   return (
-    <article className="group overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <article onClick={onClick} className="group cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {isImageSearch && imageUrl ? (
           <ImageWithFallback

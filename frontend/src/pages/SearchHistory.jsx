@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft } from "react-icons/fa";
 import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
+import { SearchHistoryDetailModal } from "../components/common/SearchHistoryDetail";
 
 const PAGE_SIZE = 20;
 
@@ -33,6 +34,11 @@ export const SearchHistory = () => {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("");
   const [page, setPage] = useState(0);
+
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null);
+  const handleOpenDetail = (id) => {
+    setSelectedHistoryId(id);
+  };
 
   const historyQuery = useQuery({
     queryKey: ["search-history", activeFilter, page],
@@ -77,15 +83,15 @@ export const SearchHistory = () => {
   return (
     <section className="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
       <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
-          >
-            <FaArrowLeft />
-            <span>Quay lại trang chủ</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+        >
+          <FaArrowLeft />
+          <span>Quay lại trang chủ</span>
+        </button>
+      </div>
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -118,8 +124,8 @@ export const SearchHistory = () => {
                   type="button"
                   onClick={() => handleFilterChange(filter.value)}
                   className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${isActive
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    ? "border-indigo-700 bg-indigo-700 text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     }`}
                 >
                   {filter.label}
@@ -162,12 +168,17 @@ export const SearchHistory = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            {historyData.histories.map((history, index) => (
-              <SearchHistoryCard
-                key={history.searchId || history.id || `${history.searchType}-${index}`}
-                history={history}
-              />
-            ))}
+            {historyData.histories.map((history, index) => {
+              const currentId = history.searchId || history.id;
+              return (
+                <SearchHistoryCard
+                  key={history.searchId || history.id || `${history.searchType}-${index}`}
+                  history={history}
+                  onClick={() => handleOpenDetail(currentId)}
+                />
+              )
+
+            })}
           </div>
 
           <div className="flex flex-col items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
@@ -198,6 +209,15 @@ export const SearchHistory = () => {
               </button>
             </div>
           </div>
+
+          {selectedHistoryId && (
+            <SearchHistoryDetailModal
+              isOpen={!!selectedHistoryId}
+              onClose={() => setSelectedHistoryId(null)}
+              searchId={selectedHistoryId}
+            />
+          )}
+
         </>
       )}
     </section>

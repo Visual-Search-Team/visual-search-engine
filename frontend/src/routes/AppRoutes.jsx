@@ -10,7 +10,6 @@ import { BookMark } from '../pages/BookMark';
 import { SearchHistory } from '../pages/SearchHistory';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import { AdminIndexing } from '../pages/admin/AdminIndexing';
-import { BatchDetail } from '../pages/admin/BatchDetail';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -62,11 +61,6 @@ export default function AppRoutes() {
         <Route path="/admin/indexing" element={
           <AdminLayout>
             <AdminIndexing />
-          </AdminLayout>
-        } />
-        <Route path="/admin/indexing/:batchId" element={
-          <AdminLayout>
-            <BatchDetail />
           </AdminLayout>
         } />
       </Route>

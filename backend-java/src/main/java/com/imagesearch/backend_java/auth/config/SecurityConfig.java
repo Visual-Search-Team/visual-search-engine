@@ -54,21 +54,11 @@ public class SecurityConfig {
                         ).permitAll()
 //                        .requestMatchers(HttpMethod.GET, "/search/text").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/search/**").authenticated()
-                        // Batch Admin endpoints - ALL HTTP methods
-                        .requestMatchers(HttpMethod.GET, "/admin/batches").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/batches/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/admin/batches").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/admin/batches/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/admin/batches/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/images/batches/{batchId}/upload").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/indexing-jobs/{jobId}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/indexing-jobs/status/{jobId}").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs/{jobId}/start").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs/{jobId}/cancel").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/admin/indexing-jobs/{jobId}/items").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/admin/indexing-jobs/retry").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/stats").hasRole("ADMIN")
+                        .requestMatchers("/admin/indexing-jobs/**").hasRole("ADMIN")
+                        .requestMatchers("/images/upload").hasRole("ADMIN")
+                        .requestMatchers("/images/{imageId}").permitAll()
+                        .requestMatchers("/images/download/{imageId}").authenticated()
                         .requestMatchers(
                                 "/search-history/**",
                                 "/bookmarks/**"

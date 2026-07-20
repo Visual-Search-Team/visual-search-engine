@@ -231,11 +231,13 @@ public class SearchService {
     }
 
     private SearchResultItem toSearchResultItem(ImageEntity image, Float score, int rank) {
+        String imageProxyUrl = "/visual-search/v1/images/" + image.getId();
+
         return SearchResultItem.builder()
                 .imageId(image.getId())
                 .originalFilename(image.getOriginalFileName())
-                .imageUrl(minIOService.getPresignedFileUrl(image.getStoragePath()))
-                .thumbnailUrl(image.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(image.getThumbnailPath()))
+            .imageUrl(imageProxyUrl)
+            .thumbnailUrl(imageProxyUrl)
                 .similarityScore(score)
                 .rankPosition(rank)
                 .width(image.getWidth())

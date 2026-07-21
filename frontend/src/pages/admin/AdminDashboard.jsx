@@ -104,7 +104,7 @@ export default function AdminDashboard() {
               Tổng quan hệ thống
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-              Theo dõi nhanh số ảnh đã index, tổng số người dùng và trạng thái hàng đợi indexing ngay trên một màn hình.
+              Theo dõi nhanh số ảnh đã index, tổng số người dùng và trạng thái hàng đợi indexing.
             </p>
           </div>
 

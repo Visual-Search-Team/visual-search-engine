@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft, FaHome } from "react-icons/fa";
 import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
 import { SearchHistoryDetailModal } from "../components/common/SearchHistoryDetail";
+import AOS from 'aos';
 
 const PAGE_SIZE = 20;
 
@@ -54,6 +55,12 @@ export const SearchHistory = () => {
     () => normalizeHistoryResponse(historyQuery.data),
     [historyQuery.data]
   );
+
+  useEffect(() => {
+    setTimeout(() => {
+      AOS.refresh();
+    }, 100);
+  }, [historyData.histories]);
 
   const deleteAllMutation = useMutation({
     mutationFn: deleteAllSearchHistory,
@@ -190,11 +197,13 @@ export const SearchHistory = () => {
             {historyData.histories.map((history, index) => {
               const currentId = history.searchId || history.id;
               return (
-                <SearchHistoryCard
-                  key={history.searchId || history.id || `${history.searchType}-${index}`}
-                  history={history}
-                  onClick={() => handleOpenDetail(currentId)}
-                />
+                <div key={currentId} data-aos="fade-up" data-aos-delay={index * 50}>
+                  <SearchHistoryCard
+                    key={history.searchId || history.id || `${history.searchType}-${index}`}
+                    history={history}
+                    onClick={() => handleOpenDetail(currentId)}
+                  />
+                </div>
               )
 
             })}

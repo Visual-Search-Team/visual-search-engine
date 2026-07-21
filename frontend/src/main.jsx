@@ -16,6 +16,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
+// 1. Import AOS và file CSS
+import AOS from 'aos';
+import 'aos/dist/aos.css';
+
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import './index.css';
@@ -28,6 +32,13 @@ const queryClient = new QueryClient({
       retry: 1, // Thử lại 1 lần nếu lỗi mạng
     },
   },
+});
+
+// Khởi tạo AOS một lần lúc load trang
+AOS.init({
+  duration: 600, 
+  once: true,    
+  easing: 'ease-out-cubic', 
 });
 
 ReactDOM.createRoot(document.getElementById('root')).render(

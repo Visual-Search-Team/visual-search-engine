@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
@@ -8,6 +8,7 @@ import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
 import { searchStore } from "../utils/searchStore";
+import AOS from 'aos';
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
@@ -88,6 +89,12 @@ export const SearchResult = () => {
     [searchQuery.data]
   );
 
+  useEffect(() => {
+    setTimeout(() => {
+      AOS.refresh();
+    }, 100); 
+  }, [searchData.results]);
+
   const modeLabel = getModeLabel(type, mode);
   const descriptionLabel = getDescriptionLabel(type, mode);
   const descriptionValue = USE_MOCK_SEARCH_RESULTS
@@ -156,7 +163,9 @@ export const SearchResult = () => {
                     {descriptionLabel}:
                   </span>
 
-                  <div className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+                  <div
+                    className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm"
+                  >
                     <ImageWithFallback
                       src={previewImageUrl}
                       // src={URL.createObjectURL(imageFile)}
@@ -223,12 +232,19 @@ export const SearchResult = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            {searchData.results.map((result) => (
-              <SearchResultCard
-                key={`${result.imageId}-${result.rankPosition}`}
-                result={result}
-                onViewDetails={setSelectedResult}
-              />
+            {searchData.results.map((result, index) => (
+              <div 
+                key={`${result.imageId}-${result.rankPosition}`} 
+                data-aos="fade-up"
+                data-aos-delay={index * 20}
+              >
+                <SearchResultCard
+                  key={`${result.imageId}-${result.rankPosition}`}
+                  result={result}
+                  onViewDetails={setSelectedResult}
+                />
+              </div>
+
             ))}
           </div>
 

@@ -240,9 +240,9 @@ export const AdminIndexing = () => {
         <div>
           <p className="text-sm font-medium text-indigo-700">Direct Upload Indexing</p>
           <h2 className="mt-1 text-2xl font-semibold text-zinc-900">Upload ảnh và theo dõi indexing job</h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+          {/* <p className="mt-2 max-w-2xl text-sm text-gray-600">
             Frontend này đã bỏ khái niệm batch. Mỗi lần upload sẽ tạo job nền và ảnh được index ngay sau khi upload thành công.
-          </p>
+          </p> */}
         </div>
         <button
           type="button"

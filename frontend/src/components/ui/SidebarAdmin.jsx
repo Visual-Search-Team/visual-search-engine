@@ -5,7 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: FiBarChart2, end: true },
   { to: "/admin/indexing", label: "Indexing", icon: FiDatabase },
-  { to: "/admin/users", label: "Users", icon: FiUsers, disabled: true },
+  { to: "/admin/users", label: "Users", icon: FiUsers },
 ];
 
 export const SidebarAdmin = () => {

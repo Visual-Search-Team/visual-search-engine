@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 const pageTitles = {
   "/admin": "Dashboard",
   "/admin/indexing": "Indexing",
+  "/admin/users": "Users",
 };
 
 export const HeaderAdmin = () => {

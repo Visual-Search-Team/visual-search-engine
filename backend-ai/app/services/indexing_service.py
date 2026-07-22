@@ -15,8 +15,8 @@ from app.embedding.clip_model import clip_model
 from app.qdrant.client import qdrant_client_wrapper
 from app.services.ocr_service import ocr_service
 
-logger = logging.getLogger(__name__)
-
+# logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 # Số luồng tải song song từ MinIO. Đây là I/O-bound (network call) nên chạy
 # song song giúp giảm tổng thời gian chờ thay vì tải tuần tự từng ảnh.
 _DOWNLOAD_WORKERS = 8
@@ -27,7 +27,7 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     - Generates CLIP embedding and upserts to Qdrant.
     - Updates status to 'INDEXED'.
     """
-    # Find up to 64 pending images. If batch_id is provided, only process that batch.
+    # Đọc tối đa 64 ảnh mỗi lần
     query = select(ImageEntity).where(ImageEntity.index_status == 'PENDING')
     if batch_id is not None:
         query = query.where(ImageEntity.batch_id == batch_id)

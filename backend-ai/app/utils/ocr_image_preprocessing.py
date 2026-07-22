@@ -68,11 +68,26 @@ def sharpen(image: np.ndarray) -> np.ndarray:
     return cv2.filter2D(image, -1, kernel)
 
 
-def upscale(image: np.ndarray, factor: float) -> np.ndarray:
-    if factor == 1.0:
-        return image
+def resize_image(image: np.ndarray, config: PreprocessConfig) -> np.ndarray:
     h, w = image.shape[:2]
-    return cv2.resize(image, (int(w * factor), int(h * factor)), interpolation=cv2.INTER_CUBIC)
+    max_size = 1024
+    
+    # 1. Tính toán kích thước dự kiến sau khi upscale
+    new_w = int(w * config.upscale_factor)
+    new_h = int(h * config.upscale_factor)
+    
+    # 2. Giới hạn kích thước tối đa để tránh OOM GPU
+    if max(new_w, new_h) > max_size:
+        ratio = max_size / max(new_w, new_h)
+        new_w = int(new_w * ratio)
+        new_h = int(new_h * ratio)
+        
+    if (new_w, new_h) == (w, h):
+        return image
+        
+    # Chọn thuật toán nội suy phù hợp
+    interpolation = cv2.INTER_AREA if new_w < w else cv2.INTER_CUBIC
+    return cv2.resize(image, (new_w, new_h), interpolation=interpolation)
 
 
 def binarize(image: np.ndarray) -> np.ndarray:
@@ -92,8 +107,8 @@ def preprocess_image(image: np.ndarray, config: PreprocessConfig) -> np.ndarray:
         result = deskew(result)
     if config.clahe:
         result = apply_clahe(result)
-    if config.upscale_factor != 1.0:
-        result = upscale(result, config.upscale_factor)
+    # Gom chung bước upscale và downscale
+    result = resize_image(result, config)
     if config.sharpen:
         result = sharpen(result)
     if config.binarize:

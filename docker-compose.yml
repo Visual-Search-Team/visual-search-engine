@@ -111,6 +111,14 @@ services:
       - ./Lora_weights:/app/lora-weights:ro
       - base-model-cache:/app/base_model_cache
       - ocr-model-cache:/app/ocr_model_cache
+    deploy:
+      #
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     restart: unless-stopped
 
   backend-java:

@@ -6,6 +6,8 @@ import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
 import { SearchHistoryDetailModal } from "../components/common/SearchHistoryDetail";
 import AOS from 'aos';
+import Swal from 'sweetalert2'
+
 
 const PAGE_SIZE = 20;
 
@@ -76,12 +78,39 @@ export const SearchHistory = () => {
   };
 
   const handleDeleteAll = () => {
-    const confirmed = window.confirm("Bạn có chắc muốn xoá toàn bộ lịch sử tìm kiếm?");
-
-    if (confirmed) {
-      deleteAllMutation.mutate();
+  Swal.fire({
+    title: 'Bạn có chắc muốn xoá?',
+    text: "Toàn bộ lịch sử tìm kiếm sẽ bị xoá vĩnh viễn và không thể khôi phục!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444', 
+    cancelButtonColor: '#6b7280',  
+    confirmButtonText: 'Đồng ý, xoá tất cả!',
+    cancelButtonText: 'Huỷ'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      
+      deleteAllMutation.mutate(undefined, {
+        onSuccess: () => {
+          Swal.fire({
+            title: 'Đã xoá!',
+            text: 'Lịch sử tìm kiếm của bạn đã được làm sạch.',
+            icon: 'success',
+            confirmButtonColor: '#3b82f6' 
+          });
+        },
+        onError: () => {
+          Swal.fire({
+            title: 'Lỗi!',
+            text: 'Không thể xoá lịch sử lúc này. Vui lòng thử lại.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+          });
+        }
+      });
     }
-  };
+  });
+};
 
   const currentPage = historyData.pageNumber + 1;
   const totalPages = historyData.totalPages || 1;

@@ -82,6 +82,10 @@ export const SearchResult = () => {
     },
     enabled: canShowResults,
     placeholderData: keepPreviousData,
+
+    staleTime: 5 * 60 * 1000, // Dữ liệu sẽ được coi là mới trong 5 phút, không re-fetch khi component re-mount
+    gcTime: 10 * 60 * 1000, // Thời gian giữ cache trong bộ nhớ (10 phút)
+    refetchOnWindowFocus: false, // Không tự động gọi lại API khi chuyển đổi qua lại giữa các tab trình duyệt
   });
 
   const searchData = useMemo(
@@ -92,7 +96,7 @@ export const SearchResult = () => {
   useEffect(() => {
     setTimeout(() => {
       AOS.refresh();
-    }, 100); 
+    }, 100);
   }, [searchData.results]);
 
   const modeLabel = getModeLabel(type, mode);
@@ -233,8 +237,8 @@ export const SearchResult = () => {
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             {searchData.results.map((result, index) => (
-              <div 
-                key={`${result.imageId}-${result.rankPosition}`} 
+              <div
+                key={`${result.imageId}-${result.rankPosition}`}
                 data-aos="fade-up"
                 data-aos-delay={index * 20}
               >

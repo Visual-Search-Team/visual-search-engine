@@ -17,14 +17,21 @@ public class BaseResponse<T> {
 
     private T data;
 
+    private String message;
+
     private Error error;
 
     private OffsetDateTime timestamp;
 
     public static <T> BaseResponse<T> success(T data) {
+        return success(data, null);
+    }
+
+    public static <T> BaseResponse<T> success(T data, String message) {
         return BaseResponse.<T>builder()
                 .success(true)
                 .data(data)
+                .message(message)
                 .error(null)
                 .timestamp(OffsetDateTime.now())
                 .build();
@@ -34,6 +41,7 @@ public class BaseResponse<T> {
         return BaseResponse.<T>builder()
                 .success(false)
                 .data(null)
+                .message(message)
                 .error(new Error(code, message))
                 .timestamp(OffsetDateTime.now())
                 .build();

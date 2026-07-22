@@ -1,13 +1,18 @@
 package com.imagesearch.backend_java.index.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
+import java.util.List;
+
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class IndexingJobRequest {
     private Long batchId;
+    private List<Long> imageIds;
+    private Boolean startImmediately;
 }

@@ -1,6 +1,8 @@
 import apiClient from "./apiClient";
 
-const UPLOAD_BATCH_SIZE = 50;
+const UPLOAD_CHUNK_SIZE = 50;
+
+const unwrapUploadResponse = (response) => response.data?.data || response.data || [];
 
 export const getImageBlob = async (imageId) => {
   const response = await apiClient.get(`/images/${imageId}`, {
@@ -15,25 +17,25 @@ export const getImageUrl = async (imageId) => {
   return response.data?.url || response.data?.data?.url || "";
 };
 
-export const uploadBatchImages = async (batchId, files) => {
+export const uploadImages = async (files) => {
   const uploadedImages = [];
 
-  for (let startIndex = 0; startIndex < files.length; startIndex += UPLOAD_BATCH_SIZE) {
+  for (let startIndex = 0; startIndex < files.length; startIndex += UPLOAD_CHUNK_SIZE) {
     const formData = new FormData();
-    const chunk = files.slice(startIndex, startIndex + UPLOAD_BATCH_SIZE);
+    const chunk = files.slice(startIndex, startIndex + UPLOAD_CHUNK_SIZE);
 
     chunk.forEach((file) => {
       formData.append("files", file);
     });
 
-    const response = await apiClient.post(`/images/batches/${batchId}/upload`, formData, {
+    const response = await apiClient.post("/images/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
       timeout: 60000,
     });
 
-    uploadedImages.push(...(response.data?.data || response.data || []));
+    uploadedImages.push(...unwrapUploadResponse(response));
   }
 
   return uploadedImages;

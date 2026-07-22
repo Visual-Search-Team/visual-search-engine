@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiLock, FiMail, FiUser } from "react-icons/fi";
 import { register } from "../services/authService";
+import { PasswordInput } from "../components/ui/PasswordInput";
 
 const getApiErrorMessage = (err) => {
   const status = err?.response?.status;
@@ -129,7 +130,12 @@ export const Register = () => {
 
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Mật khẩu
-          <div className="relative">
+          <PasswordInput
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+          />
+          {/* <div className="relative">
             <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               name="password"
@@ -142,13 +148,18 @@ export const Register = () => {
               required
               className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-3 text-base outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
             />
-          </div>
+          </div> */}
           <span className="text-xs font-normal text-gray-700">Mật khẩu nên có ít nhất 8 ký tự.</span>
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Nhập lại mật khẩu
-          <div className="relative">
+          <PasswordInput
+            name="confirmPassword"
+            value={form.confirmPassword}
+            onChange={handleChange}
+          />
+          {/* <div className="relative">
             <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               name="confirmPassword"
@@ -161,7 +172,7 @@ export const Register = () => {
               required
               className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-3 text-base outline-none transition focus:border-indigo-700 focus:ring-2 focus:ring-indigo-100"
             />
-          </div>
+          </div> */}
         </label>
 
         <button

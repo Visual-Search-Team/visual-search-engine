@@ -1,9 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaTrash, FaArrowLeft, FaHome } from "react-icons/fa";
 import { SearchHistoryCard } from "../components/ui/SearchHistoryCard";
 import { deleteAllSearchHistory, getSearchHistory } from "../services/searchHistoryService";
+import { SearchHistoryDetailModal } from "../components/common/SearchHistoryDetail";
+import AOS from 'aos';
+import Swal from 'sweetalert2'
+
 
 const PAGE_SIZE = 20;
 
@@ -34,6 +38,11 @@ export const SearchHistory = () => {
   const [activeFilter, setActiveFilter] = useState("");
   const [page, setPage] = useState(0);
 
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null);
+  const handleOpenDetail = (id) => {
+    setSelectedHistoryId(id);
+  };
+
   const historyQuery = useQuery({
     queryKey: ["search-history", activeFilter, page],
     queryFn: () => getSearchHistory({
@@ -49,6 +58,12 @@ export const SearchHistory = () => {
     [historyQuery.data]
   );
 
+  useEffect(() => {
+    setTimeout(() => {
+      AOS.refresh();
+    }, 100);
+  }, [historyData.histories]);
+
   const deleteAllMutation = useMutation({
     mutationFn: deleteAllSearchHistory,
     onSuccess: () => {
@@ -63,12 +78,39 @@ export const SearchHistory = () => {
   };
 
   const handleDeleteAll = () => {
-    const confirmed = window.confirm("Bạn có chắc muốn xoá toàn bộ lịch sử tìm kiếm?");
-
-    if (confirmed) {
-      deleteAllMutation.mutate();
+  Swal.fire({
+    title: 'Bạn có chắc muốn xoá?',
+    text: "Toàn bộ lịch sử tìm kiếm sẽ bị xoá vĩnh viễn và không thể khôi phục!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444', 
+    cancelButtonColor: '#6b7280',  
+    confirmButtonText: 'Đồng ý, xoá tất cả!',
+    cancelButtonText: 'Huỷ'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      
+      deleteAllMutation.mutate(undefined, {
+        onSuccess: () => {
+          Swal.fire({
+            title: 'Đã xoá!',
+            text: 'Lịch sử tìm kiếm của bạn đã được làm sạch.',
+            icon: 'success',
+            confirmButtonColor: '#3b82f6' 
+          });
+        },
+        onError: () => {
+          Swal.fire({
+            title: 'Lỗi!',
+            text: 'Không thể xoá lịch sử lúc này. Vui lòng thử lại.',
+            icon: 'error',
+            confirmButtonColor: '#3b82f6'
+          });
+        }
+      });
     }
-  };
+  });
+};
 
   const currentPage = historyData.pageNumber + 1;
   const totalPages = historyData.totalPages || 1;
@@ -76,16 +118,35 @@ export const SearchHistory = () => {
 
   return (
     <section className="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
-      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
-          >
-            <FaArrowLeft />
-            <span>Quay lại trang chủ</span>
-          </button>
-        </div>
+      <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
+        >
+          <FaArrowLeft />
+          <span>Quay lại trang trước</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+        >
+          <FaHome className="h-4 w-4" />
+          <span>Quay lại trang chủ</span>
+        </button>
+      </div>
+      {/* <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
+        >
+          <FaArrowLeft />
+          <span>Quay lại trang chủ</span>
+        </button>
+      </div> */}
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -118,8 +179,8 @@ export const SearchHistory = () => {
                   type="button"
                   onClick={() => handleFilterChange(filter.value)}
                   className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${isActive
-                      ? "border-indigo-700 bg-indigo-700 text-white"
-                      : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    ? "border-indigo-700 bg-indigo-700 text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     }`}
                 >
                   {filter.label}
@@ -162,12 +223,19 @@ export const SearchHistory = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            {historyData.histories.map((history, index) => (
-              <SearchHistoryCard
-                key={history.searchId || history.id || `${history.searchType}-${index}`}
-                history={history}
-              />
-            ))}
+            {historyData.histories.map((history, index) => {
+              const currentId = history.searchId || history.id;
+              return (
+                <div key={currentId} data-aos="fade-up" data-aos-delay={index * 50}>
+                  <SearchHistoryCard
+                    key={history.searchId || history.id || `${history.searchType}-${index}`}
+                    history={history}
+                    onClick={() => handleOpenDetail(currentId)}
+                  />
+                </div>
+              )
+
+            })}
           </div>
 
           <div className="flex flex-col items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
@@ -198,6 +266,15 @@ export const SearchHistory = () => {
               </button>
             </div>
           </div>
+
+          {selectedHistoryId && (
+            <SearchHistoryDetailModal
+              isOpen={!!selectedHistoryId}
+              onClose={() => setSelectedHistoryId(null)}
+              searchId={selectedHistoryId}
+            />
+          )}
+
         </>
       )}
     </section>

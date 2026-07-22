@@ -60,3 +60,19 @@ export const deleteAllSearchHistory = async () => {
     return response.data;
   }
 };
+
+export const getSearchHistoryDetail = async (historyId) => {
+  try {
+    const response = await apiClient.get(`${SEARCH_HISTORY_ENDPOINTS[0]}/${historyId}`);
+    return response.data.data;
+  } catch (error) {
+    const shouldTryFallback = error.response?.status === 404 || error.response?.status === 405;
+
+    if (!shouldTryFallback) {
+      throw error;
+    }
+
+    const response = await apiClient.get(`${SEARCH_HISTORY_ENDPOINTS[1]}/${historyId}`);
+    return response.data;
+  }
+};

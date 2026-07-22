@@ -1,9 +1,7 @@
 package com.imagesearch.backend_java.image.entity;
 
 import com.imagesearch.backend_java.auth.entity.User;
-import com.imagesearch.backend_java.batch.entity.BatchEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
-import com.imagesearch.backend_java.index.entity.IndexingJobItemEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,7 +16,6 @@ import java.util.List;
 @Table(
         name = "images",
         indexes = {
-                @Index(name = "idx_images_batch_id", columnList = "batch_id"),
                 @Index(name = "idx_images_uploaded_by", columnList = "uploaded_by"),
                 @Index(name = "idx_images_index_status", columnList = "index_status"),
                 @Index(name = "idx_images_checksum", columnList = "checksum")
@@ -35,15 +32,8 @@ public class ImageEntity {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "batch_id")
-    private BatchEntity batch;
-
-    @ManyToOne
     @JoinColumn(name = "uploaded_by")
     private User uploadedBy;
-
-    @OneToMany(mappedBy = "image", fetch = FetchType.LAZY)
-    private List<IndexingJobItemEntity> indexingJobItems;
 
     @Column(name = "original_filename", length = 500)
     private String originalFileName;
@@ -74,6 +64,9 @@ public class ImageEntity {
 
     @Column(name = "indexed_at")
     private LocalDateTime indexedAt;
+
+    @Column(name = "error_message", length = 2000)
+    private String errorMessage;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

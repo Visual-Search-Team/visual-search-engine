@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
@@ -7,6 +7,8 @@ import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
+import { searchStore } from "../utils/searchStore";
+import AOS from 'aos';
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
@@ -50,7 +52,12 @@ export const SearchResult = () => {
   const query = searchParams.get("q") || searchState.query || "";
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
   const page = Math.max(Number(searchParams.get("page") || 0), 0);
-  const imageFile = searchState.imageFile;
+  const imageFile = searchState.imageFile || searchStore.imageFile;
+
+  const previewImageUrl = useMemo(() => {
+    if (imageFile) return URL.createObjectURL(imageFile);
+    return null;
+  }, [imageFile]);
 
   const isImageSearch = type === "image";
   const canSearch = isImageSearch ? !!imageFile : !!query.trim();
@@ -75,12 +82,22 @@ export const SearchResult = () => {
     },
     enabled: canShowResults,
     placeholderData: keepPreviousData,
+
+    staleTime: 5 * 60 * 1000, // Dữ liệu sẽ được coi là mới trong 5 phút, không re-fetch khi component re-mount
+    gcTime: 10 * 60 * 1000, // Thời gian giữ cache trong bộ nhớ (10 phút)
+    refetchOnWindowFocus: false, // Không tự động gọi lại API khi chuyển đổi qua lại giữa các tab trình duyệt
   });
 
   const searchData = useMemo(
     () => normalizeSearchResponse(searchQuery.data),
     [searchQuery.data]
   );
+
+  useEffect(() => {
+    setTimeout(() => {
+      AOS.refresh();
+    }, 100);
+  }, [searchData.results]);
 
   const modeLabel = getModeLabel(type, mode);
   const descriptionLabel = getDescriptionLabel(type, mode);
@@ -115,7 +132,7 @@ export const SearchResult = () => {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="mt-6 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+          className="mt-6 cursor-pointer rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
         >
           Quay lại tìm kiếm
         </button>
@@ -150,9 +167,12 @@ export const SearchResult = () => {
                     {descriptionLabel}:
                   </span>
 
-                  <div className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+                  <div
+                    className="h-30 w-30 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm"
+                  >
                     <ImageWithFallback
-                      src={URL.createObjectURL(imageFile)}
+                      src={previewImageUrl}
+                      // src={URL.createObjectURL(imageFile)}
                       imageId={imageFile?.name}
                       alt={imageFile?.name}
                       className="h-full w-full object-cover p-1"
@@ -216,12 +236,19 @@ export const SearchResult = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-            {searchData.results.map((result) => (
-              <SearchResultCard
+            {searchData.results.map((result, index) => (
+              <div
                 key={`${result.imageId}-${result.rankPosition}`}
-                result={result}
-                onViewDetails={setSelectedResult}
-              />
+                data-aos="fade-up"
+                data-aos-delay={index * 20}
+              >
+                <SearchResultCard
+                  key={`${result.imageId}-${result.rankPosition}`}
+                  result={result}
+                  onViewDetails={setSelectedResult}
+                />
+              </div>
+
             ))}
           </div>
 

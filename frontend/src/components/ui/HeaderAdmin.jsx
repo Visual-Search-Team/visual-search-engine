@@ -45,7 +45,7 @@ export const HeaderAdmin = () => {
         <button
           type="button"
           onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          className="cursor-pointer inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
         >
           <FiLogOut className="size-4" />
           <span className="hidden sm:inline">Đăng xuất</span>

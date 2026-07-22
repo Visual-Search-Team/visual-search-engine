@@ -1,7 +1,6 @@
 package com.imagesearch.backend_java.index.dto;
 
-import com.imagesearch.backend_java.index.enums.ImageIndexStatus;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

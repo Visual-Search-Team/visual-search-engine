@@ -1,32 +1,41 @@
 package com.imagesearch.backend_java.index.controller;
 
 import com.imagesearch.backend_java.auth.dto.BaseResponse;
-import com.imagesearch.backend_java.batch.dto.response.PageResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
-import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
+import com.imagesearch.backend_java.index.dto.IndexingJobSummaryResponse;
+import com.imagesearch.backend_java.index.dto.PageResponse;
+import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
+import com.imagesearch.backend_java.index.dto.request.IndexingJobRetryRequest;
 import com.imagesearch.backend_java.index.service.IndexingJobService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
-import com.imagesearch.backend_java.index.dto.request.IndexingJobRetryRequest;
 
 @RestController
 @RequestMapping("/admin/indexing-jobs")
 @RequiredArgsConstructor
 @Slf4j
+@SecurityRequirement(name = "bearerAuth")
 public class IndexingJobController {
 
     private final IndexingJobService indexingJobService;
 
     @PostMapping
-    public ResponseEntity<BaseResponse<IndexingJobResponse>> createIndexingJob(@RequestBody IndexingJobRequest request) {
-        log.info("POST /indexing-jobs: Create indexing job for batch {}", request.getBatchId());
+    public ResponseEntity<BaseResponse<IndexingJobResponse>> createIndexingJob(
+            @RequestBody(required = false) IndexingJobRequest request) {
         try {
             IndexingJobResponse response = indexingJobService.createIndexingJob(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.success(response));
@@ -37,12 +46,24 @@ public class IndexingJobController {
         }
     }
 
+    @GetMapping
+    public ResponseEntity<BaseResponse<PageResponse<IndexingJobSummaryResponse>>> getIndexingJobs(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        try {
+            PageResponse<IndexingJobSummaryResponse> response = indexingJobService.getIndexingJobs(Map.of("page", page, "size", size));
+            return ResponseEntity.ok(BaseResponse.success(response));
+        } catch (Exception ex) {
+            log.error("Error fetching indexing jobs", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("INDEXING_JOB_FETCH_ERROR", ex.getMessage()));
+        }
+    }
+
     @GetMapping("/{jobId}")
     public ResponseEntity<BaseResponse<IndexingJobResponse>> getIndexingJob(@PathVariable Long jobId) {
-        log.info("GET /indexing-jobs/{}: Fetch indexing job", jobId);
         try {
-            IndexingJobResponse response = indexingJobService.getIndexingJob(jobId);
-            return ResponseEntity.ok(BaseResponse.success(response));
+            return ResponseEntity.ok(BaseResponse.success(indexingJobService.getIndexingJob(jobId)));
         } catch (Exception ex) {
             log.error("Error fetching indexing job", ex);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -52,10 +73,8 @@ public class IndexingJobController {
 
     @PostMapping("/{jobId}/start")
     public ResponseEntity<BaseResponse<IndexingJobResponse>> startIndexing(@PathVariable Long jobId) {
-        log.info("POST /indexing-jobs/{}/start: Start indexing", jobId);
         try {
-            IndexingJobResponse response = indexingJobService.startIndexing(jobId);
-            return ResponseEntity.ok(BaseResponse.success(response));
+            return ResponseEntity.ok(BaseResponse.success(indexingJobService.startIndexing(jobId)));
         } catch (Exception ex) {
             log.error("Error starting indexing job", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -65,7 +84,6 @@ public class IndexingJobController {
 
     @PostMapping("/{jobId}/cancel")
     public ResponseEntity<BaseResponse<Void>> cancelIndexing(@PathVariable Long jobId) {
-        log.info("POST /indexing-jobs/{}/cancel: Cancel indexing", jobId);
         try {
             indexingJobService.cancelIndexing(jobId);
             return ResponseEntity.ok(BaseResponse.<Void>builder()
@@ -84,13 +102,11 @@ public class IndexingJobController {
             @PathVariable Long jobId,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
-        log.info("GET /indexing-jobs/{}/items: Fetch job items with page={}, size={}", jobId, page, size);
         try {
-            Map<String, Object> params = Map.of("page", page, "size", size);
-            PageResponse<IndexingJobItemResponse> response = indexingJobService.getJobItems(jobId, params);
+            PageResponse<IndexingJobItemResponse> response = indexingJobService.getJobItems(jobId, Map.of("page", page, "size", size));
             return ResponseEntity.ok(BaseResponse.success(response));
         } catch (Exception ex) {
-            log.error("Error fetching job items", ex);
+            log.error("Error fetching indexing job items", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(BaseResponse.error("JOB_ITEMS_FETCH_ERROR", ex.getMessage()));
         }
@@ -98,7 +114,6 @@ public class IndexingJobController {
 
     @GetMapping("/status/{jobId}")
     public ResponseEntity<BaseResponse<Map<String, Object>>> getIndexingJobStatus(@PathVariable Long jobId) {
-        log.info("GET /indexing-jobs/status/{}: Fetch indexing job status", jobId);
         try {
             IndexingJobResponse response = indexingJobService.getIndexingJob(jobId);
             Map<String, Object> payload = Map.of(
@@ -116,10 +131,8 @@ public class IndexingJobController {
 
     @PostMapping("/retry")
     public ResponseEntity<BaseResponse<IndexingJobResponse>> retryIndexingJob(@RequestBody IndexingJobRetryRequest request) {
-        log.info("POST /indexing-jobs/retry: Retry indexing job {}", request.getJobId());
         try {
-            IndexingJobResponse response = indexingJobService.retryIndexing(request.getJobId());
-            return ResponseEntity.ok(BaseResponse.success(response));
+            return ResponseEntity.ok(BaseResponse.success(indexingJobService.retryIndexing(request.getJobId())));
         } catch (Exception ex) {
             log.error("Error retrying indexing job", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

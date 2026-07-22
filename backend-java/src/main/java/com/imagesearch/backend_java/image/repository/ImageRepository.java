@@ -14,9 +14,9 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
 
     Optional<ImageEntity> findByChecksum(String checksum);
 
-    Long countByBatchId(Long batchId);
+    Long countByIndexStatus(ImageIndexStatus indexStatus);
 
-    Long countByBatchIdAndIndexStatus(Long batchId, ImageIndexStatus indexStatus);
+    List<ImageEntity> findByIndexStatus(ImageIndexStatus indexStatus);
 
-    List<ImageEntity> findByBatchId(Long batchId);
+    List<ImageEntity> findByIndexStatusIn(List<ImageIndexStatus> statuses);
 }

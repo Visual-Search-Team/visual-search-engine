@@ -10,6 +10,7 @@ import { BookMark } from '../pages/BookMark';
 import { SearchHistory } from '../pages/SearchHistory';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import { AdminIndexing } from '../pages/admin/AdminIndexing';
+import { AdminUser } from '../pages/admin/AdminUser';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -63,8 +64,14 @@ export default function AppRoutes() {
             <AdminIndexing />
           </AdminLayout>
         } />
+        <Route path='/admin/users' element={
+          <AdminLayout>
+            <AdminUser />
+          </AdminLayout>
+        } />
+
       </Route>
-      
+
     </Routes>
   );
 }

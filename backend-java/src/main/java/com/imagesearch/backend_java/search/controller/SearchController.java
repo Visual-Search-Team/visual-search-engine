@@ -1,6 +1,7 @@
 package com.imagesearch.backend_java.search.controller;
 
 import com.imagesearch.backend_java.search.dto.BaseResponse;
+import com.imagesearch.backend_java.search.dto.request.SimilarySearchImageRequest;
 import com.imagesearch.backend_java.search.dto.response.ImageSearchResponse;
 import com.imagesearch.backend_java.search.dto.response.TextSearchResponse;
 import com.imagesearch.backend_java.search.exception.SearchException;
@@ -8,6 +9,7 @@ import com.imagesearch.backend_java.search.service.SearchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,6 +58,32 @@ public class SearchController {
         } catch (Exception e) {
             log.error("Unexpected image search error", e);
             return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_ERROR", "Could not search by image"));
+        }
+    }
+
+    @PostMapping("/image/similar")
+    @Operation(
+            summary = "Search similar images by an indexed image id",
+            description = "Uses the existing Qdrant point as the query, without creating a new embedding, and stores the search history."
+    )
+    public ResponseEntity<BaseResponse<ImageSearchResponse>> searchSimilarImage(
+            @Valid @RequestBody SimilarySearchImageRequest request,
+            @RequestParam(value = "limit", required = false) Integer limit,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            Authentication authentication
+    ) {
+        try {
+            log.info("Entered searchSimilarImage API for image id {}", request.getImageId());
+            ImageSearchResponse data = searchService.searchSimilarImage(
+                    request.getImageId(), username(authentication), limit, page, pageSize
+            );
+            return ResponseEntity.ok(BaseResponse.success(data));
+        } catch (SearchException e) {
+            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected similar image search error", e);
+            return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_ERROR", "Could not search similar images"));
         }
     }
 

@@ -161,6 +161,35 @@ public class QdrantVectorService {
     }
 
     /**
+     * Uses an existing Qdrant point as the nearest-neighbour query, so no embedding service is needed.
+     */
+    public JsonObject searchByPointId(Long imageId, int limit) throws IOException {
+        if (imageId == null) {
+            throw new IllegalArgumentException("Image id is required");
+        }
+
+        Map<String, Object> body = Map.of(
+                "query", imageId,
+                "limit", limit,
+                "with_payload", false,
+                "with_vector", false
+        );
+
+        Request request = new Request.Builder()
+                .url(collectionUrl() + "/points/query")
+                .post(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
+                .build();
+
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            String raw = response.body() == null ? "" : response.body().string();
+            if (!response.isSuccessful()) {
+                throw new IOException("Qdrant point search failed: HTTP " + response.code() + " " + raw);
+            }
+            return gson.fromJson(raw, JsonObject.class);
+        }
+    }
+
+    /**
      * Kiểm tra embedding hợp lệ và đúng số chiều trước khi gọi HTTP sang Qdrant.
      */
     private void validateEmbedding(List<Float> embedding) {

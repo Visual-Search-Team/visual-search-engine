@@ -114,6 +114,39 @@ public class SearchService {
         }
     }
 
+    public ImageSearchResponse searchSimilarImage(Long imageId, String username, Integer limit, Integer page, Integer pageSize) {
+        long startTime = System.currentTimeMillis();
+        SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
+        ImageEntity queryImage = imageRepository.findById(imageId)
+                .orElseThrow(() -> new SearchException("IMAGE_NOT_FOUND", "Image not found", HttpStatus.NOT_FOUND));
+
+        try {
+            // Request one extra hit because the source point itself is normally the closest result.
+            JsonObject rawResult = qdrantVectorService.searchByPointId(imageId, pageCriteria.limit() + 1);
+            List<SearchResultItem> results = mapQdrantResults(rawResult, imageId).stream()
+                    .limit(pageCriteria.limit())
+                    .toList();
+            SearchHistory history = saveHistory(
+                    username,
+                    SearchType.IMAGE_TO_IMAGE,
+                    null,
+                    queryImage.getStoragePath(),
+                    queryImage.getId(),
+                    startTime
+            );
+
+            ImageSearchResponse response = new ImageSearchResponse();
+            response.setSearchId(history.getId());
+            response.setSearchType(SearchType.IMAGE_TO_IMAGE.name());
+            response.setQueryImageUrl("/visual-search/v1/images/" + queryImage.getId());
+            response.setProcessingTimeMs(history.getProcessingTimeMs());
+            applyPage(response, results, pageCriteria);
+            return response;
+        } catch (IOException e) {
+            throw new SearchException("VECTOR_SEARCH_ERROR", "Could not search vectors", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
+    }
+
     private String uploadQueryImage(MultipartFile image) {
         try {
             log.warn("start upload");
@@ -177,15 +210,17 @@ public class SearchService {
 
     private List<SearchResultItem> searchQdrant(List<Float> embedding, int limit) throws IOException {
         JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit);
-        JsonArray points = rawResult.has("result") && rawResult.get("result").isJsonArray()
-                ? rawResult.getAsJsonArray("result")
-                : new JsonArray();
+        return mapQdrantResults(rawResult, null);
+    }
+
+    private List<SearchResultItem> mapQdrantResults(JsonObject rawResult, Long excludedImageId) {
+        JsonArray points = extractQdrantPoints(rawResult);
 
         List<QdrantHit> hits = new ArrayList<>();
         for (JsonElement pointElement : points) {
             JsonObject point = pointElement.getAsJsonObject();
             Long imageId = readPointId(point);
-            if (imageId == null) {
+            if (imageId == null || imageId.equals(excludedImageId)) {
                 continue;
             }
             Float score = point.has("score") ? point.get("score").getAsFloat() : null;
@@ -210,6 +245,22 @@ public class SearchService {
             }
         }
         return results;
+    }
+
+    private JsonArray extractQdrantPoints(JsonObject rawResult) {
+        if (rawResult == null || !rawResult.has("result")) {
+            return new JsonArray();
+        }
+        JsonElement result = rawResult.get("result");
+        if (result.isJsonArray()) {
+            return result.getAsJsonArray();
+        }
+        if (result.isJsonObject()
+                && result.getAsJsonObject().has("points")
+                && result.getAsJsonObject().get("points").isJsonArray()) {
+            return result.getAsJsonObject().getAsJsonArray("points");
+        }
+        return new JsonArray();
     }
 
     private Long readPointId(JsonObject point) {

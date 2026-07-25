@@ -6,6 +6,7 @@ import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
+import { searchSimilarImages } from "../services/searchSimilarService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
 import { searchStore } from "../utils/searchStore";
 import AOS from 'aos';
@@ -14,12 +15,14 @@ const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
 
 const getModeLabel = (type, mode) => {
+  if (type === "similar") return "Tìm ảnh tương tự";
   if (type === "image") return "Tìm bằng ảnh";
   if (mode === "OCR") return "Tìm chữ trong ảnh";
   return "Tìm bằng text";
 };
 
 const getDescriptionLabel = (type, mode) => {
+  if (type === "similar") return "Kết quả tương tự cho ảnh";
   if (type === "image") return "Kết quả cho ảnh";
   if (mode === "OCR") return "Kết quả cho chữ";
   return "Kết quả cho mô tả";
@@ -38,6 +41,7 @@ const normalizeSearchResponse = (response) => {
     totalElements: data.totalElements || 0,
     totalPages: data.totalPages || 0,
     processingTimeMs: data.processingTimeMs,
+    queryImageUrl: data.queryImageUrl || null,
   };
 };
 
@@ -49,22 +53,21 @@ export const SearchResult = () => {
   const [selectedResult, setSelectedResult] = useState(null);
 
   const type = searchParams.get("type") || searchState.type || "text";
+  const isImageSearch = type === "image";
+  const isSimilarSearch = type === "similar";
+
   const query = searchParams.get("q") || searchState.query || "";
+  const imageId = searchParams.get("imageId") || searchState.imageId || null;
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
   const page = Math.max(Number(searchParams.get("page") || 0), 0);
   const imageFile = searchState.imageFile || searchStore.imageFile;
 
-  const previewImageUrl = useMemo(() => {
-    if (imageFile) return URL.createObjectURL(imageFile);
-    return null;
-  }, [imageFile]);
 
-  const isImageSearch = type === "image";
-  const canSearch = isImageSearch ? !!imageFile : !!query.trim();
+  const canSearch = isImageSearch ? !!imageFile : isSimilarSearch ? !!imageId : !!query.trim();
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const searchQuery = useQuery({
-    queryKey: ["search-results", type, query, mode, page, imageFile?.name],
+    queryKey: ["search-results", type, query, mode, page, imageFile?.name, imageId],
     queryFn: async () => {
       if (USE_MOCK_SEARCH_RESULTS) {
         return getMockSearchResponse({
@@ -72,6 +75,11 @@ export const SearchResult = () => {
           size: PAGE_SIZE,
           searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
         });
+      }
+
+      // Xử lý gọi API tìm tương tự
+      if (isSimilarSearch && imageId) {
+        return searchSimilarImages(Number(imageId), page, PAGE_SIZE);
       }
 
       if (isImageSearch) {
@@ -93,6 +101,14 @@ export const SearchResult = () => {
     [searchQuery.data]
   );
 
+  const previewImageUrl = useMemo(() => {
+    if (isImageSearch && imageFile) return URL.createObjectURL(imageFile);
+    if (isSimilarSearch && searchData?.queryImageUrl) {
+      return searchData.queryImageUrl;
+    }
+    return null;
+  }, [imageFile, isImageSearch, isSimilarSearch, searchData?.queryImageUrl]);
+
   useEffect(() => {
     setTimeout(() => {
       AOS.refresh();
@@ -103,9 +119,11 @@ export const SearchResult = () => {
   const descriptionLabel = getDescriptionLabel(type, mode);
   const descriptionValue = USE_MOCK_SEARCH_RESULTS
     ? "dữ liệu mock"
-    : isImageSearch
-      ? imageFile?.name || "ảnh đã tải lên"
-      : query;
+    : isSimilarSearch
+      ? `ảnh có ID: #${imageId}`
+      : isImageSearch
+        ? imageFile?.name || "ảnh đã tải lên"
+        : query;
   const currentPage = searchData.pageNumber + 1;
   const totalPages = searchData.totalPages || 1;
 
@@ -113,6 +131,11 @@ export const SearchResult = () => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("page", String(nextPage));
     nextParams.set("size", String(PAGE_SIZE));
+
+    if (isSimilarSearch && imageId) {
+      nextParams.set("imageId", imageId);
+    }
+
     navigate(
       {
         pathname: "/search-result",
@@ -120,6 +143,15 @@ export const SearchResult = () => {
       },
       { state: searchState }
     );
+  };
+
+  const handleSearchSimilar = (result) => {
+    if (!result?.imageId) return;
+
+    setSelectedResult(null);
+
+    navigate(`/search-result?type=similar&imageId=${result.imageId}&page=0`);
+    window.scrollTo(0, 0);
   };
 
   if (!canShowResults) {
@@ -161,7 +193,7 @@ export const SearchResult = () => {
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              {isImageSearch ? (
+              {isImageSearch || isSimilarSearch ? (
                 <div className="flex items-center gap-3">
                   <span className="text-base leading-7 text-gray-700">
                     {descriptionLabel}:
@@ -287,6 +319,7 @@ export const SearchResult = () => {
         isOpen={!!selectedResult}
         result={selectedResult}
         onClose={() => setSelectedResult(null)}
+        onSearchSimilar={handleSearchSimilar}
       />
     </section>
   );

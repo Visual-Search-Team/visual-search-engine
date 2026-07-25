@@ -1,12 +1,12 @@
 import { FaBookmark, FaFileImage, FaHashtag, FaImage, FaInfoCircle, FaRulerCombined, FaSearch, FaStar, FaTimes, } from "react-icons/fa";
 import { useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { saveBookmark } from "../../services/bookmarkService";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { Link } from "react-router-dom";
+
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -46,9 +46,6 @@ const getSaveBookmarkErrorMessage = (error) => {
 
 export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) => {
 
-
-  // const navigate = useNavigate();
-
   const queryClient = useQueryClient();
   const saveBookmarkMutation = useMutation({
     mutationFn: saveBookmark,
@@ -80,50 +77,6 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
     saveBookmarkMutation.mutate(result.imageId);
   };
 
-
-  // const onSearchSimilar = async () => {
-  //   try {
-  //     const imageUrl = resolveImageUrl(
-  //       result.imageUrl || result.storagePath || result.thumbnailUrl || result.thumbnailPath,
-  //       result.imageId
-  //     );
-
-  //     const response = await fetch(imageUrl);
-
-  //     if (!response.ok) throw new Error("Không thể tải ảnh");
-
-  //     const blob = await response.blob();
-
-  //     const filename = result.originalFilename || `similar-${result.imageId}.jpg`;
-  //     const mimeType = result.mimeType || blob.type || "image/jpeg";
-
-  //     const imageFile = new File([blob], filename, { type: mimeType });
-
-  //     onClose(); 
-
-  //     const nextParams = new URLSearchParams({
-  //       type: "image",
-  //       page: "0",
-  //       size: "20"
-  //     });
-
-  //     navigate(
-  //       {
-  //         pathname: "/search-result",
-  //         search: nextParams.toString(),
-  //       },
-  //       { 
-  //         state: { 
-  //           type: "image",
-  //           imageFile: imageFile 
-  //         } 
-  //       }
-  //     );
-
-  //   } catch (error) {
-  //     console.error("Lỗi tải ảnh tìm tương tự:", error);
-  //   }
-  // };
 
   return (
     <div

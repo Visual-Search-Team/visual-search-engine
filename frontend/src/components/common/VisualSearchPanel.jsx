@@ -281,7 +281,7 @@ export default function VisualSearchPanel() {
                 type="submit"
                 onClick={handleTextSearch}
                 disabled={!query.trim()}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
+                className="inline-flex cursor-pointer min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
               >
                 <FaSearch className="h-4 w-4" />
                 Tìm kiếm

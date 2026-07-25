@@ -13,3 +13,24 @@ export const searchSimilarImages = async (imageId, page = 1, size = 20) => {
         throw error;
     }
 };
+
+// export const searchSimilarImages = async (imageId, page = 0, limit = 100, pageSize = 20) => {
+//   try {
+//     const response = await apiClient.post(
+//       "/search/image/similar",
+//       { imageId },
+//       {
+//         params: {
+//           page,
+//           limit,
+//           pageSize,
+//         },
+//       }
+//     );
+
+//     return response.data;
+//   } catch (error) {
+//     console.error("Lỗi search tương tự:", error);
+//     throw error;
+//   }
+// };

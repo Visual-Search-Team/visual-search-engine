@@ -36,8 +36,8 @@ const normalizeSearchResponse = (response) => {
       ...result,
       score: result.score ?? result.similarityScore ?? 0,
     })),
-    pageNumber: data.pageNumber || 0,
-    pageSize: data.pageSize || PAGE_SIZE,
+    pageNumber: data.page ?? data.pageNumber ?? 0,
+    pageSize: data.size ?? data.pageSize ?? PAGE_SIZE,
     totalElements: data.totalElements || 0,
     totalPages: data.totalPages || 0,
     processingTimeMs: data.processingTimeMs,
@@ -59,7 +59,10 @@ export const SearchResult = () => {
   const query = searchParams.get("q") || searchState.query || "";
   const imageId = searchParams.get("imageId") || searchState.imageId || null;
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
-  const page = Math.max(Number(searchParams.get("page") || 0), 0);
+  const page = Math.max(Number(searchParams.get("page") || 1), 1);
+
+  const size = Number(searchParams.get("size")) || PAGE_SIZE;
+
   const imageFile = searchState.imageFile || searchStore.imageFile;
 
 
@@ -67,26 +70,27 @@ export const SearchResult = () => {
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const searchQuery = useQuery({
-    queryKey: ["search-results", type, query, mode, page, imageFile?.name, imageId],
+    queryKey: ["search-results", type, query, mode, page, size, imageFile?.name, imageId],
     queryFn: async () => {
+
       if (USE_MOCK_SEARCH_RESULTS) {
         return getMockSearchResponse({
           page,
-          size: PAGE_SIZE,
+          size,
           searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
         });
       }
 
       // Xử lý gọi API tìm tương tự
       if (isSimilarSearch && imageId) {
-        return searchSimilarImages(Number(imageId), page, PAGE_SIZE);
+        return searchSimilarImages(Number(imageId), page, size);
       }
 
       if (isImageSearch) {
-        return searchByImage({ image: imageFile, page, size: PAGE_SIZE });
+        return searchByImage({ image: imageFile, page, size });
       }
 
-      return searchByText({ query, mode, page, size: PAGE_SIZE });
+      return searchByText({ query, mode, page, size });
     },
     enabled: canShowResults,
     placeholderData: keepPreviousData,
@@ -130,7 +134,7 @@ export const SearchResult = () => {
   const updatePage = (nextPage) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("page", String(nextPage));
-    nextParams.set("size", String(PAGE_SIZE));
+    nextParams.set("size", String(size));
 
     if (isSimilarSearch && imageId) {
       nextParams.set("imageId", imageId);
@@ -150,7 +154,7 @@ export const SearchResult = () => {
 
     setSelectedResult(null);
 
-    navigate(`/search-result?type=similar&imageId=${result.imageId}&page=0`);
+    navigate(`/search-result?type=similar&imageId=${result.imageId}&page=1&size=${size}`);
     window.scrollTo(0, 0);
   };
 
@@ -295,8 +299,8 @@ export const SearchResult = () => {
               <button
                 type="button"
                 onClick={() => updatePage(page - 1)}
-                disabled={page <= 0 || searchQuery.isFetching}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage <= 1 || searchQuery.isFetching}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FaChevronLeft className="h-3 w-3" />
                 Trước
@@ -305,7 +309,7 @@ export const SearchResult = () => {
                 type="button"
                 onClick={() => updatePage(page + 1)}
                 disabled={currentPage >= totalPages || searchQuery.isFetching}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sau
                 <FaChevronRight className="h-3 w-3" />

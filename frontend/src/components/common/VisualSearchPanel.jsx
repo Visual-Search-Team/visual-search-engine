@@ -108,7 +108,7 @@ export default function VisualSearchPanel() {
 
     searchStore.imageFile = selectedFile;
 
-    navigate('/search-result?type=image&page=0&size=20', {
+    navigate('/search-result?type=image&page=1&size=20', {
       state: {
         type: 'image',
         imageFile: selectedFile,
@@ -128,7 +128,7 @@ export default function VisualSearchPanel() {
       type: 'text',
       q: trimmedQuery,
       mode,
-      page: '0',
+      page: '1',
       size: '20',
     });
 

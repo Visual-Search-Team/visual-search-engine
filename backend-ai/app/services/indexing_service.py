@@ -141,14 +141,6 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
                 logger.info(f"[OCR] Không tìm thấy text trong image id={image_id}, bỏ qua.")
                 continue
 
-            # ocr_record = ImageOcrEntity(
-            #     image_id=image_id,
-            #     extracted_text=ocr_result['extractedText'],
-            #     language=ocr_result['language'],
-            #     confidence=Decimal(str(min(ocr_result['avgConfidence'], 0.9999))),
-            #     bounding_boxes=ocr_result['regions'],
-            # )
-
             ocr_record = ImageOcrEntity(
                 image_id=image_id,
                 extracted_text=ocr_result['extractedText'],
@@ -159,7 +151,7 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
 
             pending_ocr_records.append(ocr_record)
             logger.info(
-                f"[OCR] ✅ Trích xuất xong image id={image_id}: "
+                f"[OCR]  Trích xuất xong image id={image_id}: "
                 f"{ocr_result['regionCount']} vùng text, "
                 f"text='{ocr_result['extractedText'][:60]}'"
             )

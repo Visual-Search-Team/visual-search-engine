@@ -47,6 +47,7 @@ public class ImageIndexingService {
                     .storagePath(image.getStoragePath())
                     .imageUrl(imageUrl)
                     .mimeType(image.getMimeType())
+                    .imageId(image.getId())
                     .build());
 
             image.setEmbedding(embedding);

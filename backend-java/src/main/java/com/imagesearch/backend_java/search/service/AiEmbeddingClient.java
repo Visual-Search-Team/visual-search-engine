@@ -27,7 +27,9 @@ public class AiEmbeddingClient {
     @Value("${integration.backend-ai.base-url:http://localhost:8000}")
     private String backendAiBaseUrl;
 
-    @Value("${integration.backend-ai.mock-embedding:true}")
+    // @Value("${integration.backend-ai.mock-embedding:true}")
+    
+    @Value("${integration.backend-ai.mock-embedding:false}")
     private boolean mockEmbedding;
 
     public List<Float> getImageEmbedding(EmbeddingRequest request) throws IOException {

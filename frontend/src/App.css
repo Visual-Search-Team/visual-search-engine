@@ -5,6 +5,16 @@ input[type="password"]::-ms-clear {
   display: none;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: smooth !important;
+  }
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

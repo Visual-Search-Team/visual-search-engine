@@ -37,6 +37,7 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     if not pending_images:
         return
 
+    print(f"\\n🔍 [SCAN] Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
     logger.info(f"Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
 
     valid_ids = []
@@ -86,9 +87,11 @@ def process_pending_images(db: Session, batch_id: int | None = None):
 
             clip_duration = time.time() - clip_start_time
             speed = len(valid_ids) / clip_duration if clip_duration > 0 else 0
-            logger.info(
+            print(
+                f"\\n========================================\\n"
                 f"⏱️ [SPEED CLIP] Xử lý xong {len(valid_ids)} ảnh trong "
-                f"{clip_duration:.2f}s. Tốc độ: {speed:.2f} ảnh/giây."
+                f"{clip_duration:.2f}s. Tốc độ: {speed:.2f} ảnh/giây.\\n"
+                f"========================================\\n"
             )
         except Exception as e:
             logger.error(f"Batch embedding or upsert failed: {e}")
@@ -166,8 +169,10 @@ def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):
     ocr_duration = time.time() - ocr_start_time
     total_ocr = len(image_cache_dict)
     speed_ocr = total_ocr / ocr_duration if ocr_duration > 0 else 0
-    logger.info(
+    print(
+        f"\\n========================================\\n"
         f"⏱️ [SPEED OCR] Quét chữ xong {total_ocr} ảnh trong "
-        f"{ocr_duration:.2f}s. Tốc độ: {speed_ocr:.2f} ảnh/giây."
+        f"{ocr_duration:.2f}s. Tốc độ: {speed_ocr:.2f} ảnh/giây.\\n"
+        f"========================================\\n"
     )
 

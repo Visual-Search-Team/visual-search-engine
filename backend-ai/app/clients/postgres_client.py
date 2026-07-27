@@ -27,7 +27,6 @@ class ImageEntity(Base):
 
 
 class ImageOcrEntity(Base):
-    """Maps to the image_ocr table created by Java/Hibernate."""
     __tablename__ = 'image_ocr'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -35,7 +34,7 @@ class ImageOcrEntity(Base):
     extracted_text = Column(Text, nullable=True)
     language = Column(String(20), nullable=True)
     confidence = Column(Numeric(5, 4), nullable=True)
-    bounding_boxes = Column(JSON, nullable=True)   # Use JSON directly
+    bounding_boxes = Column(JSON, nullable=True)   
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

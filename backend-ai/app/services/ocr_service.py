@@ -37,6 +37,12 @@ class OCRService:
         """Lazy-init: chỉ tải model khi cần lần đầu tiên."""
         if self._reader is None:
             import easyocr  # import lazy để không làm chậm startup nếu OCR chưa dùng
+            
+            # --- MONKEY PATCH EASYOCR CHO FP16 ---
+            from app.utils.ocr_image_preprocessing import apply_easyocr_fp16_patch
+            apply_easyocr_fp16_patch()
+            # ---------------------------------------
+            
             use_gpu = torch.cuda.is_available()
 
             logger.info(" Đang khởi tạo EasyOCR Reader...")
@@ -61,18 +67,18 @@ class OCRService:
             pil_img = pil_img.convert("RGB")
         img_array = np.array(pil_img)
         
-        # --- Tiền xử lý hình ảnh ---
-        config = FALLBACK_CONFIG
-        if category:
-            try:
-                cat_enum = ImageCategory(category)
-                config = CATEGORY_CONFIGS.get(cat_enum, FALLBACK_CONFIG)
-            except ValueError:
-                logger.warning(f"[OCR] Invalid category '{category}', using FALLBACK_CONFIG.")
-                pass
+        # --- Bỏ tiền xử lý (Bypass) theo yêu cầu ---
+        # config = FALLBACK_CONFIG
+        # if category:
+        #     try:
+        #         cat_enum = ImageCategory(category)
+        #         config = CATEGORY_CONFIGS.get(cat_enum, FALLBACK_CONFIG)
+        #     except ValueError:
+        #         logger.warning(f"[OCR] Invalid category '{category}', using FALLBACK_CONFIG.")
+        #         pass
         
         orig_w = img_array.shape[1]
-        img_array = preprocess_image(img_array, config)
+        # img_array = preprocess_image(img_array, config)
         
         # Tính tỷ lệ scale thực tế (dựa trên chiều rộng trước và sau khi xử lý)
         actual_scale_ratio = img_array.shape[1] / orig_w
@@ -81,7 +87,12 @@ class OCRService:
         # batch_size > 1: các vùng text phát hiện được trong 1 ảnh sẽ được
         # nhận dạng theo lô thay vì từng vùng một -> tận dụng GPU tốt hơn.
         # Đổi batch_size = 1 để tránh OOM
-        raw_results = reader.readtext(img_array, detail=1, batch_size=2)
+        # Sử dụng torch.autocast (16-bit) để tăng tốc và giảm RAM GPU
+        if torch.cuda.is_available():
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                raw_results = reader.readtext(img_array, detail=1, batch_size=2)
+        else:
+            raw_results = reader.readtext(img_array, detail=1, batch_size=2)
 
         regions = []
         text_parts = []

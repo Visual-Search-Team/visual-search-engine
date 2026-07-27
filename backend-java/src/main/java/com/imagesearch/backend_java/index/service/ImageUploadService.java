@@ -62,7 +62,7 @@ public class ImageUploadService {
                 }
 
                 String checksum = generateChecksum(file);
-                
+
                 // Check if image already exists by checksum
                 if (imageRepository.findByChecksum(checksum).isPresent()) {
                     log.warn("Image with checksum {} already exists", checksum);
@@ -85,11 +85,11 @@ public class ImageUploadService {
                         .width(thumbnail.width())
                         .height(thumbnail.height())
                         .checksum(checksum)
-                        .indexStatus(ImageIndexStatus.PROCESSING)
+                        .indexStatus(ImageIndexStatus.PENDING)
                         .build();
 
                 ImageEntity savedImage = imageRepository.save(image);
-                    savedImages.add(savedImage);
+                savedImages.add(savedImage);
 
                 log.info("Image uploaded successfully: {} (size: {})", originalFileName, fileSize);
 
@@ -104,7 +104,6 @@ public class ImageUploadService {
 
         if (!savedImages.isEmpty()) {
             IndexingJobResponse indexingJob = indexingJobService.trackUploadedImages(savedImages);
-            scheduleIndexingAfterCommit(savedImages);
 
             for (ImageEntity savedImage : savedImages) {
                 ImageUploadResponse response = ImageUploadResponse.builder()
@@ -116,7 +115,8 @@ public class ImageUploadService {
                         .fileSize(savedImage.getFileSize())
                         .mimeType(savedImage.getMimeType())
                         .thumbnailPath(savedImage.getThumbnailPath())
-                        .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
+                        .thumbnailUrl(savedImage.getThumbnailPath() == null ? null
+                                : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
                         .width(savedImage.getWidth())
                         .height(savedImage.getHeight())
                         .status(savedImage.getIndexStatus().name())
@@ -134,30 +134,5 @@ public class ImageUploadService {
     private String generateChecksum(MultipartFile file) throws IOException {
         byte[] fileBytes = file.getBytes();
         return UUID.nameUUIDFromBytes(fileBytes).toString();
-    }
-
-    private void scheduleIndexingAfterCommit(List<ImageEntity> images) {
-        List<Long> imageIds = images.stream()
-                .filter(image -> image != null && image.getId() != null)
-                .map(ImageEntity::getId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (imageIds.isEmpty()) {
-            return;
-        }
-
-        Runnable dispatch = () -> imageIds.forEach(imageIndexingService::indexImageAsync);
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            dispatch.run();
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                dispatch.run();
-            }
-        });
     }
 }

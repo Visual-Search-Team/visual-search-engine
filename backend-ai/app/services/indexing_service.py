@@ -118,10 +118,13 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     except Exception as e:
         logger.error(f"Database commit failed: {e}")
         db.rollback()
+        return 0
 
     # 7. Run OCR on successfully indexed images (async, non-blocking for indexing)
     # Tái sử dụng ảnh đã tải & decode sẵn trong image_cache_dict — không tải lại từ MinIO.
     _run_ocr_for_images(db, image_cache_dict)
+
+    return len(pending_images)
 
 
 def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):

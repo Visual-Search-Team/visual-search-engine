@@ -31,7 +31,8 @@ public class AiEmbeddingClient {
     private boolean mockEmbedding;
 
     public List<Float> getImageEmbedding(EmbeddingRequest request) throws IOException {
-        return getEmbedding(buildUrl(searchConfig.getImageEmbeddingPath()), request, "image:" + request.getStoragePath());
+        return getEmbedding(buildUrl(searchConfig.getImageEmbeddingPath()), request,
+                "image:" + request.getStoragePath());
     }
 
     public List<Float> getTextEmbedding(String text) throws IOException {

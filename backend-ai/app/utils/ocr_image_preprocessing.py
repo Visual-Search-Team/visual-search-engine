@@ -70,17 +70,10 @@ def sharpen(image: np.ndarray) -> np.ndarray:
 
 def resize_image(image: np.ndarray, config: PreprocessConfig) -> np.ndarray:
     h, w = image.shape[:2]
-    max_size = 1024
     
-    # 1. Tính toán kích thước dự kiến sau khi upscale
+    # Tính toán kích thước dự kiến sau khi upscale
     new_w = int(w * config.upscale_factor)
     new_h = int(h * config.upscale_factor)
-    
-    # 2. Giới hạn kích thước tối đa để tránh OOM GPU
-    if max(new_w, new_h) > max_size:
-        ratio = max_size / max(new_w, new_h)
-        new_w = int(new_w * ratio)
-        new_h = int(new_h * ratio)
         
     if (new_w, new_h) == (w, h):
         return image
@@ -116,8 +109,35 @@ def preprocess_image(image: np.ndarray, config: PreprocessConfig) -> np.ndarray:
     return result
 
 FALLBACK_CONFIG = PreprocessConfig(
-    upscale_factor=2.0, 
-    binarize=True, 
-    sharpen=True, 
-    deskew=True
+    upscale_factor=1.0, 
+    binarize=False, 
+    sharpen=False, 
+    deskew=False
 )
+
+
+def apply_easyocr_fp16_patch():
+    """
+    Monkey-patch EasyOCR để sửa lỗi cv2.threshold không đọc được float16 của OpenCV.
+    Hàm này ép kiểu textmap và linkmap về float32 trước khi đưa vào OpenCV.
+    """
+    try:
+        import easyocr.craft_utils
+        import numpy as np
+        
+        if hasattr(easyocr.craft_utils, '_fp16_patched'):
+            return
+            
+        _original_getDetBoxes_core = easyocr.craft_utils.getDetBoxes_core
+        
+        def _patched_getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text, estimate_num_chars=False):
+            if textmap.dtype == np.float16:
+                textmap = textmap.astype(np.float32)
+            if linkmap.dtype == np.float16:
+                linkmap = linkmap.astype(np.float32)
+            return _original_getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text, estimate_num_chars)
+        
+        easyocr.craft_utils.getDetBoxes_core = _patched_getDetBoxes_core
+        easyocr.craft_utils._fp16_patched = True
+    except ImportError:
+        pass

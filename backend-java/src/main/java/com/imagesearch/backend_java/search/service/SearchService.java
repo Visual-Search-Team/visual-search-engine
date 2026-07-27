@@ -88,20 +88,20 @@ public class SearchService {
                     .build());
             log.info("Get embedding success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
-            SearchHistory history = saveHistory(
+            SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
                     username,
                     SearchType.IMAGE_TO_IMAGE,
                     null,
                     storagePath,
                     queryImage.getId(),
                     startTime
-            );
+            ) : null;
 
             ImageSearchResponse response = new ImageSearchResponse();
-            response.setSearchId(history.getId());
+            response.setSearchId(history == null ? null : history.getId());
             response.setSearchType(SearchType.IMAGE_TO_IMAGE.name());
             response.setQueryImageUrl(imageUrl);
-            response.setProcessingTimeMs(history.getProcessingTimeMs());
+            response.setProcessingTimeMs(history == null ? System.currentTimeMillis() - startTime : history.getProcessingTimeMs());
             applyPage(response, results, pageCriteria);
             return response;
         } catch (IOException e) {
@@ -126,20 +126,20 @@ public class SearchService {
             List<SearchResultItem> results = mapQdrantResults(rawResult, imageId).stream()
                     .limit(pageCriteria.limit())
                     .toList();
-            SearchHistory history = saveHistory(
+            SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
                     username,
                     SearchType.IMAGE_TO_IMAGE,
                     null,
                     queryImage.getStoragePath(),
                     queryImage.getId(),
                     startTime
-            );
+            ) : null;
 
             ImageSearchResponse response = new ImageSearchResponse();
-            response.setSearchId(history.getId());
+            response.setSearchId(history == null ? null : history.getId());
             response.setSearchType(SearchType.IMAGE_TO_IMAGE.name());
             response.setQueryImageUrl("/visual-search/v1/images/" + queryImage.getId());
-            response.setProcessingTimeMs(history.getProcessingTimeMs());
+            response.setProcessingTimeMs(history == null ? System.currentTimeMillis() - startTime : history.getProcessingTimeMs());
             applyPage(response, results, pageCriteria);
             return response;
         } catch (IOException e) {
@@ -174,7 +174,9 @@ public class SearchService {
             List<Float> embedding = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
             List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
-            SearchHistory history = saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime);
+            SearchHistory history = pageCriteria.page() == 0
+                    ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
+                    : null;
             return buildTextResponse(query, "semantic", SearchType.TEXT_SEMANTIC, history, results, pageCriteria);
         } catch (IOException e) {
             throw new SearchException("AI_SERVICE_ERROR", "Could not create text embedding", HttpStatus.INTERNAL_SERVER_ERROR, e);
@@ -204,7 +206,9 @@ public class SearchService {
             }
         }
 
-        SearchHistory history = saveHistory(username, SearchType.TEXT_OCR, query, null, null, startTime);
+        SearchHistory history = pageCriteria.page() == 0
+                ? saveHistory(username, SearchType.TEXT_OCR, query, null, null, startTime)
+                : null;
         return buildTextResponse(query, "ocr", SearchType.TEXT_OCR, history, results, pageCriteria);
     }
 
@@ -325,11 +329,11 @@ public class SearchService {
             SearchPageCriteria pageCriteria
     ) {
         TextSearchResponse response = new TextSearchResponse();
-        response.setSearchId(history.getId());
+        response.setSearchId(history == null ? null : history.getId());
         response.setSearchType(searchType.name());
         response.setQueryText(query);
         response.setMode(mode);
-        response.setProcessingTimeMs(history.getProcessingTimeMs());
+        response.setProcessingTimeMs(history == null ? null : history.getProcessingTimeMs());
         applyPage(response, results, pageCriteria);
         return response;
     }
@@ -349,8 +353,7 @@ public class SearchService {
             throw new SearchException("INVALID_PAGE_SIZE", "Page size must be greater than 0", HttpStatus.BAD_REQUEST);
         }
 
-        // API accepts page=0 as the first page, while page>0 is treated as a 1-based page number from clients.
-        int zeroBasedPage = requestedPage > 0 ? requestedPage - 1 : searchConfig.getDefaultPage();
+        int zeroBasedPage = requestedPage <= 1 ? 0 : requestedPage - 1;
         return new SearchPageCriteria(resolvedLimit, zeroBasedPage, resolvedPageSize);
     }
 

@@ -10,7 +10,7 @@ export default function SearchModeTabs({ activeMode, modes, onChange }) {
             key={mode.id}
             type="button"
             onClick={() => onChange(mode)}
-            className={`flex min-h-14 items-center justify-center gap-2 border-b-2 px-4 py-4 text-sm font-medium tracking-tight transition ${
+            className={`flex cursor-pointer min-h-14 items-center justify-center gap-2 border-b-2 px-4 py-4 text-sm font-medium tracking-tight transition ${
               isActive
                 ? "border-indigo-600 bg-indigo-600/5 text-indigo-600"
                 : "border-transparent text-gray-700 hover:bg-gray-50 hover:text-indigo-600"

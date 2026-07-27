@@ -3,23 +3,33 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
-import { SearchResultCard } from "../components/ui/SearchResultCard";
+// import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
+import { searchSimilarImages } from "../services/searchSimilarService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
 import { searchStore } from "../utils/searchStore";
 import AOS from 'aos';
+import { lazy, Suspense } from "react";
+import { CardSkeleton } from "../components/ui/CardSkeleton";
+
+const SearchResultCard = lazy(() =>
+  import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
+);
+
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
 
 const getModeLabel = (type, mode) => {
+  if (type === "similar") return "Tìm ảnh tương tự";
   if (type === "image") return "Tìm bằng ảnh";
   if (mode === "OCR") return "Tìm chữ trong ảnh";
   return "Tìm bằng text";
 };
 
 const getDescriptionLabel = (type, mode) => {
+  if (type === "similar") return "Kết quả tương tự cho ảnh";
   if (type === "image") return "Kết quả cho ảnh";
   if (mode === "OCR") return "Kết quả cho chữ";
   return "Kết quả cho mô tả";
@@ -33,11 +43,12 @@ const normalizeSearchResponse = (response) => {
       ...result,
       score: result.score ?? result.similarityScore ?? 0,
     })),
-    pageNumber: data.pageNumber || 0,
-    pageSize: data.pageSize || PAGE_SIZE,
+    pageNumber: data.page ?? data.pageNumber ?? 0,
+    pageSize: data.size ?? data.pageSize ?? PAGE_SIZE,
     totalElements: data.totalElements || 0,
     totalPages: data.totalPages || 0,
     processingTimeMs: data.processingTimeMs,
+    queryImageUrl: data.queryImageUrl || null,
   };
 };
 
@@ -49,36 +60,44 @@ export const SearchResult = () => {
   const [selectedResult, setSelectedResult] = useState(null);
 
   const type = searchParams.get("type") || searchState.type || "text";
+  const isImageSearch = type === "image";
+  const isSimilarSearch = type === "similar";
+
   const query = searchParams.get("q") || searchState.query || "";
+  const imageId = searchParams.get("imageId") || searchState.imageId || null;
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
-  const page = Math.max(Number(searchParams.get("page") || 0), 0);
+  const page = Math.max(Number(searchParams.get("page") || 1), 1);
+
+  const size = Number(searchParams.get("size")) || PAGE_SIZE;
+
   const imageFile = searchState.imageFile || searchStore.imageFile;
 
-  const previewImageUrl = useMemo(() => {
-    if (imageFile) return URL.createObjectURL(imageFile);
-    return null;
-  }, [imageFile]);
 
-  const isImageSearch = type === "image";
-  const canSearch = isImageSearch ? !!imageFile : !!query.trim();
+  const canSearch = isImageSearch ? !!imageFile : isSimilarSearch ? !!imageId : !!query.trim();
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const searchQuery = useQuery({
-    queryKey: ["search-results", type, query, mode, page, imageFile?.name],
+    queryKey: ["search-results", type, query, mode, page, size, imageFile?.name, imageId],
     queryFn: async () => {
+
       if (USE_MOCK_SEARCH_RESULTS) {
         return getMockSearchResponse({
           page,
-          size: PAGE_SIZE,
+          size,
           searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
         });
       }
 
-      if (isImageSearch) {
-        return searchByImage({ image: imageFile, page, size: PAGE_SIZE });
+      // Xử lý gọi API tìm tương tự
+      if (isSimilarSearch && imageId) {
+        return searchSimilarImages(Number(imageId), page, size);
       }
 
-      return searchByText({ query, mode, page, size: PAGE_SIZE });
+      if (isImageSearch) {
+        return searchByImage({ image: imageFile, page, size });
+      }
+
+      return searchByText({ query, mode, page, size });
     },
     enabled: canShowResults,
     placeholderData: keepPreviousData,
@@ -93,6 +112,14 @@ export const SearchResult = () => {
     [searchQuery.data]
   );
 
+  const previewImageUrl = useMemo(() => {
+    if (isImageSearch && imageFile) return URL.createObjectURL(imageFile);
+    if (isSimilarSearch && searchData?.queryImageUrl) {
+      return searchData.queryImageUrl;
+    }
+    return null;
+  }, [imageFile, isImageSearch, isSimilarSearch, searchData?.queryImageUrl]);
+
   useEffect(() => {
     setTimeout(() => {
       AOS.refresh();
@@ -103,16 +130,23 @@ export const SearchResult = () => {
   const descriptionLabel = getDescriptionLabel(type, mode);
   const descriptionValue = USE_MOCK_SEARCH_RESULTS
     ? "dữ liệu mock"
-    : isImageSearch
-      ? imageFile?.name || "ảnh đã tải lên"
-      : query;
+    : isSimilarSearch
+      ? `ảnh có ID: #${imageId}`
+      : isImageSearch
+        ? imageFile?.name || "ảnh đã tải lên"
+        : query;
   const currentPage = searchData.pageNumber + 1;
   const totalPages = searchData.totalPages || 1;
 
   const updatePage = (nextPage) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("page", String(nextPage));
-    nextParams.set("size", String(PAGE_SIZE));
+    nextParams.set("size", String(size));
+
+    if (isSimilarSearch && imageId) {
+      nextParams.set("imageId", imageId);
+    }
+
     navigate(
       {
         pathname: "/search-result",
@@ -120,6 +154,15 @@ export const SearchResult = () => {
       },
       { state: searchState }
     );
+  };
+
+  const handleSearchSimilar = (result) => {
+    if (!result?.imageId) return;
+
+    setSelectedResult(null);
+
+    navigate(`/search-result?type=similar&imageId=${result.imageId}&page=1&size=${size}`);
+    window.scrollTo(0, 0);
   };
 
   if (!canShowResults) {
@@ -161,7 +204,7 @@ export const SearchResult = () => {
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              {isImageSearch ? (
+              {isImageSearch || isSimilarSearch ? (
                 <div className="flex items-center gap-3">
                   <span className="text-base leading-7 text-gray-700">
                     {descriptionLabel}:
@@ -187,10 +230,6 @@ export const SearchResult = () => {
                   </span>
                 </p>
               )}
-              {/* <p className="text-base leading-7 text-gray-700">
-                {descriptionLabel}:{" "}
-                <span className="font-medium text-zinc-900">{descriptionValue}</span>
-              </p> */}
 
               <span className="inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-sm font-medium text-indigo-700">
                 {type === "image" ? (
@@ -219,9 +258,9 @@ export const SearchResult = () => {
       {searchQuery.isLoading ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: PAGE_SIZE }).map((_, index) => (
-            <div
+            <CardSkeleton
               key={index}
-              className="h-72 animate-pulse rounded-xl bg-gray-100"
+            // className="h-72 animate-pulse rounded-xl bg-gray-100"
             />
           ))}
         </div>
@@ -242,11 +281,12 @@ export const SearchResult = () => {
                 data-aos="fade-up"
                 data-aos-delay={index * 20}
               >
-                <SearchResultCard
-                  key={`${result.imageId}-${result.rankPosition}`}
-                  result={result}
-                  onViewDetails={setSelectedResult}
-                />
+                <Suspense fallback={<CardSkeleton />}>
+                  <SearchResultCard
+                    result={result}
+                    onViewDetails={setSelectedResult}
+                  />
+                </Suspense>
               </div>
 
             ))}
@@ -263,8 +303,8 @@ export const SearchResult = () => {
               <button
                 type="button"
                 onClick={() => updatePage(page - 1)}
-                disabled={page <= 0 || searchQuery.isFetching}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage <= 1 || searchQuery.isFetching}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FaChevronLeft className="h-3 w-3" />
                 Trước
@@ -273,7 +313,7 @@ export const SearchResult = () => {
                 type="button"
                 onClick={() => updatePage(page + 1)}
                 disabled={currentPage >= totalPages || searchQuery.isFetching}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sau
                 <FaChevronRight className="h-3 w-3" />
@@ -287,6 +327,7 @@ export const SearchResult = () => {
         isOpen={!!selectedResult}
         result={selectedResult}
         onClose={() => setSelectedResult(null)}
+        onSearchSimilar={handleSearchSimilar}
       />
     </section>
   );

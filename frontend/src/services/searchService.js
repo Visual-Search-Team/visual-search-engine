@@ -1,19 +1,20 @@
 import apiClient from "./apiClient";
 
-export const searchByText = async ({ query, mode, page = 0, size = 20 }) => {
+export const searchByText = async ({ query, mode, page = 1, size = 20 }) => {
   const response = await apiClient.get("/search/text", {
     params: {
       q: query,
       mode,
       page,
       size,
+      limit: 100,
     },
   });
 
   return response.data;
 };
 
-export const searchByImage = async ({ image, page = 0, size = 20 }) => {
+export const searchByImage = async ({ image, page = 1, size = 20 }) => {
   const formData = new FormData();
   formData.append("image", image);
 
@@ -21,6 +22,7 @@ export const searchByImage = async ({ image, page = 0, size = 20 }) => {
     params: {
       page,
       size,
+      limit: 100,
     },
     headers: {
       "Content-Type": "multipart/form-data",

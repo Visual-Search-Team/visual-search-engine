@@ -178,7 +178,7 @@ export const SearchHistory = () => {
                   key={filter.label}
                   type="button"
                   onClick={() => handleFilterChange(filter.value)}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${isActive
+                  className={`rounded-lg cursor-pointer border px-4 py-2 text-sm font-medium transition ${isActive
                     ? "border-indigo-700 bg-indigo-700 text-white"
                     : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     }`}
@@ -193,7 +193,7 @@ export const SearchHistory = () => {
             type="button"
             onClick={handleDeleteAll}
             disabled={deleteAllMutation.isPending || historyData.totalElements === 0}
-            className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex cursor-pointer w-fit items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FaTrash className="h-3.5 w-3.5" />
             {deleteAllMutation.isPending ? "Đang xoá..." : "Xoá lịch sử"}

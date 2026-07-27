@@ -3,13 +3,20 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
-import { SearchResultCard } from "../components/ui/SearchResultCard";
+// import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { searchSimilarImages } from "../services/searchSimilarService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
 import { searchStore } from "../utils/searchStore";
 import AOS from 'aos';
+import { lazy, Suspense } from "react";
+import { CardSkeleton } from "../components/ui/CardSkeleton";
+
+const SearchResultCard = lazy(() =>
+  import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
+);
+
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
@@ -223,10 +230,6 @@ export const SearchResult = () => {
                   </span>
                 </p>
               )}
-              {/* <p className="text-base leading-7 text-gray-700">
-                {descriptionLabel}:{" "}
-                <span className="font-medium text-zinc-900">{descriptionValue}</span>
-              </p> */}
 
               <span className="inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-sm font-medium text-indigo-700">
                 {type === "image" ? (
@@ -255,9 +258,9 @@ export const SearchResult = () => {
       {searchQuery.isLoading ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: PAGE_SIZE }).map((_, index) => (
-            <div
+            <CardSkeleton
               key={index}
-              className="h-72 animate-pulse rounded-xl bg-gray-100"
+            // className="h-72 animate-pulse rounded-xl bg-gray-100"
             />
           ))}
         </div>
@@ -278,11 +281,12 @@ export const SearchResult = () => {
                 data-aos="fade-up"
                 data-aos-delay={index * 20}
               >
-                <SearchResultCard
-                  key={`${result.imageId}-${result.rankPosition}`}
-                  result={result}
-                  onViewDetails={setSelectedResult}
-                />
+                <Suspense fallback={<CardSkeleton />}>
+                  <SearchResultCard
+                    result={result}
+                    onViewDetails={setSelectedResult}
+                  />
+                </Suspense>
               </div>
 
             ))}

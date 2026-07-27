@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft } from "react-icons/fa";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
+import { FiArrowDown } from "react-icons/fi";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
-// import { SearchResultCard } from "../components/ui/SearchResultCard";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { searchSimilarImages } from "../services/searchSimilarService";
@@ -12,6 +12,7 @@ import { searchStore } from "../utils/searchStore";
 import AOS from 'aos';
 import { lazy, Suspense } from "react";
 import { CardSkeleton } from "../components/ui/CardSkeleton";
+import { useInView } from "react-intersection-observer";
 
 const SearchResultCard = lazy(() =>
   import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
@@ -53,11 +54,13 @@ const normalizeSearchResponse = (response) => {
 };
 
 export const SearchResult = () => {
+
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const searchState = location.state || {};
   const [selectedResult, setSelectedResult] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const type = searchParams.get("type") || searchState.type || "text";
   const isImageSearch = type === "image";
@@ -66,51 +69,116 @@ export const SearchResult = () => {
   const query = searchParams.get("q") || searchState.query || "";
   const imageId = searchParams.get("imageId") || searchState.imageId || null;
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
-  const page = Math.max(Number(searchParams.get("page") || 1), 1);
+
+  // const page = Math.max(Number(searchParams.get("page") || 1), 1);
 
   const size = Number(searchParams.get("size")) || PAGE_SIZE;
 
   const imageFile = searchState.imageFile || searchStore.imageFile;
 
-
   const canSearch = isImageSearch ? !!imageFile : isSimilarSearch ? !!imageId : !!query.trim();
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
-  const searchQuery = useQuery({
-    queryKey: ["search-results", type, query, mode, page, size, imageFile?.name, imageId],
-    queryFn: async () => {
+  const initialPage = Math.max(Number(searchParams.get("page") || 1), 1);
+
+  const searchQuery = useInfiniteQuery({
+    queryKey: ["search-results", type, query, mode, size, imageFile?.name, imageId],
+    initialPageParam: initialPage,
+    queryFn: async ({ pageParam = initialPage }) => {
 
       if (USE_MOCK_SEARCH_RESULTS) {
         return getMockSearchResponse({
-          page,
+          page: pageParam,
           size,
           searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
         });
       }
 
-      // Xử lý gọi API tìm tương tự
       if (isSimilarSearch && imageId) {
-        return searchSimilarImages(Number(imageId), page, size);
+        return searchSimilarImages(Number(imageId), pageParam, size);
       }
 
       if (isImageSearch) {
-        return searchByImage({ image: imageFile, page, size });
+        return searchByImage({ image: imageFile, page: pageParam, size });
       }
 
-      return searchByText({ query, mode, page, size });
+      return searchByText({ query, mode, page: pageParam, size });
+    },
+    getNextPageParam: (lastPageRaw) => {
+      const lastPage = normalizeSearchResponse(lastPageRaw);
+      const current = lastPage.pageNumber + 1;
+      if (current < lastPage.totalPages) {
+        return current + 1;
+      }
+      return undefined;
     },
     enabled: canShowResults,
     placeholderData: keepPreviousData,
 
-    staleTime: 5 * 60 * 1000, // Dữ liệu sẽ được coi là mới trong 5 phút, không re-fetch khi component re-mount
-    gcTime: 10 * 60 * 1000, // Thời gian giữ cache trong bộ nhớ (10 phút)
-    refetchOnWindowFocus: false, // Không tự động gọi lại API khi chuyển đổi qua lại giữa các tab trình duyệt
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  const searchData = useMemo(
-    () => normalizeSearchResponse(searchQuery.data),
-    [searchQuery.data]
-  );
+  // const searchQuery = useQuery({
+  //   queryKey: ["search-results", type, query, mode, page, size, imageFile?.name, imageId],
+  //   queryFn: async () => {
+
+  //     if (USE_MOCK_SEARCH_RESULTS) {
+  //       return getMockSearchResponse({
+  //         page,
+  //         size,
+  //         searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
+  //       });
+  //     }
+
+  //     // Xử lý gọi API tìm tương tự
+  //     if (isSimilarSearch && imageId) {
+  //       return searchSimilarImages(Number(imageId), page, size);
+  //     }
+
+  //     if (isImageSearch) {
+  //       return searchByImage({ image: imageFile, page, size });
+  //     }
+
+  //     return searchByText({ query, mode, page, size });
+  //   },
+  //   enabled: canShowResults,
+  //   placeholderData: keepPreviousData,
+
+  //   staleTime: 5 * 60 * 1000, // Dữ liệu sẽ được coi là mới trong 5 phút, không re-fetch khi component re-mount
+  //   gcTime: 10 * 60 * 1000, // Thời gian giữ cache trong bộ nhớ (10 phút)
+  //   refetchOnWindowFocus: false, // Không tự động gọi lại API khi chuyển đổi qua lại giữa các tab trình duyệt
+  // });
+
+  // infinity scroll 3
+
+  const searchData = useMemo(() => {
+    if (!searchQuery.data) return { results: [], totalElements: 0 };
+
+    const allResults = searchQuery.data.pages.flatMap((pageRaw) => {
+      const normalized = normalizeSearchResponse(pageRaw);
+      return normalized.results;
+    });
+
+    const firstPageInfo = normalizeSearchResponse(searchQuery.data.pages[0]);
+
+    return {
+      results: allResults,
+      totalElements: firstPageInfo.totalElements,
+      queryImageUrl: firstPageInfo.queryImageUrl,
+    };
+  }, [searchQuery.data]);
+
+  const { ref: loadMoreRef, inView } = useInView({
+    rootMargin: '200px',
+  });
+
+  useEffect(() => {
+    if (inView && searchQuery.hasNextPage && !searchQuery.isFetchingNextPage) {
+      searchQuery.fetchNextPage();
+    }
+  }, [inView, searchQuery.hasNextPage, searchQuery.isFetchingNextPage, searchQuery.fetchNextPage]);
 
   const previewImageUrl = useMemo(() => {
     if (isImageSearch && imageFile) return URL.createObjectURL(imageFile);
@@ -126,6 +194,42 @@ export const SearchResult = () => {
     }, 100);
   }, [searchData.results]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+
+  const scrollToTop = () => {
+    const duration = 500; // Thời gian trượt (ms)
+    const start = window.scrollY || document.documentElement.scrollTop;
+    const startTime = performance.now();
+
+    const easeOutCubic = (t) => --t * t * t + 1; 
+    const animateScroll = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = easeOutCubic(progress);
+
+      window.scrollTo(0, start * (1 - easeProgress));
+
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      }
+    };
+
+    requestAnimationFrame(animateScroll);
+  };
+
   const modeLabel = getModeLabel(type, mode);
   const descriptionLabel = getDescriptionLabel(type, mode);
   const descriptionValue = USE_MOCK_SEARCH_RESULTS
@@ -135,26 +239,27 @@ export const SearchResult = () => {
       : isImageSearch
         ? imageFile?.name || "ảnh đã tải lên"
         : query;
-  const currentPage = searchData.pageNumber + 1;
-  const totalPages = searchData.totalPages || 1;
 
-  const updatePage = (nextPage) => {
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("page", String(nextPage));
-    nextParams.set("size", String(size));
+  // const currentPage = searchData.pageNumber + 1;
+  // const totalPages = searchData.totalPages || 1;
 
-    if (isSimilarSearch && imageId) {
-      nextParams.set("imageId", imageId);
-    }
+  // const updatePage = (nextPage) => {
+  //   const nextParams = new URLSearchParams(searchParams);
+  //   nextParams.set("page", String(nextPage));
+  //   nextParams.set("size", String(size));
 
-    navigate(
-      {
-        pathname: "/search-result",
-        search: nextParams.toString(),
-      },
-      { state: searchState }
-    );
-  };
+  //   if (isSimilarSearch && imageId) {
+  //     nextParams.set("imageId", imageId);
+  //   }
+
+  //   navigate(
+  //     {
+  //       pathname: "/search-result",
+  //       search: nextParams.toString(),
+  //     },
+  //     { state: searchState }
+  //   );
+  // };
 
   const handleSearchSimilar = (result) => {
     if (!result?.imageId) return;
@@ -260,7 +365,6 @@ export const SearchResult = () => {
           {Array.from({ length: PAGE_SIZE }).map((_, index) => (
             <CardSkeleton
               key={index}
-            // className="h-72 animate-pulse rounded-xl bg-gray-100"
             />
           ))}
         </div>
@@ -279,7 +383,7 @@ export const SearchResult = () => {
               <div
                 key={`${result.imageId}-${result.rankPosition}`}
                 data-aos="fade-up"
-                data-aos-delay={index * 20}
+                data-aos-delay={index < 20 ? index * 20 : 0}
               >
                 <Suspense fallback={<CardSkeleton />}>
                   <SearchResultCard
@@ -292,7 +396,32 @@ export const SearchResult = () => {
             ))}
           </div>
 
-          <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
+          {/* Cảm biến cuộn và Loading Indicator cho trang tiếp theo */}
+
+          <div ref={loadMoreRef} className="flex justify-center py-6">
+            {searchQuery.isFetchingNextPage ? (
+              <div className="flex items-center gap-3 rounded-full bg-white px-4 py-2 shadow">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                <span className="text-sm text-gray-600">
+                  Đang tải thêm kết quả...
+                </span>
+              </div>
+            ) : searchQuery.hasNextPage ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <FiArrowDown className="animate-bounce" />
+                <span>Cuộn xuống để tải thêm</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+                <FaCheckCircle />
+                <span>
+                  Đã hiển thị toàn bộ {searchData.totalElements} kết quả
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
             <p className="text-sm text-gray-600">
               Trang <span className="font-semibold text-zinc-900">{currentPage}</span> /{" "}
               <span className="font-semibold text-zinc-900">{totalPages}</span>
@@ -319,7 +448,18 @@ export const SearchResult = () => {
                 <FaChevronRight className="h-3 w-3" />
               </button>
             </div>
-          </div>
+          </div> */}
+
+          {/* Nút cuộn lên đầu trang */}
+          {showScrollTop && (
+            <button
+              type="button"
+              onClick={scrollToTop}
+              className="fixed bottom-20 cursor-pointer right-8 z-[999] h-12 w-12 flex items-center justify-center rounded-full bg-indigo-600 p-2 text-white shadow-md transition hover:bg-indigo-700"
+            >
+              <FaArrowUp className="h-5 w-5" />
+            </button>
+          )}
         </>
       )}
 

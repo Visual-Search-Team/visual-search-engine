@@ -31,23 +31,6 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
           {formatScore(result.score ?? result.similarityScore ?? 0)}
         </div>
 
-        {/* <div className="absolute inset-0 flex items-center justify-center gap-2 bg-indigo-700/0 opacity-0 transition group-hover:bg-indigo-700/35 group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={() => onViewDetails?.(result)}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-zinc-900 shadow-sm transition hover:bg-gray-50"
-          >
-            <FaExpandAlt className="h-3 w-3" />
-            Chi tiết
-          </button>
-          <button
-            type="button"
-            className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-700 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-800"
-          >
-            <FaSearch className="h-3 w-3" />
-            Tương tự
-          </button>
-        </div> */}
       </div>
 
       <div className="space-y-1 p-3">

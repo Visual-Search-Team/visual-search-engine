@@ -7,6 +7,7 @@ OCR Service - sử dụng EasyOCR để trích xuất text từ ảnh.
 """
 import os
 import logging
+import threading
 
 import numpy as np
 import torch
@@ -32,6 +33,9 @@ class OCRService:
 
     def __init__(self):
         self._reader = None
+        # Semaphore giới hạn tối đa 2 luồng đồng thời gọi vào model EasyOCR
+        # giúp bảo vệ VRAM GPU (tránh CUDA Out Of Memory) khi có nhiều request đến cùng lúc.
+        self._gpu_semaphore = threading.Semaphore(2)
 
     def _get_reader(self):
         """Lazy-init: chỉ tải model khi cần lần đầu tiên."""
@@ -88,11 +92,12 @@ class OCRService:
         # nhận dạng theo lô thay vì từng vùng một -> tận dụng GPU tốt hơn.
         # Đổi batch_size = 1 để tránh OOM
         # Sử dụng torch.autocast (16-bit) để tăng tốc và giảm RAM GPU
-        if torch.cuda.is_available():
-            with torch.autocast(device_type='cuda', dtype=torch.float16):
+        with self._gpu_semaphore:
+            if torch.cuda.is_available():
+                with torch.autocast(device_type='cuda', dtype=torch.float16):
+                    raw_results = reader.readtext(img_array, detail=1, batch_size=2)
+            else:
                 raw_results = reader.readtext(img_array, detail=1, batch_size=2)
-        else:
-            raw_results = reader.readtext(img_array, detail=1, batch_size=2)
 
         regions = []
         text_parts = []

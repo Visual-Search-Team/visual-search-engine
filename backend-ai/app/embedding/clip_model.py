@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from PIL import Image
 import open_clip
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,8 @@ class CLIPModelWrapper:
     def __init__(self, model_name: str = "ViT-B-32-quickgelu", pretrained: str = "openai"):
         # Bắt buộc dùng CPU cho CLIP để nhường toàn bộ GPU (VRAM) cho EasyOCR
         self.device = "cpu"
+        # Khóa luồng để tránh nghẽn CPU khi có quá nhiều request chạy đồng thời
+        self._cpu_semaphore = threading.Semaphore(2)
         logger.info(f"Loading CLIP model {model_name} on {self.device}...")
 
         # ── Image Encoder (CLIP ViT-B-32, đóng băng hoàn toàn) ──────────
@@ -146,9 +149,10 @@ class CLIPModelWrapper:
     def get_image_embedding(self, img: Image.Image) -> list[float]:
         """Trích xuất vector đặc trưng từ ảnh (Image Encoder CLIP, 512 chiều)."""
         img_t = self.preprocess(img).unsqueeze(0).to(self.device)
-        with torch.inference_mode():
-            feat = self.model.encode_image(img_t)
-            feat = F.normalize(feat, dim=-1)
+        with self._cpu_semaphore:
+            with torch.inference_mode():
+                feat = self.model.encode_image(img_t)
+                feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
     def get_image_embeddings(self, imgs: list[Image.Image]) -> list[list[float]]:
@@ -157,9 +161,10 @@ class CLIPModelWrapper:
             return []
         img_tensors = [self.preprocess(img) for img in imgs]
         batch_t = torch.stack(img_tensors).to(self.device)
-        with torch.inference_mode():
-            feat = self.model.encode_image(batch_t)
-            feat = F.normalize(feat, dim=-1)
+        with self._cpu_semaphore:
+            with torch.inference_mode():
+                feat = self.model.encode_image(batch_t)
+                feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy().tolist()
 
     def get_text_embedding(self, text: str) -> list[float]:
@@ -168,33 +173,34 @@ class CLIPModelWrapper:
         - Nếu LoRA đã load: dùng mCLIP đa ngữ (tiếng Việt, Anh, 50+ ngôn ngữ).
         - Nếu không: fallback về CLIP tiếng Anh gốc.
         """
-        if self.mclip is not None:
-            # === Multilingual Text Encoder (LoRA fine-tuned mCLIP) ===
-            with torch.inference_mode():
-                text_inputs = self.mclip_tokenizer(
-                    [text],
-                    padding=True,
-                    truncation=True,
-                    max_length=77,
-                    return_tensors="pt"
-                )
-                text_inputs = {k: v.to(self.device) for k, v in text_inputs.items()}
+        with self._cpu_semaphore:
+            if self.mclip is not None:
+                # === Multilingual Text Encoder (LoRA fine-tuned mCLIP) ===
+                with torch.inference_mode():
+                    text_inputs = self.mclip_tokenizer(
+                        [text],
+                        padding=True,
+                        truncation=True,
+                        max_length=77,
+                        return_tensors="pt"
+                    )
+                    text_inputs = {k: v.to(self.device) for k, v in text_inputs.items()}
 
-                # Forward qua pipeline của SentenceTransformer
-                features = dict(text_inputs)
-                for module in self.mclip:
-                    features = module(features)
+                    # Forward qua pipeline của SentenceTransformer
+                    features = dict(text_inputs)
+                    for module in self.mclip:
+                        features = module(features)
 
-                feat = features["sentence_embedding"]
-                feat = F.normalize(feat, dim=-1)
-            return feat.cpu().numpy()[0].tolist()
-        else:
-            # === Fallback: CLIP gốc (English only) ===
-            text_tokens = self.tokenizer([text]).to(self.device)
-            with torch.inference_mode():
-                feat = self.model.encode_text(text_tokens)
-                feat = F.normalize(feat, dim=-1)
-            return feat.cpu().numpy()[0].tolist()
+                    feat = features["sentence_embedding"]
+                    feat = F.normalize(feat, dim=-1)
+                return feat.cpu().numpy()[0].tolist()
+            else:
+                # === Fallback: CLIP gốc (English only) ===
+                text_tokens = self.tokenizer([text]).to(self.device)
+                with torch.inference_mode():
+                    feat = self.model.encode_text(text_tokens)
+                    feat = F.normalize(feat, dim=-1)
+                return feat.cpu().numpy()[0].tolist()
 
 
 # Singleton — khởi tạo 1 lần duy nhất, dùng chung toàn ứng dụng

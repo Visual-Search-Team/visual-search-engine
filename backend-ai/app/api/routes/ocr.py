@@ -93,7 +93,7 @@ class OcrResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/extract", response_model=OcrResponse)
-async def extract_text_from_storage(request: OcrRequest):
+def extract_text_from_storage(request: OcrRequest):
     """
     Trích xuất text từ ảnh đã lưu trong MinIO (gọi bằng storagePath).
     Dùng cho backend Java hoặc test internal.
@@ -114,7 +114,7 @@ async def extract_text_from_storage(request: OcrRequest):
 
 
 @router.post("/test-upload", response_model=OcrResponse)
-async def test_ocr_with_upload(
+def test_ocr_with_upload(
     file: UploadFile = File(...),
     category: Optional[str] = Form(None)
 ):
@@ -125,7 +125,7 @@ async def test_ocr_with_upload(
     """
     logger.info(f"[OCR TEST] Nhận file: {file.filename}, type={file.content_type}, category={category}")
     try:
-        image_bytes = await file.read()
+        image_bytes = file.file.read()
         pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         result = ocr_service.extract_text(pil_img, category=category)
         logger.info(f"[OCR TEST] ✅ Kết quả: {result['regionCount']} vùng, "

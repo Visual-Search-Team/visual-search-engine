@@ -6,6 +6,7 @@ import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
 import com.imagesearch.backend_java.image.service.ImageIndexingService;
+import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobSummaryResponse;
@@ -18,6 +19,7 @@ import com.imagesearch.backend_java.index.exception.IndexingJobNotFoundException
 import com.imagesearch.backend_java.index.exception.InvalidIndexingJobStateException;
 import com.imagesearch.backend_java.index.repository.IndexingJobItemRepository;
 import com.imagesearch.backend_java.index.repository.IndexingJobRepository;
+import com.imagesearch.backend_java.search.service.QdrantVectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,8 +36,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +52,8 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
     private final ImageIndexingService imageIndexingService;
+    private final QdrantVectorService qdrantVectorService;
+    private final MinIOService minIOService;
 
     @Value("${app.indexing.processing-timeout-minutes:15}")
     private long processingTimeoutMinutes;
@@ -210,6 +216,96 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         scheduleAsyncIndexing(retryImages);
         refreshJobProgress(job);
         return toResponse(job);
+    }
+
+    @Transactional
+    @Override
+    public int deleteImagesFromJob(Long jobId, List<Long> imageIds) {
+        IndexingJobEntity job = requireJob(jobId);
+        assertJobDeletable(job);
+
+        if (imageIds == null || imageIds.isEmpty()) {
+            throw new InvalidIndexingJobStateException("imageIds is required to delete images from job");
+        }
+
+        Set<Long> targetImageIds = new LinkedHashSet<>(imageIds);
+        List<IndexingJobItemEntity> jobItems = indexingJobItemRepository.findByIndexingJobId(jobId);
+        Set<Long> imageIdsInJob = jobItems.stream()
+                .map(IndexingJobItemEntity::getImage)
+                .filter(image -> image != null && image.getId() != null)
+                .map(ImageEntity::getId)
+                .collect(Collectors.toSet());
+
+        for (Long imageId : targetImageIds) {
+            if (!imageIdsInJob.contains(imageId)) {
+                throw new InvalidIndexingJobStateException("Image " + imageId + " does not belong to job " + jobId);
+            }
+        }
+
+        for (IndexingJobItemEntity item : jobItems) {
+            ImageEntity image = item.getImage();
+            if (image == null || image.getId() == null || !targetImageIds.contains(image.getId())) {
+                continue;
+            }
+            if (image.getIndexStatus() != ImageIndexStatus.INDEXED && image.getIndexStatus() != ImageIndexStatus.FAILED) {
+                throw new InvalidIndexingJobStateException(
+                        "Image " + image.getId() + " must be INDEXED or FAILED before deletion"
+                );
+            }
+        }
+
+        Set<Long> affectedJobIds = new LinkedHashSet<>();
+        for (Long imageId : targetImageIds) {
+            deleteImageAndCleanup(imageId, affectedJobIds);
+        }
+
+        for (Long affectedJobId : affectedJobIds) {
+            if (indexingJobRepository.existsById(affectedJobId)) {
+                refreshJobProgress(requireJob(affectedJobId));
+            }
+        }
+
+        return targetImageIds.size();
+    }
+
+    @Transactional
+    @Override
+    public void deleteJobAndImages(Long jobId) {
+        IndexingJobEntity job = requireJob(jobId);
+        assertJobDeletable(job);
+
+        List<IndexingJobItemEntity> jobItems = indexingJobItemRepository.findByIndexingJobId(jobId);
+        Set<Long> imageIds = jobItems.stream()
+                .map(IndexingJobItemEntity::getImage)
+                .filter(image -> image != null && image.getId() != null)
+                .map(ImageEntity::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        for (IndexingJobItemEntity item : jobItems) {
+            ImageEntity image = item.getImage();
+            if (image == null || image.getId() == null) {
+                continue;
+            }
+            if (image.getIndexStatus() != ImageIndexStatus.INDEXED && image.getIndexStatus() != ImageIndexStatus.FAILED) {
+                throw new InvalidIndexingJobStateException(
+                        "Image " + image.getId() + " must be INDEXED or FAILED before deletion"
+                );
+            }
+        }
+
+        Set<Long> affectedJobIds = new LinkedHashSet<>();
+        for (Long imageId : imageIds) {
+            deleteImageAndCleanup(imageId, affectedJobIds);
+        }
+
+        indexingJobItemRepository.deleteByIndexingJobId(jobId);
+        indexingJobRepository.deleteById(jobId);
+
+        for (Long affectedJobId : affectedJobIds) {
+            if (!affectedJobId.equals(jobId) && indexingJobRepository.existsById(affectedJobId)) {
+                refreshJobProgress(requireJob(affectedJobId));
+            }
+        }
     }
 
     @Scheduled(initialDelay = 5000, fixedDelay = 15000)
@@ -440,6 +536,42 @@ public class IndexingJobServiceImpl implements IndexingJobService {
 
     private boolean isTerminal(JobStatus status) {
         return status == JobStatus.COMPLETED || status == JobStatus.FAILED || status == JobStatus.PARTIALLY_FAILED;
+    }
+
+    private void assertJobDeletable(IndexingJobEntity job) {
+        if (job.getStatus() == JobStatus.RUNNING || job.getStatus() == JobStatus.PENDING) {
+            throw new InvalidIndexingJobStateException("Only finished jobs can be deleted");
+        }
+    }
+
+    private void deleteImageAndCleanup(Long imageId, Set<Long> affectedJobIds) {
+        ImageEntity image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new InvalidIndexingJobStateException("Image not found: " + imageId));
+
+        List<IndexingJobItemEntity> linkedItems = indexingJobItemRepository.findByImage_Id(imageId);
+        linkedItems.stream()
+                .map(IndexingJobItemEntity::getIndexingJob)
+                .filter(job -> job != null && job.getId() != null)
+                .map(IndexingJobEntity::getId)
+                .forEach(affectedJobIds::add);
+
+        try {
+            qdrantVectorService.deleteImageEmbedding(imageId);
+        } catch (Exception ex) {
+            throw new InvalidIndexingJobStateException("Failed to delete vector from Qdrant for image " + imageId + ": " + ex.getMessage());
+        }
+
+        try {
+            minIOService.deleteFile(image.getStoragePath());
+            if (image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank()) {
+                minIOService.deleteFile(image.getThumbnailPath());
+            }
+        } catch (Exception ex) {
+            throw new InvalidIndexingJobStateException("Failed to delete file from MinIO for image " + imageId + ": " + ex.getMessage());
+        }
+
+        indexingJobItemRepository.deleteByImage_Id(imageId);
+        imageRepository.deleteById(imageId);
     }
 
     private IndexingJobResponse toResponse(IndexingJobEntity job) {

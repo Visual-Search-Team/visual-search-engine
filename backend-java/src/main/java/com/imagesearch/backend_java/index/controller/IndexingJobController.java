@@ -5,6 +5,7 @@ import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobSummaryResponse;
 import com.imagesearch.backend_java.index.dto.PageResponse;
+import com.imagesearch.backend_java.index.dto.request.IndexingJobDeleteImagesRequest;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobRetryRequest;
 import com.imagesearch.backend_java.index.service.IndexingJobService;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -137,6 +139,41 @@ public class IndexingJobController {
             log.error("Error retrying indexing job", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(BaseResponse.error("INDEXING_JOB_RETRY_ERROR", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{jobId}/images")
+    public ResponseEntity<BaseResponse<Map<String, Object>>> deleteImagesFromJob(
+            @PathVariable Long jobId,
+            @RequestBody IndexingJobDeleteImagesRequest request) {
+        try {
+            int deletedCount = indexingJobService.deleteImagesFromJob(
+                    jobId,
+                    request == null ? null : request.getImageIds()
+            );
+            return ResponseEntity.ok(BaseResponse.success(Map.of(
+                    "jobId", jobId,
+                    "deletedCount", deletedCount
+            )));
+        } catch (Exception ex) {
+            log.error("Error deleting images from job {}", jobId, ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("INDEXING_JOB_IMAGES_DELETE_ERROR", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{jobId}")
+    public ResponseEntity<BaseResponse<Void>> deleteJob(@PathVariable Long jobId) {
+        try {
+            indexingJobService.deleteJobAndImages(jobId);
+            return ResponseEntity.ok(BaseResponse.<Void>builder()
+                    .success(true)
+                    .timestamp(OffsetDateTime.now())
+                    .build());
+        } catch (Exception ex) {
+            log.error("Error deleting job {}", jobId, ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("INDEXING_JOB_DELETE_ERROR", ex.getMessage()));
         }
     }
 }

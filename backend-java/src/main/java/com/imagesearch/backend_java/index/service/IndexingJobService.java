@@ -26,4 +26,8 @@ public interface IndexingJobService {
     PageResponse<IndexingJobItemResponse> getJobItems(Long jobId, Map<String, Object> params);
 
     IndexingJobResponse retryIndexing(Long jobId);
+
+    int deleteImagesFromJob(Long jobId, List<Long> imageIds);
+
+    void deleteJobAndImages(Long jobId);
 }

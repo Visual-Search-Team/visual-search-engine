@@ -190,6 +190,33 @@ public class QdrantVectorService {
     }
 
     /**
+     * Xoa point embedding cua anh trong Qdrant theo image id.
+     */
+    public void deleteImageEmbedding(Long imageId) throws IOException {
+        if (imageId == null) {
+            throw new IllegalArgumentException("Image id is required");
+        }
+
+        Map<String, Object> body = Map.of("points", List.of(imageId));
+
+        HttpUrl url = HttpUrl.parse(collectionUrl() + "/points/delete")
+                .newBuilder()
+                .addQueryParameter("wait", "true")
+                .build();
+
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
+                .build();
+
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Qdrant point delete failed: HTTP " + response.code());
+            }
+        }
+    }
+
+    /**
      * Kiểm tra embedding hợp lệ và đúng số chiều trước khi gọi HTTP sang Qdrant.
      */
     private void validateEmbedding(List<Float> embedding) {

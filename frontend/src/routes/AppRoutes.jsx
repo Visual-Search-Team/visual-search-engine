@@ -11,6 +11,7 @@ import { SearchHistory } from '../pages/SearchHistory';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import { AdminIndexing } from '../pages/admin/AdminIndexing';
 import { AdminUser } from '../pages/admin/AdminUser';
+import { AdminJobDetail } from '../pages/admin/AdminJobDetail';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -62,6 +63,11 @@ export default function AppRoutes() {
         <Route path="/admin/indexing" element={
           <AdminLayout>
             <AdminIndexing />
+          </AdminLayout>
+        } />
+        <Route path="/admin/indexing/:jobId" element={
+          <AdminLayout>
+            <AdminJobDetail />
           </AdminLayout>
         } />
         <Route path='/admin/users' element={

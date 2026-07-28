@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  FiAlertCircle,
-  FiChevronLeft,
-  FiChevronRight,
-  FiImage,
-  FiRefreshCw,
-  FiRotateCcw,
-  FiTrash2,
-  FiUploadCloud,
+  FiAlertCircle, FiChevronLeft, FiChevronRight, FiImage, FiRefreshCw, FiRotateCcw, FiTrash2, FiUploadCloud, FiEye
 } from "react-icons/fi";
 import {
   getIndexingJobItems,
@@ -18,6 +12,8 @@ import {
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { uploadImages } from "../../services/imageService";
 import { validateFile } from "../../utils/fileValidation";
+import { deleteIndexingJob } from "../../services/adminIndexingService";
+import Swal from "sweetalert2";
 
 const imagesPerPage = 20;
 
@@ -64,9 +60,8 @@ const formatFileSize = (value) => {
 
 const StatusBadge = ({ status }) => (
   <span
-    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
-      statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700"
-    }`}
+    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700"
+      }`}
   >
     {status || "UNKNOWN"}
   </span>
@@ -81,6 +76,9 @@ const StatCard = ({ label, value, hint }) => (
 );
 
 export const AdminIndexing = () => {
+
+  const navigate = useNavigate();
+
   const queryClient = useQueryClient();
   const [uploadMessage, setUploadMessage] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -99,7 +97,30 @@ export const AdminIndexing = () => {
     },
   });
 
+  const deleteJobMutation = useMutation({
+    mutationFn: deleteIndexingJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      Swal.fire({
+        title: "Đã xóa!",
+        text: "Đã xóa job thành công!",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false
+      });
+    },
+    onError: (error) => {
+      Swal.fire({
+        title: "Lỗi!",
+        text: "Có lỗi xảy ra khi xóa job!",
+        icon: "error"
+      });
+      console.error(error);
+    }
+  });
+
   const jobs = jobsQuery.data?.content || [];
+
   const pagination = {
     page: jobsQuery.data?.page || page,
     totalPages: jobsQuery.data?.totalPages || 1,
@@ -184,6 +205,7 @@ export const AdminIndexing = () => {
   }, [jobPage, localImages]);
 
   const selectedJob = jobs.find((job) => job.id === effectiveSelectedJobId) || null;
+
   const selectedJobItems = itemsQuery.data?.content || [];
 
   const handleUploadPreview = (event) => {
@@ -240,9 +262,6 @@ export const AdminIndexing = () => {
         <div>
           <p className="text-sm font-medium text-indigo-700">Direct Upload Indexing</p>
           <h2 className="mt-1 text-2xl font-semibold text-zinc-900">Upload ảnh và theo dõi indexing job</h2>
-          {/* <p className="mt-2 max-w-2xl text-sm text-gray-600">
-            Frontend này đã bỏ khái niệm batch. Mỗi lần upload sẽ tạo job nền và ảnh được index ngay sau khi upload thành công.
-          </p> */}
         </div>
         <button
           type="button"
@@ -408,6 +427,7 @@ export const AdminIndexing = () => {
                 <th className="border-b border-zinc-200 px-4 py-3">Tiến độ</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Bắt đầu</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Kết thúc</th>
+                <th className="border-b border-zinc-200 px-4 py-3 text-center">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -469,6 +489,49 @@ export const AdminIndexing = () => {
                     </td>
                     <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.startedAt || job.createdAt)}</td>
                     <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.finishedAt)}</td>
+                    <td className="border-b border-zinc-100 px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+
+                        {/* Nút Xem Chi Tiết */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/indexing/${job.id}`);
+                          }}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2 text-indigo-600 shadow-sm border border-indigo-100 transition hover:bg-indigo-50 hover:text-indigo-700"
+                          title="Xem chi tiết"
+                        >
+                          <FiEye className="size-4" />
+                        </button>
+
+                        {/* Nút Xóa Job */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            Swal.fire({
+                              title: "Cảnh báo nguy hiểm!",
+                              text: `Bạn có chắc chắn muốn xóa toàn bộ Job #${job.id} và các ảnh bên trong không?`,
+                              icon: "warning",
+                              showCancelButton: true,
+                              confirmButtonColor: "#ef4444",
+                              cancelButtonColor: "#6b7280",
+                              confirmButtonText: "Xóa toàn bộ",
+                              cancelButtonText: "Hủy"
+                            }).then((result) => {
+                              if (result.isConfirmed) {
+                                deleteJobMutation.mutate(job.id);
+                              }
+                            });
+                          }}
+                          disabled={deleteJobMutation.isPending}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2 text-rose-600 shadow-sm border border-rose-200 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Xóa Job"
+                        >
+                          <FiTrash2 className="size-4" />
+                        </button>
+
+                      </div>
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -484,7 +547,7 @@ export const AdminIndexing = () => {
               type="button"
               disabled={!pagination.hasPrevious && page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FiChevronLeft className="size-4" />
               Trước
@@ -496,7 +559,7 @@ export const AdminIndexing = () => {
               type="button"
               disabled={!pagination.hasNext && page >= pagination.totalPages}
               onClick={() => setPage((current) => current + 1)}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Sau
               <FiChevronRight className="size-4" />
@@ -505,7 +568,7 @@ export const AdminIndexing = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      {/* <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-200 p-5">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
@@ -596,7 +659,7 @@ export const AdminIndexing = () => {
             </div>
           </>
         )}
-      </div>
+      </div> */}
     </section>
   );
 };

@@ -65,3 +65,17 @@ export const getIndexingJobStatus = async (jobId) => {
   const response = await apiClient.get(`/admin/indexing-jobs/status/${jobId}`);
   return unwrapResponse(response);
 };
+
+// Xóa một danh sách ảnh cụ thể trong một job
+export const deleteJobImages = async (jobId, imageIds) => {
+  const response = await apiClient.delete(`/admin/indexing-jobs/${jobId}/images`, {
+    data: { imageIds }, 
+  });
+  return unwrapResponse(response);
+};
+
+// Xóa hoàn toàn một indexing job
+export const deleteIndexingJob = async (jobId) => {
+  const response = await apiClient.delete(`/admin/indexing-jobs/${jobId}`);
+  return unwrapResponse(response);
+};

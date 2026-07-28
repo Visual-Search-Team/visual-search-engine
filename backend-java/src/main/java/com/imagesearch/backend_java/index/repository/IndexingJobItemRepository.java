@@ -11,9 +11,15 @@ import java.util.List;
 public interface IndexingJobItemRepository extends JpaRepository<IndexingJobItemEntity, Long> {
     List<IndexingJobItemEntity> findByIndexingJobId(Long jobId);
 
+    List<IndexingJobItemEntity> findByImage_Id(Long imageId);
+
     Page<IndexingJobItemEntity> findByIndexingJobId(Long jobId, Pageable pageable);
 
     List<IndexingJobItemEntity> findByIndexingJobIdAndStatus(Long jobId, ImageIndexStatus status);
 
     Long countByIndexingJobIdAndStatus(Long jobId, ImageIndexStatus status);
+
+    void deleteByImage_Id(Long imageId);
+
+    void deleteByIndexingJobId(Long jobId);
 }

@@ -43,7 +43,7 @@ const resolveStorageObjectUrl = (value) => {
 };
 
 export const resolveImageUrl = (value, imageId) => {
-  if (!value) return getImageApiUrl(imageId);
+  if (!value || typeof value !== 'string') return getImageApiUrl(imageId);
 
   if (isAbsoluteUrl(value)) {
     return resolveStorageUrl(value);

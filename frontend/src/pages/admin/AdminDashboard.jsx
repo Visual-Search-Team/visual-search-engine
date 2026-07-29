@@ -112,7 +112,7 @@ export default function AdminDashboard() {
             type="button"
             onClick={() => statsQuery.refetch()}
             disabled={statsQuery.isFetching}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <FiRefreshCw className={`size-4 ${statsQuery.isFetching ? "animate-spin" : ""}`} />
             Làm mới số liệu
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-zinc-900">Tình trạng indexing</h2>
               <p className="mt-1 text-sm leading-6 text-zinc-600">
-                Các số liệu này lấy trực tiếp từ backend và phản ánh trạng thái hiện tại của pipeline indexing ảnh.
+                Trạng thái hiện tại của các job indexing
               </p>
             </div>
           </div>
@@ -166,11 +166,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-indigo-900 p-5 text-white shadow-sm">
           <p className="text-sm font-medium text-indigo-200">Pipeline snapshot</p>
           <p className="mt-3 text-4xl font-semibold tracking-tight">{formatNumber(stats.indexed)}</p>
           <p className="mt-2 text-sm leading-6 text-slate-200">
-            ảnh đã index xong và sẵn sàng cho tìm kiếm. Hệ thống hiện có {formatNumber(stats.totalUsers)} người dùng và {formatNumber(stats.processing)} ảnh đang xử lý nền.
+            Ảnh đã index xong và sẵn sàng cho tìm kiếm. Hệ thống hiện có {formatNumber(stats.totalUsers)} người dùng và {formatNumber(stats.processing)} ảnh đang xử lý nền.
           </p>
           <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/15">
             <div

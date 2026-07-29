@@ -1,0 +1,19 @@
+.git
+.gitignore
+.idea
+.vscode
+
+# Build output and local tools
+target
+.mvn
+
+# Local docs and compose files not needed for image build
+HELP.md
+visual-search-engine-api-docs.md
+docker-compose.yml
+
+# Logs and OS files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

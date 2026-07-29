@@ -1,0 +1,20 @@
+name: ${COMPOSE_PROJECT_NAME:-visual-search-engine}
+
+services:
+  backend-ai:
+    image: ${REGISTRY}/${BACKEND_AI_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./backend-ai
+      dockerfile: Dockerfile
+
+  backend-java:
+    image: ${REGISTRY}/${BACKEND_JAVA_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
+
+  frontend:
+    image: ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile

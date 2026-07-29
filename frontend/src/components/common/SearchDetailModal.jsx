@@ -72,6 +72,8 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
   const isMockOnly = result.isMock && !result.canBookmark;
   const canSave = !!result.imageId && !isMockOnly && !saveBookmarkMutation.isPending;
 
+  const similarityScore = result.similarityScore ?? result.score ?? 0;
+
   const handleSaveBookmark = () => {
     if (!result.imageId) return;
     saveBookmarkMutation.mutate(result.imageId);
@@ -137,26 +139,28 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
 
           <div className="mt-6 space-y-4 rounded-xl bg-white p-5 shadow-sm">
             <DetailRow icon={FaHashtag} label="Mã ảnh" value={`IMG-${result.imageId}`} />
-            <DetailRow
-              icon={FaStar}
-              label="Điểm tương đồng"
-              value={formatScore(result.score ?? result.similarityScore ?? 0)}
-              highlight
-            />
+            {similarityScore > 0 && (
+              <DetailRow
+                icon={FaStar}
+                label="Điểm tương đồng"
+                value={formatScore(similarityScore)}
+                highlight
+              />
+            )}
             <DetailRow icon={FaRulerCombined} label="Kích thước" value={dimensions} />
             <DetailRow icon={FaSearch} label="Rank" value={result.rankPosition || "N/A"} />
             <DetailRow icon={FaFileImage} label="Định dạng" value={result.mimeType || "N/A"} />
             <DetailRow icon={FaImage} label="Tên file" value={fileName} />
           </div>
 
-          <div className="mt-5 rounded-xl bg-white p-5 shadow-sm">
+          {/* <div className="mt-5 rounded-xl bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-zinc-900">OCR text</h3>
             <p className="mt-2 rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-600">
               {ocrText || "Chưa có dữ liệu OCR cho ảnh này."}
             </p>
-          </div>
+          </div> */}
 
-          <div className="mt-6 border-t border-zinc-200/70 pt-5">
+          <div className="mt-auto border-t border-zinc-200/70 pt-5">
             {saveBookmarkMutation.isSuccess && (
               <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
                 Đã lưu ảnh vào Bookmark! {' '}

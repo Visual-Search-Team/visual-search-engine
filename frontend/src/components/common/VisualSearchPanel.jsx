@@ -27,7 +27,13 @@ const searchModes = [
 
 export default function VisualSearchPanel() {
   const navigate = useNavigate();
-  const [activeMode, setActiveMode] = useState(searchModes[0]);
+  const [activeMode, setActiveMode] = useState(() => {
+    const savedModeId = sessionStorage.getItem('lastSearchMode');
+    if (savedModeId) {
+      return searchModes.find((m) => m.id === savedModeId) || searchModes[0];
+    }
+    return searchModes[0];
+  });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [fileError, setFileError] = useState('');
@@ -98,6 +104,7 @@ export default function VisualSearchPanel() {
   const handleTabChange = (mode) => {
     setActiveMode(mode);
     setQuery('');
+    sessionStorage.setItem('lastSearchMode', mode.id);
   };
 
   const handleImageSearch = () => {

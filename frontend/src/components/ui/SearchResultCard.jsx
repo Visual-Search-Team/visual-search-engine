@@ -9,6 +9,7 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
     result.imageId
   );
   const fileName = result.originalFilename || `Ảnh #${result.imageId}`;
+  const similarityScore = result.similarityScore ?? result.score ?? 0;
 
   return (
     <article className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
@@ -27,9 +28,11 @@ export const SearchResultCard = ({ result, onViewDetails }) => {
           </div>
         )}
 
-        <div className="absolute bottom-3 right-3 rounded-full bg-zinc-900/85 px-3 py-1 text-xs font-semibold text-white shadow-sm">
-          {formatScore(result.score ?? result.similarityScore ?? 0)}
-        </div>
+        {similarityScore > 0 && (
+          <div className="absolute bottom-3 right-3 rounded-full bg-zinc-900/85 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+            {formatScore(similarityScore)}
+          </div>
+        )}
 
       </div>
 

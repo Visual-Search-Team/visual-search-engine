@@ -3,7 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, logout, user, role } = useAuth();
 
   const displayName =
     user?.fullName ||
@@ -18,10 +18,9 @@ export const Header = () => {
   };
 
   const navLinkClass = ({ isActive }) =>
-    `pb-1 transition ${
-      isActive
-        ? "border-b-2 border-indigo-700 text-indigo-700"
-        : "text-gray-500 hover:text-gray-900"
+    `pb-1 transition ${isActive
+      ? "border-b-2 border-indigo-700 text-indigo-700"
+      : "text-gray-500 hover:text-gray-900"
     }`;
 
   return (
@@ -44,6 +43,17 @@ export const Header = () => {
 
       {isAuthenticated ? (
         <div className="flex flex-wrap items-center gap-3">
+
+          {role === "ADMIN" && (
+            <Link
+              to="/admin"
+              className="mr-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-300"
+              title="Quay lại giao diện quản trị"
+            >
+              Về Admin Dashboard
+            </Link>
+          )}
+
           <span className="text-sm font-medium text-gray-700">
             Chào {displayName}!
           </span>

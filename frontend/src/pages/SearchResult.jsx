@@ -13,6 +13,7 @@ import AOS from 'aos';
 import { lazy, Suspense } from "react";
 import { CardSkeleton } from "../components/ui/CardSkeleton";
 import { useInView } from "react-intersection-observer";
+import { CompactSearchBar } from "../components/common/CompactSearchBar";
 
 const SearchResultCard = lazy(() =>
   import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
@@ -214,7 +215,7 @@ export const SearchResult = () => {
     const start = window.scrollY || document.documentElement.scrollTop;
     const startTime = performance.now();
 
-    const easeOutCubic = (t) => --t * t * t + 1; 
+    const easeOutCubic = (t) => --t * t * t + 1;
     const animateScroll = (currentTime) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -289,10 +290,11 @@ export const SearchResult = () => {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1280px] space-y-8">
-      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+    <section className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8">
 
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+      <div className="flex flex-row items-center gap-20px">
+
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 w-[200px]">
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -302,6 +304,12 @@ export const SearchResult = () => {
             <span>Quay lại trang chủ</span>
           </button>
         </div>
+
+        <CompactSearchBar className="flex-1" />
+
+      </div>
+
+      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

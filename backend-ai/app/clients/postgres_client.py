@@ -10,7 +10,6 @@ class ImageEntity(Base):
     __tablename__ = 'images'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    batch_id = Column(BigInteger, nullable=True)
     uploaded_by = Column(BigInteger, nullable=True)
     original_filename = Column(String(500), nullable=True)
     storage_path = Column(String(1000), nullable=False)

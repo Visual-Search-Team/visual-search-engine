@@ -10,9 +10,11 @@ COPY requirements.txt ./
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --upgrade pip \
-    && pip install --default-timeout=180 --no-cache-dir -r requirements.txt
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install --default-timeout=180 -r requirements.txt
 
 COPY app ./app
 

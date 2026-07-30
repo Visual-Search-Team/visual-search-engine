@@ -20,6 +20,5 @@ sentence-transformers==3.0.1
 peft==0.12.0
 
 # OCR
-paddlepaddle==2.6.2
-paddleocr==2.9.1
+easyocr==1.7.2
 opencv-python-headless==4.10.0.84

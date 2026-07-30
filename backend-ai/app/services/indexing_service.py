@@ -21,20 +21,24 @@ logger = logging.getLogger(__name__)
 # song song giúp giảm tổng thời gian chờ thay vì tải tuần tự từng ảnh.
 _DOWNLOAD_WORKERS = 8
 
-def process_pending_images(db: Session):
+def process_pending_images(db: Session, batch_id: int | None = None):
     """
     Polls the database for images with index_status='PENDING' and processes them:
     - Generates CLIP embedding and upserts to Qdrant.
     - Updates status to 'INDEXED'.
     """
+    # Find up to 64 pending images. If batch_id is provided, only process that batch.
     query = select(ImageEntity).where(ImageEntity.index_status == 'PENDING')
+    if batch_id is not None:
+        query = query.where(ImageEntity.batch_id == batch_id)
+
     pending_images = db.execute(query.limit(64)).scalars().all()
 
     if not pending_images:
         return
 
-    print(f"\\n🔍 [SCAN] Found {len(pending_images)} pending images to index.")
-    logger.info(f"Found {len(pending_images)} pending images to index.")
+    print(f"\\n🔍 [SCAN] Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
+    logger.info(f"Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
 
     valid_ids = []
     failed_ids = []

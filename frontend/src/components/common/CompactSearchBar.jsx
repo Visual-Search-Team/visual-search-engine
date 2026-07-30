@@ -36,7 +36,7 @@ export const CompactSearchBar = ({className = "" }) => {
     <div className={`sticky top-0 z-10 mb-6 bg-slate-50/80 p-4 pt-6 backdrop-blur-md ${className}`}>
       <div className="mx-auto flex w-full flex-col items-center gap-2 md:flex-row md:rounded-full md:border md:border-zinc-300 md:bg-white md:p-1 md:shadow-sm">
         
-        {/* Nhóm nút chọn chế độ (Bên trái) */}
+        {/* Nhóm nút chọn chế độ */}
         <div className="flex w-full shrink-0 gap-1 rounded-full bg-zinc-100 p-1 md:w-auto md:bg-transparent md:p-0">
           {[
             { id: 'image', icon: FaImage, label: 'Ảnh' },
@@ -58,7 +58,7 @@ export const CompactSearchBar = ({className = "" }) => {
           ))}
         </div>
 
-        {/* Khu vực Input (Ở giữa) */}
+        {/* Khu vực Input */}
         <div className="flex w-full flex-1 items-center px-2">
           {activeMode === 'image' ? (
             <div className="flex w-full items-center justify-between gap-3 px-2 py-1">

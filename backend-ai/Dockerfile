@@ -7,12 +7,13 @@ ENV LORA_WEIGHTS_DIR=/app/lora-weights
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip \
-    && pip install --default-timeout=180 --no-cache-dir -r requirements.txt
+    && pip install --default-timeout=180 -r requirements.txt
 
 COPY app ./app
 

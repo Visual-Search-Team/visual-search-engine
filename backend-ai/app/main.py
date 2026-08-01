@@ -28,8 +28,8 @@ def run_indexing_job():
 async def lifespan(app: FastAPI):
     # Startup: start the background scheduler
     logger.info("Starting up FastAPI and background indexing scheduler...")
-    # Run the job every 10 seconds
-    scheduler.add_job(run_indexing_job, 'interval', seconds=10)
+    # Run the job every 2 seconds
+    scheduler.add_job(run_indexing_job, 'interval', seconds=2)
     scheduler.start()
     yield
     # Shutdown: stop the scheduler

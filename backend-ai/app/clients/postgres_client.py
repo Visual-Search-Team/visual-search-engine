@@ -10,7 +10,6 @@ class ImageEntity(Base):
     __tablename__ = 'images'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    batch_id = Column(BigInteger, nullable=True)
     uploaded_by = Column(BigInteger, nullable=True)
     original_filename = Column(String(500), nullable=True)
     storage_path = Column(String(1000), nullable=False)
@@ -22,6 +21,9 @@ class ImageEntity(Base):
     checksum = Column(String(128), nullable=True, unique=True)
     index_status = Column(String(20), default="PENDING")
     indexed_at = Column(DateTime, nullable=True)
+    # 7 thuộc tính thời trang (category, color, pattern, style, material, fit, gender)
+    # do FashionCLIP tự động gắn tag zero-shot lúc indexing. Xem clip_model.predict_all_attributes.
+    metadata_ai = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

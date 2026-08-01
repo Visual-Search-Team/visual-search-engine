@@ -21,24 +21,22 @@ logger = logging.getLogger(__name__)
 # song song giúp giảm tổng thời gian chờ thay vì tải tuần tự từng ảnh.
 _DOWNLOAD_WORKERS = 8
 
-def process_pending_images(db: Session, batch_id: int | None = None):
+def process_pending_images(db: Session):
     """
-    Polls the database for images with index_status='PENDING' and processes them:
+    Polls the database for images with index_status='PROCESSING' and processes them:
     - Generates CLIP embedding and upserts to Qdrant.
     - Updates status to 'INDEXED'.
     """
-    # Find up to 64 pending images. If batch_id is provided, only process that batch.
-    query = select(ImageEntity).where(ImageEntity.index_status == 'PENDING')
-    if batch_id is not None:
-        query = query.where(ImageEntity.batch_id == batch_id)
+    # Find up to 32 processing images.
+    query = select(ImageEntity).where(ImageEntity.index_status == 'PROCESSING')
 
-    pending_images = db.execute(query.limit(64)).scalars().all()
+    pending_images = db.execute(query.limit(32)).scalars().all()
 
     if not pending_images:
         return
 
-    print(f"\\n🔍 [SCAN] Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
-    logger.info(f"Found {len(pending_images)} pending images to index (batch_id={batch_id}).")
+    print(f"\\n🔍 [SCAN] Found {len(pending_images)} images with PROCESSING status to index.")
+    logger.info(f"Found {len(pending_images)} images with PROCESSING status to index.")
 
     valid_ids = []
     failed_ids = []
@@ -53,7 +51,10 @@ def process_pending_images(db: Session, batch_id: int | None = None):
     # tải tuần tự sẽ cộng dồn độ trễ của từng request lại với nhau.
     def _download_and_decode(image: ImageEntity) -> Image.Image:
         image_bytes = minio_client_wrapper.download_image(image.storage_path)
-        return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        # Thu nhỏ ảnh ngay lập tức để tiết kiệm RAM. 1000x1000 là quá đủ cho AI.
+        img.thumbnail((1000, 1000))
+        return img
 
     with ThreadPoolExecutor(max_workers=_DOWNLOAD_WORKERS) as executor:
         future_to_image = {
@@ -75,15 +76,22 @@ def process_pending_images(db: Session, batch_id: int | None = None):
             valid_images = [image_cache_dict[image_id] for image_id in valid_ids]
             embeddings = clip_model.get_image_embeddings(valid_images)
             qdrant_client_wrapper.upsert_vectors(point_ids=valid_ids, vectors=embeddings)
-            
+
+            # 3b. Gắn 7 thuộc tính thời trang (category, color, pattern, style, material,
+            # fit, gender) — tái sử dụng chính vector ảnh vừa tính ở trên, KHÔNG chạy lại
+            # model nên không tốn thêm chi phí forward pass đáng kể nào.
+            attributes_list = clip_model.predict_all_attributes_batch(embeddings)
+            attributes_by_id = dict(zip(valid_ids, attributes_list))
+
             # 4. Mark as INDEXED
             for image in pending_images:
                 if image.id in valid_ids:
                     image.index_status = 'INDEXED'
                     image.indexed_at = datetime.datetime.utcnow()
                     image.updated_at = datetime.datetime.utcnow()
+                    image.metadata_ai = attributes_by_id.get(image.id)
             
-            logger.info(f"Successfully batch indexed {len(valid_ids)} images.")
+            logger.info(f"Successfully batch indexed {len(valid_ids)} images with AI metadata.")
 
             clip_duration = time.time() - clip_start_time
             speed = len(valid_ids) / clip_duration if clip_duration > 0 else 0

@@ -65,6 +65,10 @@ public class ImageEntity {
     @Column(name = "indexed_at")
     private LocalDateTime indexedAt;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "metadata_ai", columnDefinition = "json")
+    private String metadataAi;
+
     @Column(name = "error_message", length = 2000)
     private String errorMessage;
 

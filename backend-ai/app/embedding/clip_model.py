@@ -17,7 +17,7 @@ _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 # 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
 # Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
 _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
-    "category": ["T-shirt", "Hoodie", "Jeans", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Bag"],
+    "category": ["T-shirt", "Shirt", "Hoodie", "Jeans", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Bag"],
     "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
     "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
     "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
@@ -67,7 +67,7 @@ def _looks_vietnamese(text: str) -> bool:
 # Có thể chỉnh lại chữ cho tự nhiên hơn tùy gu, đây chỉ là bản dịch mặc định hợp lý.
 _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     "category": {
-        "T-shirt": "Áo thun", "Hoodie": "Áo hoodie", "Jeans": "Quần jean",
+        "T-shirt": "Áo thun", "Shirt": "Áo sơ mi", "Hoodie": "Áo hoodie", "Jeans": "Quần jean",
         "Skirt": "Chân váy", "Dress": "Váy đầm", "Sneakers": "Giày sneaker",
         "Jacket": "Áo khoác", "Coat": "Áo choàng", "Shorts": "Quần short",
         "Hat": "Mũ", "Bag": "Túi xách",

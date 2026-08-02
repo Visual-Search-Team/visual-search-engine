@@ -17,7 +17,7 @@ _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 # 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
 # Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
 _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
-    "category": ["T-shirt", "Shirt", "Hoodie", "Jeans", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Bag"],
+    "category": ["T-shirt", "Shirt", "Jersey", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Cap", "Bag"],
     "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
     "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
     "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
@@ -67,10 +67,10 @@ def _looks_vietnamese(text: str) -> bool:
 # Có thể chỉnh lại chữ cho tự nhiên hơn tùy gu, đây chỉ là bản dịch mặc định hợp lý.
 _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     "category": {
-        "T-shirt": "Áo thun", "Shirt": "Áo sơ mi", "Hoodie": "Áo hoodie", "Jeans": "Quần jean",
+        "T-shirt": "Áo thun", "Shirt": "Áo sơ mi", "Jersey": "Áo đá bóng", "Tank top": "Áo ba lỗ", "Crop top": "Áo croptop", "Sweater": "Áo len", "Hoodie": "Áo hoodie", "Jeans": "Quần jean", "Trousers": "Quần âu",
         "Skirt": "Chân váy", "Dress": "Váy đầm", "Sneakers": "Giày sneaker",
         "Jacket": "Áo khoác", "Coat": "Áo choàng", "Shorts": "Quần short",
-        "Hat": "Mũ", "Bag": "Túi xách",
+        "Hat": "Mũ", "Cap": "Mũ lưỡi trai", "Bag": "Túi xách",
     },
     "color": {
         "Red": "Đỏ", "Blue": "Xanh dương", "Black": "Đen", "White": "Trắng",
@@ -98,6 +98,13 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
         "Mens": "Nam", "Womens": "Nữ", "Unisex": "Unisex", "Kids": "Trẻ em",
     },
 }
+
+
+# Các từ khóa "gốc" của nhóm ngành hàng — dùng khi câu tìm kiếm không khớp thẳng một
+# nhãn category cụ thể nào (vd. "quần màu đen" không khớp "Quần jean"/"Quần âu"...).
+# Trong trường hợp đó, gom TẤT CẢ nhãn category có chứa từ khóa này lại thành 1 danh
+# sách để khóa cứng Qdrant bằng MATCH_ANY, tránh bốc nhầm sang ngành hàng khác (áo).
+_BROAD_CATEGORY_KEYWORDS: list[str] = ["áo", "quần", "giày", "mũ", "váy", "túi"]
 
 
 class CLIPModelWrapper:
@@ -223,6 +230,35 @@ class CLIPModelWrapper:
                     results[i][attr_name] = vi_labels.get(en_label, en_label)
 
         return results
+
+    # Bóc tách thuộc tính xuất hiện trực tiếp trong câu tìm kiếm tiếng Việt, dựa vào
+    # so khớp chuỗi con với chính _ATTRIBUTE_VI_LABELS (từ điển này cũng dùng để Việt
+    # hóa metadata_ai lúc indexing, nên nhãn khớp ra luôn trùng khớp tuyệt đối với giá
+    # trị đã lưu trong Payload/DB).
+    # Mỗi nhóm thuộc tính chỉ lấy nhãn khớp DÀI NHẤT (duyệt giảm dần theo độ dài) để
+    # tránh nhãn ngắn (vd. "Áo") ăn nhầm vào nhãn dài hơn chứa nó (vd. "Áo thun").
+    def extract_tags_from_text(self, text: str) -> dict[str, list[str]]:
+        normalized = text.lower()
+        filters: dict[str, list[str]] = {}
+
+        for attr_name, vi_labels in _ATTRIBUTE_VI_LABELS.items():
+            for vi_label in sorted(vi_labels.values(), key=len, reverse=True):
+                if vi_label.lower() in normalized:
+                    filters[attr_name] = [vi_label]
+                    break
+
+        # Broad match: "category" chưa khớp nhãn cụ thể nào, nhưng câu vẫn chứa 1 từ
+        # khóa gốc (áo/quần/giày/mũ/váy/túi) -> gom hết nhãn category chứa từ khóa đó.
+        if "category" not in filters:
+            category_labels = _ATTRIBUTE_VI_LABELS["category"]
+            for keyword in _BROAD_CATEGORY_KEYWORDS:
+                if keyword in normalized:
+                    matched = [label for label in category_labels.values() if keyword in label.lower()]
+                    if matched:
+                        filters["category"] = matched
+                    break
+
+        return filters
 
 
 clip_model = CLIPModelWrapper()

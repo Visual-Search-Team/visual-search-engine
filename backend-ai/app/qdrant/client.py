@@ -29,12 +29,16 @@ class QdrantClientWrapper:
         )
     
     # Đẩy cùng lúc nhiều vector đặc trưng lên qdrant
-    def upsert_vectors(self,point_ids: list[int],vectors :list[list[float]]):
+    def upsert_vectors(self, point_ids: list[int], vectors: list[list[float]], payloads: list[dict] = None):
         if not point_ids or not vectors or len(point_ids) != len(vectors):
             return
-        points =[
-            PointStruct(id = pid, vector = vec, payload ={})
-            for pid,vec in zip(point_ids,vectors)
+        
+        if payloads is None:
+            payloads = [{}] * len(point_ids)
+            
+        points = [
+            PointStruct(id=pid, vector=vec, payload=payload)
+            for pid, vec, payload in zip(point_ids, vectors, payloads)
         ]
 
         self.client.upsert(

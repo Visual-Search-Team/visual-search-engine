@@ -33,27 +33,34 @@ public class AiEmbeddingClient {
     private boolean mockEmbedding;
 
     public List<Float> getImageEmbedding(EmbeddingRequest request) throws IOException {
-        return getEmbedding(buildUrl(searchConfig.getImageEmbeddingPath()), request, "image:" + request.getStoragePath());
+        return getFullEmbeddingResponse(buildUrl(searchConfig.getImageEmbeddingPath()), request, "image:" + request.getStoragePath())
+                .getEmbedding();
     }
 
-    public List<Float> getTextEmbedding(String text) throws IOException {
+    public EmbeddingResponse getTextEmbedding(String text) throws IOException {
         EmbeddingRequest request = EmbeddingRequest.builder()
                 .type("text")
                 .text(text)
                 .build();
-        return getEmbedding(buildUrl(searchConfig.getTextEmbeddingPath()), request, "text:" + text);
+        return getFullEmbeddingResponse(buildUrl(searchConfig.getTextEmbeddingPath()), request, "text:" + text);
     }
 
     private List<Float> getEmbedding(String url, EmbeddingRequest request, String mockSeed) throws IOException {
+        return getFullEmbeddingResponse(url, request, mockSeed).getEmbedding();
+    }
+
+    private EmbeddingResponse getFullEmbeddingResponse(String url, EmbeddingRequest request, String mockSeed) throws IOException {
         if (mockEmbedding) {
-            return createMockEmbedding(mockSeed);
+            return EmbeddingResponse.builder()
+                    .embedding(createMockEmbedding(mockSeed))
+                    .build();
         }
 
         EmbeddingResponse response = okHttpHelper.httpPost(url, null, request, EmbeddingResponse.class, null, null);
         if (response == null || response.getEmbedding() == null || response.getEmbedding().isEmpty()) {
             throw new IOException("AI embedding response is empty");
         }
-        return response.getEmbedding();
+        return response;
     }
 
     private String buildUrl(String path) {

@@ -24,6 +24,7 @@ class TextEmbeddingRequest(BaseModel):
 
 class EmbeddingResponse(BaseModel):
     embedding: list[float]
+    filters: dict[str, list[str]] | None = None
 
 
 def _run_ocr_in_background(storage_path: str, image_id: int | None):
@@ -117,7 +118,10 @@ async def get_text_embedding(request: TextEmbeddingRequest):
         
     try:
         embedding = clip_model.get_text_embedding(request.text)
-        return {"embedding": embedding}
+        filters = clip_model.extract_tags_from_text(request.text)
+        if filters:
+            logger.info(f"[Filter] Bóc tách được filter từ query: {filters}")
+        return {"embedding": embedding, "filters": filters or None}
     except Exception as e:
         logger.error(f"Error computing text embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

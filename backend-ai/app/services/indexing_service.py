@@ -75,13 +75,25 @@ def process_pending_images(db: Session):
         try:
             valid_images = [image_cache_dict[image_id] for image_id in valid_ids]
             embeddings = clip_model.get_image_embeddings(valid_images)
-            qdrant_client_wrapper.upsert_vectors(point_ids=valid_ids, vectors=embeddings)
 
             # 3b. Gắn 7 thuộc tính thời trang (category, color, pattern, style, material,
-            # fit, gender) — tái sử dụng chính vector ảnh vừa tính ở trên, KHÔNG chạy lại
-            # model nên không tốn thêm chi phí forward pass đáng kể nào.
+            # fit, gender) TRƯỚC KHI lưu vào Qdrant để đính kèm thành Payload.
             attributes_list = clip_model.predict_all_attributes_batch(embeddings)
             attributes_by_id = dict(zip(valid_ids, attributes_list))
+
+            # Chuẩn bị danh sách payload
+            payloads = []
+            for img_id in valid_ids:
+                img_entity = next(i for i in pending_images if i.id == img_id)
+                payloads.append({
+                    "image_id": img_entity.id,
+                    "original_filename": img_entity.original_filename,  # đúng tên cột trong ORM
+                    "uploaded_by": img_entity.uploaded_by,              # BigInteger (user_id)
+                    "metadata_ai": attributes_by_id.get(img_id)
+                })
+
+            # Đẩy lên Qdrant kèm payload
+            qdrant_client_wrapper.upsert_vectors(point_ids=valid_ids, vectors=embeddings, payloads=payloads)
 
             # 4. Mark as INDEXED
             for image in pending_images:

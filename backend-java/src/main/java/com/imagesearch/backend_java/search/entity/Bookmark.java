@@ -18,15 +18,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "bookmarks",
-        indexes = {
-                @Index(name = "idx_bookmarks_user_id_image_id", columnList = "user_id,image_id")
-        },
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_bookmarks_user_id_image_id", columnNames = {"user_id", "image_id"})
-        }
-)
+@Table(name = "bookmarks")
 @Getter
 @Setter
 @Builder
@@ -43,11 +35,21 @@ public class Bookmark {
     @Column(name = "image_id", nullable = false)
     private Long imageId;
 
+    @Column(name = "is_deleted", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     void onCreate() {
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
         createdAt = LocalDateTime.now();
     }
 }

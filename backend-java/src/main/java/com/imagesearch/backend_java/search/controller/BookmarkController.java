@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 @RestController
 @RequestMapping("/bookmarks")
@@ -37,45 +38,32 @@ public class BookmarkController {
             summary = "Get bookmarked images",
             description = "Returns a paginated list of images bookmarked by the authenticated user."
     )
-    public ResponseEntity<BaseResponse<BookmarkListResponse>> getBookmarks(
+    public BaseResponse<BookmarkListResponse> getBookmarks(
             @RequestParam(value = "page",defaultValue = "0") int page,
             @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered getBookmarks API");
-            validatePagination(page, pageSize);
-            BookmarkListResponse data = bookmarkService.getBookmarks(username(authentication), page, pageSize);
-            log.info("Completed getBookmarks API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected getBookmarks error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("BOOKMARK_ERROR", "Could not get bookmarks"));
-        }
+        log.info("Entered getBookmarks API");
+        validatePagination(page, pageSize);
+        BookmarkListResponse data = bookmarkService.getBookmarks(username(authentication), page, pageSize);
+        log.info("Completed getBookmarks API");
+        return BaseResponse.success(data);
     }
 
     @PostMapping("/{imageId}")
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Create bookmark",
             description = "Adds the specified image to the authenticated user's bookmarks."
     )
-    public ResponseEntity<BaseResponse<CreateBookmarkResponse>> createBookmark(
+    public BaseResponse<CreateBookmarkResponse> createBookmark(
             @PathVariable Long imageId,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered createBookmark API");
-            CreateBookmarkResponse data = bookmarkService.createBookmark(username(authentication), imageId);
-            log.info("Completed createBookmark API");
-            return ResponseEntity.status(201).body(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected createBookmark error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("BOOKMARK_ERROR", "Could not create bookmark"));
-        }
+        log.info("Entered createBookmark API");
+        CreateBookmarkResponse data = bookmarkService.createBookmark(username(authentication), imageId);
+        log.info("Completed createBookmark API");
+        return BaseResponse.success(data);
     }
 
     @DeleteMapping("/{imageId}")
@@ -83,21 +71,61 @@ public class BookmarkController {
             summary = "Delete bookmark",
             description = "Removes the specified image from the authenticated user's bookmarks."
     )
-    public ResponseEntity<BaseResponse<DeleteBookmarkResponse>> deleteBookmark(
+    public BaseResponse<DeleteBookmarkResponse> deleteBookmark(
             @PathVariable Long imageId,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered deleteBookmark API");
-            DeleteBookmarkResponse data = bookmarkService.deleteBookmark(username(authentication), imageId);
-            log.info("Completed deleteBookmark API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected deleteBookmark error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("BOOKMARK_ERROR", "Could not delete bookmark"));
-        }
+        log.info("Entered deleteBookmark API");
+        DeleteBookmarkResponse data = bookmarkService.deleteBookmark(username(authentication), imageId);
+        log.info("Completed deleteBookmark API");
+        return BaseResponse.success(data);
+    }
+
+    @GetMapping("/deleted")
+    @Operation(
+            summary = "Get deleted bookmarks",
+            description = "Returns a paginated list of soft-deleted bookmarks owned by the authenticated user."
+    )
+    public BaseResponse<BookmarkListResponse> getDeletedBookmarks(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "pageSize", defaultValue = "20") int pageSize,
+            Authentication authentication
+    ) {
+        log.info("Entered getDeletedBookmarks API");
+        validatePagination(page, pageSize);
+        BookmarkListResponse data = bookmarkService.getDeletedBookmarks(username(authentication), page, pageSize);
+        log.info("Completed getDeletedBookmarks API");
+        return BaseResponse.success(data);
+    }
+
+    @PostMapping("/{imageId}/restore")
+    @Operation(
+            summary = "Restore bookmark",
+            description = "Restores a bookmark previously removed by soft delete."
+    )
+    public BaseResponse<CreateBookmarkResponse> restoreBookmark(
+            @PathVariable Long imageId,
+            Authentication authentication
+    ) {
+        log.info("Entered restoreBookmark API");
+        CreateBookmarkResponse data = bookmarkService.restoreBookmark(username(authentication), imageId);
+        log.info("Completed restoreBookmark API");
+        return BaseResponse.success(data);
+    }
+
+    @DeleteMapping("/{imageId}/permanent")
+    @Operation(
+            summary = "Permanently delete bookmark",
+            description = "Permanently removes the specified bookmark. This action cannot be undone."
+    )
+    public BaseResponse<DeleteBookmarkResponse> permanentlyDeleteBookmark(
+            @PathVariable Long imageId,
+            Authentication authentication
+    ) {
+        log.info("Entered permanentlyDeleteBookmark API");
+        DeleteBookmarkResponse data = bookmarkService.permanentlyDeleteBookmark(username(authentication), imageId);
+        log.info("Completed permanentlyDeleteBookmark API");
+        return BaseResponse.success(data);
     }
 
     private void validatePagination(int page, int size) {

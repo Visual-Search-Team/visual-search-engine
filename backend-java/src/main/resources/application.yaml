@@ -38,6 +38,11 @@ app:
     username: ${APP_ADMIN_USERNAME:admin}
     email: ${APP_ADMIN_EMAIL:admin@example.com}
     password: ${APP_ADMIN_PASSWORD:admin123}
+  bookmark:
+    cleanup:
+      enabled: ${BOOKMARK_CLEANUP_ENABLED:true}
+      retention-days: ${BOOKMARK_CLEANUP_RETENTION_DAYS:30}
+      cron: ${BOOKMARK_CLEANUP_CRON:0 0 2 * * *}
   indexing:
     restore-batch-max-images: ${APP_INDEXING_RESTORE_BATCH_MAX_IMAGES:50}
     restore-batch-window-seconds: ${APP_INDEXING_RESTORE_BATCH_WINDOW_SECONDS:120}

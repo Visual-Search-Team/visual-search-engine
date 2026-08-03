@@ -8,9 +8,7 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip \
-    apt-get update && apt-get install -y --no-install-recommends \
-        libgl1 \
-        libglib2.0-0 \
+    apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --upgrade pip \
     && pip install --default-timeout=180 -r requirements.txt

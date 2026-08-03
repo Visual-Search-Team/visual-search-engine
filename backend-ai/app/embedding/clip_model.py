@@ -24,6 +24,9 @@ _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
     "material": ["Denim", "Leather", "Cotton", "Wool", "Silk", "Velvet", "Linen"],
     "fit": ["Oversized", "Slim fit", "Regular fit", "Baggy", "Skinny"],
     "gender": ["Mens", "Womens", "Unisex", "Kids"],
+    "sleeve": ["Short sleeve", "Long sleeve", "Sleeveless"],
+    "neckline": ["Collared", "Crew neck", "V-neck", "Turtleneck"],
+    "brand": ["Nike", "Adidas", "Gucci", "Lacoste", "Chanel", "Louis Vuitton", "Puma", "Manchester United", "Burberry", "Dior", "Balenciaga", "Zara", "H&M", "Unbranded"],
 }
 
 # Prompt template riêng cho từng nhóm — cho FashionCLIP ngữ cảnh rõ ràng hơn là chỉ
@@ -36,6 +39,9 @@ _ATTRIBUTE_PROMPT_TEMPLATES: dict[str, str] = {
     "material": "a photo of a {label} fabric clothing item",
     "fit": "a photo of a {label} fit clothing item",
     "gender": "a photo of {label} fashion clothing",
+    "sleeve": "a photo of a {label} clothing item",
+    "neckline": "a photo of a clothing item with a {label} neckline",
+    "brand": "a photo of a {label} brand clothing item",
 }
 
 # Thư mục cache model, tránh phải tải lại mỗi lần build docker
@@ -96,6 +102,18 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     },
     "gender": {
         "Mens": "Nam", "Womens": "Nữ", "Unisex": "Unisex", "Kids": "Trẻ em",
+    },
+    "sleeve": {
+        "Short sleeve": "Ngắn tay", "Long sleeve": "Dài tay", "Sleeveless": "Sát nách",
+    },
+    "neckline": {
+        "Collared": "Có cổ", "Crew neck": "Cổ tròn", "V-neck": "Cổ tim", "Turtleneck": "Cổ lọ",
+    },
+    "brand": {
+        "Nike": "Nike", "Adidas": "Adidas", "Gucci": "Gucci", "Lacoste": "Lacoste", 
+        "Chanel": "Chanel", "Louis Vuitton": "Louis Vuitton", "Puma": "Puma", 
+        "Manchester United": "Manchester United", "Burberry": "Burberry", "Dior": "Dior", 
+        "Balenciaga": "Balenciaga", "Zara": "Zara", "H&M": "H&M", "Unbranded": "Không rõ hãng"
     },
 }
 
@@ -239,6 +257,13 @@ class CLIPModelWrapper:
     # tránh nhãn ngắn (vd. "Áo") ăn nhầm vào nhãn dài hơn chứa nó (vd. "Áo thun").
     def extract_tags_from_text(self, text: str) -> dict[str, list[str]]:
         normalized = text.lower()
+        
+        # Xử lý từ đồng nghĩa trước khi match
+        normalized = normalized.replace("quần đùi", "quần short")
+        normalized = normalized.replace("áo phông", "áo thun")
+        normalized = normalized.replace(" mu", " manchester united")
+        normalized = normalized.replace(" lv", " louis vuitton")
+        
         filters: dict[str, list[str]] = {}
 
         for attr_name, vi_labels in _ATTRIBUTE_VI_LABELS.items():
@@ -246,6 +271,10 @@ class CLIPModelWrapper:
                 if vi_label.lower() in normalized:
                     filters[attr_name] = [vi_label]
                     break
+
+        # Xử lý đặc biệt cho màu "xanh" (nếu không gõ rõ xanh lá hay xanh dương)
+        if "color" not in filters and "xanh" in normalized:
+            filters["color"] = ["Xanh dương", "Xanh lá"]
 
         # Broad match: "category" chưa khớp nhãn cụ thể nào, nhưng câu vẫn chứa 1 từ
         # khóa gốc (áo/quần/giày/mũ/váy/túi) -> gom hết nhãn category chứa từ khóa đó.

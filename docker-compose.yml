@@ -87,7 +87,6 @@ services:
       MINIO_BUCKET: images
       LORA_WEIGHTS_DIR: /app/lora-weights
       BASE_MODEL_CACHE: /app/base_model_cache
-      OCR_MODEL_CACHE: /app/ocr_model_cache
       HF_HOME: /app/base_model_cache/huggingface
       TORCH_HOME: /app/base_model_cache/torch
     depends_on:
@@ -110,7 +109,6 @@ services:
       - ./backend-ai/app:/app/app
       - ./Lora_weights:/app/lora-weights:ro
       - base-model-cache:/app/base_model_cache
-      - ocr-model-cache:/app/ocr_model_cache
     restart: unless-stopped
 
   backend-java:
@@ -166,4 +164,3 @@ volumes:
   qdrant-data:
   minio-data:
   base-model-cache:
-  ocr-model-cache:

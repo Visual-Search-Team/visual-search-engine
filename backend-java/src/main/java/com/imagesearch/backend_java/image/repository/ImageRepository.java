@@ -7,7 +7,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
@@ -34,4 +37,12 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
     List<ImageEntity> findByIndexStatusIn(List<ImageIndexStatus> statuses);
 
     List<ImageEntity> findByIndexStatusInAndDeletedFalse(List<ImageIndexStatus> statuses);
+
+    Page<ImageEntity> findByDeletedTrueOrderByDeletedAtDesc(Pageable pageable);
+
+    List<ImageEntity> findByDeletedTrue();
+
+    Optional<ImageEntity> findByIdAndDeletedTrue(Long id);
+
+    List<ImageEntity> findByDeletedTrueAndDeletedAtBefore(LocalDateTime threshold);
 }

@@ -14,6 +14,7 @@ import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
 import com.imagesearch.backend_java.index.entity.IndexingJobEntity;
 import com.imagesearch.backend_java.index.entity.IndexingJobItemEntity;
 import com.imagesearch.backend_java.index.enums.JobStatus;
+import com.imagesearch.backend_java.index.enums.JobType;
 import com.imagesearch.backend_java.index.exception.IndexingJobNotFoundException;
 import com.imagesearch.backend_java.index.exception.InvalidIndexingJobStateException;
 import com.imagesearch.backend_java.index.repository.IndexingJobItemRepository;
@@ -55,6 +56,12 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     @Value("${app.indexing.processing-timeout-minutes:15}")
     private long processingTimeoutMinutes;
 
+    @Value("${app.indexing.restore-batch-max-images:50}")
+    private int restoreBatchMaxImages;
+
+    @Value("${app.indexing.restore-batch-window-seconds:120}")
+    private long restoreBatchWindowSeconds;
+
     @Transactional
     @Override
     public IndexingJobResponse trackUploadedImages(List<ImageEntity> images) {
@@ -66,7 +73,26 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             throw new InvalidIndexingJobStateException("No uploaded images available to track");
         }
 
-        IndexingJobEntity job = createJob(validImages, JobStatus.RUNNING, true);
+        IndexingJobEntity job = createJob(validImages, JobStatus.RUNNING, true, JobType.UPLOAD);
+        refreshJobProgress(job);
+        return toResponse(job);
+    }
+
+    @Transactional
+    @Override
+    public IndexingJobResponse trackRestoredImage(ImageEntity image) {
+        if (image == null || image.getId() == null) {
+            throw new InvalidIndexingJobStateException("No restored image available to track");
+        }
+
+        IndexingJobEntity job = findReusableRestoreBatchJob()
+                .filter(candidate -> !isBatchFull(candidate))
+                .orElseGet(() -> createJob(List.of(image), JobStatus.RUNNING, true, JobType.RESTORE));
+
+        if (job.getId() != null && !indexingJobItemRepository.existsByIndexingJobIdAndImage_Id(job.getId(), image.getId())) {
+            appendImageToJob(job, image);
+        }
+
         refreshJobProgress(job);
         return toResponse(job);
     }
@@ -80,7 +106,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
 
         boolean startImmediately = request == null || request.getStartImmediately() == null || request.getStartImmediately();
-        IndexingJobEntity job = createJob(images, startImmediately ? JobStatus.RUNNING : JobStatus.PENDING, startImmediately);
+        IndexingJobEntity job = createJob(images, startImmediately ? JobStatus.RUNNING : JobStatus.PENDING, startImmediately, JobType.UPLOAD);
 
         if (startImmediately) {
             scheduleAsyncIndexing(images);
@@ -313,10 +339,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         runningJobs.forEach(this::refreshJobProgress);
     }
 
-    private IndexingJobEntity createJob(List<ImageEntity> images, JobStatus status, boolean started) {
+    private IndexingJobEntity createJob(List<ImageEntity> images, JobStatus status, boolean started, JobType jobType) {
         IndexingJobEntity job = IndexingJobEntity.builder()
                 .triggeredBy(resolveCurrentUser())
                 .status(status)
+                .jobType(jobType)
                 .totalImages(images.size())
                 .successCount(0)
                 .failedCount(0)
@@ -325,6 +352,31 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         indexingJobRepository.save(job);
         createJobItems(job, images);
         return job;
+    }
+
+    private java.util.Optional<IndexingJobEntity> findReusableRestoreBatchJob() {
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(Math.max(restoreBatchWindowSeconds, 0));
+        return indexingJobRepository.findFirstByJobTypeAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(JobType.RESTORE, threshold);
+    }
+
+    private boolean isBatchFull(IndexingJobEntity job) {
+        if (job == null || job.getId() == null) {
+            return true;
+        }
+        long maxImages = Math.max(restoreBatchMaxImages, 1);
+        Long count = indexingJobItemRepository.countByIndexingJobId(job.getId());
+        return count != null && count >= maxImages;
+    }
+
+    private void appendImageToJob(IndexingJobEntity job, ImageEntity image) {
+        IndexingJobItemEntity item = IndexingJobItemEntity.builder()
+                .indexingJob(job)
+                .image(image)
+                .status(image.getIndexStatus())
+                .retryCount(0)
+                .errorMessage(image.getErrorMessage())
+                .build();
+        indexingJobItemRepository.save(item);
     }
 
     private void createJobItems(IndexingJobEntity job, List<ImageEntity> images) {
@@ -444,7 +496,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 job.setFinishedAt(LocalDateTime.now());
             }
         } else {
-            job.setStatus(JobStatus.PARTIALLY_FAILED);
+            if (job.getJobType() == JobType.RESTORE) {
+                job.setStatus(JobStatus.FAILED);
+            } else {
+                job.setStatus(JobStatus.PARTIALLY_FAILED);
+            }
             if (job.getFinishedAt() == null) {
                 job.setFinishedAt(LocalDateTime.now());
             }

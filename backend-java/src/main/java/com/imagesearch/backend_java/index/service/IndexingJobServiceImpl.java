@@ -343,10 +343,10 @@ public class IndexingJobServiceImpl implements IndexingJobService {
 
     private List<ImageEntity> resolveImagesForJob(IndexingJobRequest request) {
         if (request != null && request.getImageIds() != null && !request.getImageIds().isEmpty()) {
-            return imageRepository.findAllById(request.getImageIds());
+            return imageRepository.findAllByIdInAndDeletedFalse(request.getImageIds());
         }
 
-        return imageRepository.findByIndexStatusIn(List.of(
+        return imageRepository.findByIndexStatusInAndDeletedFalse(List.of(
                 ImageIndexStatus.PENDING,
                 ImageIndexStatus.FAILED
         ));
@@ -383,7 +383,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             return;
         }
 
-        Runnable dispatch = () -> triggerAsyncIndexing(imageRepository.findAllById(imageIds));
+        Runnable dispatch = () -> triggerAsyncIndexing(imageRepository.findAllByIdInAndDeletedFalse(imageIds));
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             dispatch.run();
             return;
@@ -538,7 +538,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     }
 
     private void deleteImageAndCleanup(Long imageId, Set<Long> affectedJobIds) {
-        ImageEntity image = imageRepository.findById(imageId)
+        ImageEntity image = imageRepository.findByIdAndDeletedFalse(imageId)
                 .orElseThrow(() -> new InvalidIndexingJobStateException("Image not found: " + imageId));
 
         List<IndexingJobItemEntity> linkedItems = indexingJobItemRepository.findByImage_Id(imageId);
@@ -548,23 +548,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 .map(IndexingJobEntity::getId)
                 .forEach(affectedJobIds::add);
 
-        try {
-            qdrantVectorService.deleteImageEmbedding(imageId);
-        } catch (Exception ex) {
-            throw new InvalidIndexingJobStateException("Failed to delete vector from Qdrant for image " + imageId + ": " + ex.getMessage());
-        }
-
-        try {
-            minIOService.deleteFile(image.getStoragePath());
-            if (image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank()) {
-                minIOService.deleteFile(image.getThumbnailPath());
-            }
-        } catch (Exception ex) {
-            throw new InvalidIndexingJobStateException("Failed to delete file from MinIO for image " + imageId + ": " + ex.getMessage());
-        }
+        image.setDeleted(true);
+        image.setDeletedAt(LocalDateTime.now());
+        imageRepository.save(image);
 
         indexingJobItemRepository.deleteByImage_Id(imageId);
-        imageRepository.deleteById(imageId);
     }
 
     private IndexingJobResponse toResponse(IndexingJobEntity job) {

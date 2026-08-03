@@ -30,7 +30,10 @@ def process_pending_images(db: Session):
     - Updates status to 'INDEXED'.
     """
     # Find up to 32 processing images.
-    query = select(ImageEntity).where(ImageEntity.index_status == 'PROCESSING')
+    query = select(ImageEntity).where(
+        ImageEntity.index_status == 'PROCESSING',
+        ImageEntity.is_deleted.is_(False)
+    )
 
     pending_images = db.execute(query.limit(_SCAN_LIMIT)).scalars().all()
 

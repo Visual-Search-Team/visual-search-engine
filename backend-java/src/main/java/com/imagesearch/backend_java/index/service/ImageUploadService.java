@@ -59,7 +59,7 @@ public class ImageUploadService {
                 String checksum = generateChecksum(file);
                 
                 // Check if image already exists by checksum
-                if (imageRepository.findByChecksum(checksum).isPresent()) {
+                if (imageRepository.findByChecksumAndDeletedFalse(checksum).isPresent()) {
                     log.warn("Image with checksum {} already exists", checksum);
                     continue;
                 }

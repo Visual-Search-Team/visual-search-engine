@@ -17,7 +17,11 @@ public interface IndexingJobItemRepository extends JpaRepository<IndexingJobItem
 
     List<IndexingJobItemEntity> findByIndexingJobIdAndStatus(Long jobId, ImageIndexStatus status);
 
+    Long countByIndexingJobId(Long jobId);
+
     Long countByIndexingJobIdAndStatus(Long jobId, ImageIndexStatus status);
+
+    boolean existsByIndexingJobIdAndImage_Id(Long jobId, Long imageId);
 
     void deleteByImage_Id(Long imageId);
 

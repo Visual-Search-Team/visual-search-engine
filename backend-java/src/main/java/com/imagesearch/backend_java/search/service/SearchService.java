@@ -124,7 +124,7 @@ public class SearchService {
     public ImageSearchResponse searchSimilarImage(Long imageId, String username, Integer limit, Integer page, Integer pageSize) {
         long startTime = System.currentTimeMillis();
         SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
-        ImageEntity queryImage = imageRepository.findById(imageId)
+        ImageEntity queryImage = imageRepository.findByIdAndDeletedFalse(imageId)
                 .orElseThrow(() -> new SearchException("IMAGE_NOT_FOUND", "Image not found", HttpStatus.NOT_FOUND));
 
         try {
@@ -200,7 +200,7 @@ public class SearchService {
                 .map(ImageOcr::getImageId)
                 .distinct()
                 .toList();
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllById(imageIds).stream()
+        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(imageIds).stream()
                 .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));
 
         List<SearchResultItem> results = new ArrayList<>();
@@ -259,7 +259,7 @@ public class SearchService {
             return Collections.emptyList();
         }
 
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllById(
+        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(
                         hits.stream().map(QdrantHit::imageId).toList()
                 ).stream()
                 .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));

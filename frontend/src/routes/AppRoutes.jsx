@@ -12,6 +12,7 @@ import AdminDashboard from '../pages/admin/AdminDashboard';
 import { AdminIndexing } from '../pages/admin/AdminIndexing';
 import { AdminUser } from '../pages/admin/AdminUser';
 import { AdminJobDetail } from '../pages/admin/AdminJobDetail';
+import { AdminTrash } from '../pages/admin/AdminTrash';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -73,6 +74,11 @@ export default function AppRoutes() {
         <Route path='/admin/users' element={
           <AdminLayout>
             <AdminUser />
+          </AdminLayout>
+        } />
+        <Route path='/admin/trash' element={
+          <AdminLayout>
+            <AdminTrash />
           </AdminLayout>
         } />
 

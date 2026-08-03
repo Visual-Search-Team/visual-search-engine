@@ -27,7 +27,7 @@ async def trigger_indexing(background_tasks: BackgroundTasks, payload: TriggerIn
         from app.clients.postgres_client import SessionLocal
         local_db = SessionLocal()
         try:
-            process_pending_images(local_db, batch_id=batch_id)
+            process_pending_images(local_db)
         finally:
             local_db.close()
             

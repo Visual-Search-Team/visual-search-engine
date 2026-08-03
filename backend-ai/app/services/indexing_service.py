@@ -3,6 +3,7 @@ import io
 import json
 import time
 import datetime
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from PIL import Image
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 # Số luồng tải song song từ MinIO. Đây là I/O-bound (network call) nên chạy
 # song song giúp giảm tổng thời gian chờ thay vì tải tuần tự từng ảnh.
-_DOWNLOAD_WORKERS = 8
+_DOWNLOAD_WORKERS = max(1, int(os.environ.get("INDEXING_DOWNLOAD_WORKERS", "4")))
+_SCAN_LIMIT = max(1, int(os.environ.get("INDEXING_SCAN_LIMIT", "16")))
 
 def process_pending_images(db: Session):
     """
@@ -28,9 +30,12 @@ def process_pending_images(db: Session):
     - Updates status to 'INDEXED'.
     """
     # Find up to 32 processing images.
-    query = select(ImageEntity).where(ImageEntity.index_status == 'PROCESSING')
+    query = select(ImageEntity).where(
+        ImageEntity.index_status == 'PROCESSING',
+        ImageEntity.is_deleted.is_(False)
+    )
 
-    pending_images = db.execute(query.limit(32)).scalars().all()
+    pending_images = db.execute(query.limit(_SCAN_LIMIT)).scalars().all()
 
     if not pending_images:
         return
@@ -136,6 +141,13 @@ def process_pending_images(db: Session):
     # 7. Run OCR on successfully indexed images (async, non-blocking for indexing)
     # Tái sử dụng ảnh đã tải & decode sẵn trong image_cache_dict — không tải lại từ MinIO.
     _run_ocr_for_images(db, image_cache_dict)
+
+    # Giải phóng sớm bộ nhớ ảnh sau mỗi vòng xử lý để tránh tích lũy RAM dài hạn.
+    for cached_image in image_cache_dict.values():
+        try:
+            cached_image.close()
+        except Exception:
+            pass
 
 
 def _run_ocr_for_images(db: Session, image_cache_dict: dict[int, Image.Image]):

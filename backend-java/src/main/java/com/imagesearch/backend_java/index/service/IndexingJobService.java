@@ -13,6 +13,8 @@ import java.util.Map;
 public interface IndexingJobService {
     IndexingJobResponse trackUploadedImages(List<ImageEntity> images);
 
+    IndexingJobResponse trackRestoredImage(ImageEntity image);
+
     IndexingJobResponse createIndexingJob(IndexingJobRequest request);
 
     IndexingJobResponse getIndexingJob(Long jobId);

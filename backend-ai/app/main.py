@@ -21,6 +21,8 @@ def run_indexing_job():
     db = SessionLocal()
     try:
         process_pending_images(db)
+    except Exception:
+        logger.exception("Background indexing job crashed")
     finally:
         db.close()
 

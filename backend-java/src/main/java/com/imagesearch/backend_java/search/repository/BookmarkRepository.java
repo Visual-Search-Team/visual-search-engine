@@ -29,4 +29,5 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     @Modifying
     @Query("delete from Bookmark b where b.isDeleted = true and b.deletedAt < :cutoff")
     int deleteExpiredBookmarks(@Param("cutoff") LocalDateTime cutoff);
+    void deleteByImageId(Long imageId);
 }

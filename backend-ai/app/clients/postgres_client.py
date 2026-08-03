@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, Numeric, Text, select, JSON
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, Numeric, Text, select, JSON, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 import os
 import datetime
@@ -24,6 +24,8 @@ class ImageEntity(Base):
     # 7 thuộc tính thời trang (category, color, pattern, style, material, fit, gender)
     # do FashionCLIP tự động gắn tag zero-shot lúc indexing. Xem clip_model.predict_all_attributes.
     metadata_ai = Column(JSON, nullable=True)
+    is_deleted = Column("is_deleted", Boolean, nullable=False, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

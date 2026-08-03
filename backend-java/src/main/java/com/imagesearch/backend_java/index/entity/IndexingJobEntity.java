@@ -2,6 +2,7 @@ package com.imagesearch.backend_java.index.entity;
 
 import com.imagesearch.backend_java.auth.entity.User;
 import com.imagesearch.backend_java.index.enums.JobStatus;
+import com.imagesearch.backend_java.index.enums.JobType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -33,7 +34,8 @@ import java.util.List;
         name = "indexing_jobs",
         indexes = {
                 @Index(name = "idx_indexing_jobs_status", columnList = "status"),
-                @Index(name = "idx_indexing_jobs_created_at", columnList = "created_at")
+                @Index(name = "idx_indexing_jobs_created_at", columnList = "created_at"),
+                @Index(name = "idx_indexing_jobs_type", columnList = "job_type")
         }
 )
 @Getter
@@ -53,6 +55,11 @@ public class IndexingJobEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private JobStatus status;
+
+        @Builder.Default
+        @Enumerated(EnumType.STRING)
+        @Column(name = "job_type", nullable = false, length = 20)
+        private JobType jobType = JobType.UPLOAD;
 
     @Column(name = "total_images", nullable = false)
     private Integer totalImages;

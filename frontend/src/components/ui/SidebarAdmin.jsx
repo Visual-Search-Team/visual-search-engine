@@ -1,10 +1,11 @@
-import { FiBarChart2, FiDatabase, FiUsers, FiExternalLink } from "react-icons/fi";
+import { FiBarChart2, FiDatabase, FiUsers, FiExternalLink, FiTrash2 } from "react-icons/fi";
 import { NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: FiBarChart2, end: true },
   { to: "/admin/indexing", label: "Indexing", icon: FiDatabase },
+  { to: "/admin/trash", label: "Trash Bin", icon: FiTrash2 },
   { to: "/admin/users", label: "Users", icon: FiUsers },
 ];
 

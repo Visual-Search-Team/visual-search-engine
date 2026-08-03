@@ -6,7 +6,6 @@ import com.imagesearch.backend_java.image.dto.response.ImageUploadResponse;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
-import com.imagesearch.backend_java.image.service.ImageIndexingService;
 import com.imagesearch.backend_java.image.service.ImageThumbnailService;
 import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
@@ -17,15 +16,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +31,6 @@ public class ImageUploadService {
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
     private final MinIOService minIOService;
-    private final ImageIndexingService imageIndexingService;
     private final IndexingJobService indexingJobService;
     private final ImageThumbnailService imageThumbnailService;
 
@@ -104,7 +99,6 @@ public class ImageUploadService {
 
         if (!savedImages.isEmpty()) {
             IndexingJobResponse indexingJob = indexingJobService.trackUploadedImages(savedImages);
-            scheduleIndexingAfterCommit(savedImages);
 
             for (ImageEntity savedImage : savedImages) {
                 ImageUploadResponse response = ImageUploadResponse.builder()
@@ -134,30 +128,5 @@ public class ImageUploadService {
     private String generateChecksum(MultipartFile file) throws IOException {
         byte[] fileBytes = file.getBytes();
         return UUID.nameUUIDFromBytes(fileBytes).toString();
-    }
-
-    private void scheduleIndexingAfterCommit(List<ImageEntity> images) {
-        List<Long> imageIds = images.stream()
-                .filter(image -> image != null && image.getId() != null)
-                .map(ImageEntity::getId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (imageIds.isEmpty()) {
-            return;
-        }
-
-        Runnable dispatch = () -> imageIds.forEach(imageIndexingService::indexImageAsync);
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            dispatch.run();
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                dispatch.run();
-            }
-        });
     }
 }

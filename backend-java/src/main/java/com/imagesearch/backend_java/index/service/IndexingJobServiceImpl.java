@@ -5,7 +5,6 @@ import com.imagesearch.backend_java.auth.repository.UserRepository;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
-import com.imagesearch.backend_java.image.service.ImageIndexingService;
 import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
@@ -35,7 +34,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +49,6 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     private final IndexingJobItemRepository indexingJobItemRepository;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
-    private final ImageIndexingService imageIndexingService;
     private final QdrantVectorService qdrantVectorService;
     private final MinIOService minIOService;
 
@@ -187,18 +184,16 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             return toResponse(job);
         }
 
-        List<ImageEntity> retryImages = new ArrayList<>();
         for (IndexingJobItemEntity item : failedItems) {
             ImageEntity image = item.getImage();
             if (image != null) {
-                image.setIndexStatus(ImageIndexStatus.PENDING);
+                image.setIndexStatus(ImageIndexStatus.PROCESSING);
                 image.setErrorMessage(null);
                 image.setIndexedAt(null);
                 imageRepository.save(image);
-                retryImages.add(image);
             }
 
-            item.setStatus(ImageIndexStatus.PENDING);
+            item.setStatus(ImageIndexStatus.PROCESSING);
             item.setRetryCount((item.getRetryCount() == null ? 0 : item.getRetryCount()) + 1);
             item.setErrorMessage(null);
             item.setProcessedAt(null);
@@ -213,7 +208,6 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         job.setErrorMessage(null);
         indexingJobRepository.save(job);
 
-        scheduleAsyncIndexing(retryImages);
         refreshJobProgress(job);
         return toResponse(job);
     }
@@ -374,7 +368,6 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 image.setIndexStatus(ImageIndexStatus.PROCESSING);
                 image.setErrorMessage(null);
                 imageRepository.save(image);
-                imageIndexingService.indexImageAsync(image.getId());
             }
         }
     }

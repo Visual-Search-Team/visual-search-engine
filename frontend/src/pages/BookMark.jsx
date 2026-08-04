@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash, FaArrowLeft, FaHome } from "react-icons/fa";
+import { FaBookmark, FaChevronLeft, FaChevronRight, FaImage, FaTrash, FaTrashRestore, FaArrowLeft, FaHome, FaTimes } from "react-icons/fa";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { deleteBookmark, getBookmarks } from "../services/bookmarkService";
 import { getImageBlob } from "../services/imageService";
@@ -100,6 +100,24 @@ export const BookMark = () => {
   const page = Math.max(Number(searchParams.get("page") || 0), 0);
   const navigate = useNavigate();
 
+  // Quản lý thông báo 
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+
+    // Tự động xoá toast sau 2 giây 
+    setTimeout(() => {
+      removeToast(id);
+    }, 2000);
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+
   const bookmarkQuery = useQuery({
     queryKey: ["bookmarks", page],
     queryFn: () => getBookmarks({ page, pageSize: PAGE_SIZE }),
@@ -108,10 +126,20 @@ export const BookMark = () => {
 
   const deleteMutation = useMutation({
     mutationFn: deleteBookmark,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    onSuccess: (data, deletedImageId) => {
+      if (data && data.success === false) {
+        addToast(`Xoá ảnh #${deletedImageId} thất bại!`, "error");
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+        addToast(`Xoá ảnh #${deletedImageId} thành công`, "success");
+      }
+    },
+    onError: (error, deletedImageId) => {
+      console.error("Lỗi khi xoá ảnh:", error);
+      addToast(`Xoá ảnh #${deletedImageId} thất bại!`, "error");
     },
   });
+
 
   const bookmarkData = normalizeBookmarkResponse(bookmarkQuery.data);
   const currentPage = bookmarkData.page + 1;
@@ -129,25 +157,56 @@ export const BookMark = () => {
 
   return (
     <section className="mx-auto w-full max-w-[1280px] space-y-8">
+
+      {/* Hiển thị danh sách các thông báo toast */}
+      <div className="fixed right-5 top-[50px] z-50 flex flex-col gap-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex w-72 transform items-center justify-between rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-300 ease-in-out ${toast.type === "success" ? "bg-green-500" : "bg-red-500"
+              }`}
+          >
+            <span>{toast.message}</span>
+            <button
+              onClick={() => removeToast(toast.id)}
+              className="rounded-full p-1 transition-colors hover:bg-white/20"
+            >
+              <FaTimes className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-col gap-4">
 
-        <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
-          >
-            <FaArrowLeft />
-            <span>Quay lại trang trước</span>
-          </button>
+        <div className="flex flex-row justify-between items-center gap-4 border-b border-gray-200 pb-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
+            >
+              <FaArrowLeft />
+              <span>Quay lại trang trước</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+            >
+              <FaHome className="h-4 w-4" />
+              <span>Quay lại trang chủ</span>
+            </button>
+          </div>
 
           <button
             type="button"
-            onClick={() => navigate("/")}
-            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+            onClick={() => navigate("/bookmarks/trash")}
+            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-red-500 bg-white px-5 py-3 text-sm font-medium text-red-500 transition hover:bg-red-50"
           >
-            <FaHome className="h-4 w-4" />
-            <span>Quay lại trang chủ</span>
+            <FaTrashRestore className="h-4 w-4" />
+            <span>Thùng rác</span>
           </button>
         </div>
 
@@ -212,7 +271,7 @@ export const BookMark = () => {
                       onClick={() => deleteMutation.mutate(bookmark.imageId)}
                       disabled={isDeleting || !bookmark.imageId}
                       aria-label="Xóa ảnh khỏi Bookmark"
-                      className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-red-600 opacity-0 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100"
+                      className="absolute right-3 top-3 cursor-pointer flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-red-600 opacity-0 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100"
                     >
                       <FaTrash className="h-3.5 w-3.5" />
                     </button>

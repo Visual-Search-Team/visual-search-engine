@@ -13,6 +13,8 @@ import AOS from 'aos';
 import { lazy, Suspense } from "react";
 import { CardSkeleton } from "../components/ui/CardSkeleton";
 import { useInView } from "react-intersection-observer";
+import { CompactSearchBar } from "../components/common/CompactSearchBar";
+import Masonry from 'react-masonry-css';
 
 const SearchResultCard = lazy(() =>
   import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
@@ -21,6 +23,15 @@ const SearchResultCard = lazy(() =>
 
 const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
+
+const breakpointColumnsObj = {
+  default: 4,      
+  1280: 4,        
+  1024: 3,         
+  768: 2,          
+  640: 2,          
+  500: 2           
+};
 
 const getModeLabel = (type, mode) => {
   if (type === "similar") return "Tìm ảnh tương tự";
@@ -70,8 +81,6 @@ export const SearchResult = () => {
   const imageId = searchParams.get("imageId") || searchState.imageId || null;
   const mode = (searchParams.get("mode") || searchState.mode || "SEMANTIC").toUpperCase();
 
-  // const page = Math.max(Number(searchParams.get("page") || 1), 1);
-
   const size = Number(searchParams.get("size")) || PAGE_SIZE;
 
   const imageFile = searchState.imageFile || searchStore.imageFile;
@@ -120,38 +129,6 @@ export const SearchResult = () => {
     refetchOnWindowFocus: false,
   });
 
-  // const searchQuery = useQuery({
-  //   queryKey: ["search-results", type, query, mode, page, size, imageFile?.name, imageId],
-  //   queryFn: async () => {
-
-  //     if (USE_MOCK_SEARCH_RESULTS) {
-  //       return getMockSearchResponse({
-  //         page,
-  //         size,
-  //         searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
-  //       });
-  //     }
-
-  //     // Xử lý gọi API tìm tương tự
-  //     if (isSimilarSearch && imageId) {
-  //       return searchSimilarImages(Number(imageId), page, size);
-  //     }
-
-  //     if (isImageSearch) {
-  //       return searchByImage({ image: imageFile, page, size });
-  //     }
-
-  //     return searchByText({ query, mode, page, size });
-  //   },
-  //   enabled: canShowResults,
-  //   placeholderData: keepPreviousData,
-
-  //   staleTime: 5 * 60 * 1000, // Dữ liệu sẽ được coi là mới trong 5 phút, không re-fetch khi component re-mount
-  //   gcTime: 10 * 60 * 1000, // Thời gian giữ cache trong bộ nhớ (10 phút)
-  //   refetchOnWindowFocus: false, // Không tự động gọi lại API khi chuyển đổi qua lại giữa các tab trình duyệt
-  // });
-
-  // infinity scroll 3
 
   const searchData = useMemo(() => {
     if (!searchQuery.data) return { results: [], totalElements: 0 };
@@ -214,7 +191,7 @@ export const SearchResult = () => {
     const start = window.scrollY || document.documentElement.scrollTop;
     const startTime = performance.now();
 
-    const easeOutCubic = (t) => --t * t * t + 1; 
+    const easeOutCubic = (t) => --t * t * t + 1;
     const animateScroll = (currentTime) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
@@ -239,27 +216,6 @@ export const SearchResult = () => {
       : isImageSearch
         ? imageFile?.name || "ảnh đã tải lên"
         : query;
-
-  // const currentPage = searchData.pageNumber + 1;
-  // const totalPages = searchData.totalPages || 1;
-
-  // const updatePage = (nextPage) => {
-  //   const nextParams = new URLSearchParams(searchParams);
-  //   nextParams.set("page", String(nextPage));
-  //   nextParams.set("size", String(size));
-
-  //   if (isSimilarSearch && imageId) {
-  //     nextParams.set("imageId", imageId);
-  //   }
-
-  //   navigate(
-  //     {
-  //       pathname: "/search-result",
-  //       search: nextParams.toString(),
-  //     },
-  //     { state: searchState }
-  //   );
-  // };
 
   const handleSearchSimilar = (result) => {
     if (!result?.imageId) return;
@@ -289,10 +245,11 @@ export const SearchResult = () => {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1280px] space-y-8">
-      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+    <section className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8">
 
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
+      <div className="flex flex-row items-center gap-20px">
+
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 w-[200px]">
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -302,6 +259,12 @@ export const SearchResult = () => {
             <span>Quay lại trang chủ</span>
           </button>
         </div>
+
+        <CompactSearchBar className="flex-1" />
+
+      </div>
+
+      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -360,14 +323,24 @@ export const SearchResult = () => {
         </div>
       </div>
 
+
       {searchQuery.isLoading ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: PAGE_SIZE }).map((_, index) => (
-            <CardSkeleton
-              key={index}
-            />
-          ))}
-        </div>
+        <Masonry
+          breakpointCols={breakpointColumnsObj}
+          className="my-masonry-grid"
+          columnClassName="my-masonry-grid_column"
+        >
+          {Array.from({ length: PAGE_SIZE }).map((_, index) => {
+            const heights = ['h-64', 'h-80', 'h-96', 'h-72'];
+            const randomHeight = heights[index % heights.length];
+
+            return (
+              <div key={index}>
+                <CardSkeleton heightClass={randomHeight} />
+              </div>
+            );
+          })}
+        </Masonry>
       ) : searchQuery.isError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           Không thể tải kết quả tìm kiếm. Vui lòng thử lại sau.
@@ -378,7 +351,11 @@ export const SearchResult = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+          <Masonry
+            breakpointCols={breakpointColumnsObj}
+            className="my-masonry-grid"
+            columnClassName="my-masonry-grid_column"
+          >
             {searchData.results.map((result, index) => (
               <div
                 key={`${result.imageId}-${result.rankPosition}`}
@@ -392,9 +369,8 @@ export const SearchResult = () => {
                   />
                 </Suspense>
               </div>
-
             ))}
-          </div>
+          </Masonry>
 
           {/* Cảm biến cuộn và Loading Indicator cho trang tiếp theo */}
 
@@ -420,35 +396,6 @@ export const SearchResult = () => {
               </div>
             )}
           </div>
-
-          {/* <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm sm:flex-row">
-            <p className="text-sm text-gray-600">
-              Trang <span className="font-semibold text-zinc-900">{currentPage}</span> /{" "}
-              <span className="font-semibold text-zinc-900">{totalPages}</span>
-              {" "}• {searchData.totalElements} kết quả
-            </p>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => updatePage(page - 1)}
-                disabled={currentPage <= 1 || searchQuery.isFetching}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <FaChevronLeft className="h-3 w-3" />
-                Trước
-              </button>
-              <button
-                type="button"
-                onClick={() => updatePage(page + 1)}
-                disabled={currentPage >= totalPages || searchQuery.isFetching}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Sau
-                <FaChevronRight className="h-3 w-3" />
-              </button>
-            </div>
-          </div> */}
 
           {/* Nút cuộn lên đầu trang */}
           {showScrollTop && (

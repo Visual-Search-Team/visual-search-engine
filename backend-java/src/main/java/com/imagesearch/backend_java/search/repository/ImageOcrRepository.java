@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface ImageOcrRepository extends JpaRepository<ImageOcr, Long> {
     List<ImageOcr> findByExtractedTextContainingIgnoreCaseOrderByCreatedAtDesc(String query, Pageable pageable);
+
+    void deleteByImageId(Long imageId);
 }

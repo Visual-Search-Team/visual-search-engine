@@ -12,6 +12,7 @@ import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.search.common.SearchType;
 import com.imagesearch.backend_java.search.config.SearchConfig;
 import com.imagesearch.backend_java.search.dto.request.EmbeddingRequest;
+import com.imagesearch.backend_java.search.dto.response.EmbeddingResponse;
 import com.imagesearch.backend_java.search.dto.response.ImageSearchResponse;
 import com.imagesearch.backend_java.search.dto.response.SearchResultItem;
 import com.imagesearch.backend_java.search.dto.response.TextSearchResponse;
@@ -52,6 +53,12 @@ public class SearchService {
     private final AiEmbeddingClient aiEmbeddingClient;
     private final QdrantVectorService qdrantVectorService;
     private final SearchConfig searchConfig;
+
+    // Ngưỡng "rớt đài": nếu score giảm đột ngột hơn mức này so với điểm liền trước,
+    // coi như phần còn lại là hàng dạt (AI phân loại nhầm bị ép lấy cho đủ limit).
+    private static final float ELBOW_DROP_THRESHOLD = 0.04f;
+    // Ngưỡng tuyệt đối: score thấp hơn mức này thì luôn bị loại dù không rớt đột ngột.
+    private static final float MIN_ABSOLUTE_SCORE = 0.22f;
 
     public ImageSearchResponse searchByImage(MultipartFile image, String username, Integer limit, Integer page, Integer pageSize) {
         long startTime = System.currentTimeMillis();
@@ -117,7 +124,7 @@ public class SearchService {
     public ImageSearchResponse searchSimilarImage(Long imageId, String username, Integer limit, Integer page, Integer pageSize) {
         long startTime = System.currentTimeMillis();
         SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
-        ImageEntity queryImage = imageRepository.findById(imageId)
+        ImageEntity queryImage = imageRepository.findByIdAndDeletedFalse(imageId)
                 .orElseThrow(() -> new SearchException("IMAGE_NOT_FOUND", "Image not found", HttpStatus.NOT_FOUND));
 
         try {
@@ -171,9 +178,9 @@ public class SearchService {
     private TextSearchResponse searchTextSemantic(String query, String username, long startTime, SearchPageCriteria pageCriteria) {
         try {
             log.info("Call AI embedding text");
-            List<Float> embedding = aiEmbeddingClient.getTextEmbedding(query);
+            EmbeddingResponse embeddingResponse = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
-            List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
             SearchHistory history = pageCriteria.page() == 0
                     ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
                     : null;
@@ -193,7 +200,7 @@ public class SearchService {
                 .map(ImageOcr::getImageId)
                 .distinct()
                 .toList();
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllById(imageIds).stream()
+        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(imageIds).stream()
                 .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));
 
         List<SearchResultItem> results = new ArrayList<>();
@@ -213,7 +220,11 @@ public class SearchService {
     }
 
     private List<SearchResultItem> searchQdrant(List<Float> embedding, int limit) throws IOException {
-        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit);
+        return searchQdrant(embedding, null, limit);
+    }
+
+    private List<SearchResultItem> searchQdrant(List<Float> embedding, Map<String, List<String>> filters, int limit) throws IOException {
+        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit, filters);
         return mapQdrantResults(rawResult, null);
     }
 
@@ -221,6 +232,7 @@ public class SearchService {
         JsonArray points = extractQdrantPoints(rawResult);
 
         List<QdrantHit> hits = new ArrayList<>();
+        Float previousScore = null;
         for (JsonElement pointElement : points) {
             JsonObject point = pointElement.getAsJsonObject();
             Long imageId = readPointId(point);
@@ -228,6 +240,18 @@ public class SearchService {
                 continue;
             }
             Float score = point.has("score") ? point.get("score").getAsFloat() : null;
+
+            if (score != null) {
+                boolean absoluteDrop = score < MIN_ABSOLUTE_SCORE;
+                boolean elbowDrop = previousScore != null && (previousScore - score) > ELBOW_DROP_THRESHOLD;
+                if (absoluteDrop || elbowDrop) {
+                    // Qdrant trả kết quả theo score giảm dần, nên phần còn lại chắc chắn
+                    // còn tệ hơn -> cắt bỏ toàn bộ phần đuôi thay vì lọc từng điểm.
+                    break;
+                }
+                previousScore = score;
+            }
+
             hits.add(new QdrantHit(imageId, score));
         }
 
@@ -235,7 +259,7 @@ public class SearchService {
             return Collections.emptyList();
         }
 
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllById(
+        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(
                         hits.stream().map(QdrantHit::imageId).toList()
                 ).stream()
                 .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));

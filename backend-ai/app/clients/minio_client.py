@@ -23,11 +23,16 @@ class MinIOClientWrapper:
             secure = False
             
         logger.info(f" Kết nối tới MinIO tại địa chỉ:{endpoint}...")
+        import urllib3
         self.client = Minio(
             endpoint,
             access_key=access_key,
             secret_key=secret_key,
-            secure=secure
+            secure=secure,
+            http_client=urllib3.PoolManager(
+                maxsize=20,        # tăng pool từ 10 lên 20, đủ cho 16 download workers
+                timeout=urllib3.Timeout(connect=5, read=30),
+            )
         )
     
     # Tải ảnh về từ MinIO

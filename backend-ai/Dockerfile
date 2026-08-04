@@ -12,7 +12,10 @@ RUN python -m venv ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install --default-timeout=180 -r requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install --default-timeout=180 -r requirements.txt
 
 FROM python:3.11-slim AS runtime
 

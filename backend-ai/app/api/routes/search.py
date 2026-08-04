@@ -27,57 +27,6 @@ class EmbeddingResponse(BaseModel):
     filters: dict[str, list[str]] | None = None
 
 
-def _run_ocr_in_background(storage_path: str, image_id: int | None):
-    """
-    Chạy OCR ngầm sau khi Java đã lấy xong embedding.
-    Lưu kết quả vào bảng image_ocr trong Postgres.
-    """
-    try:
-        from app.clients.minio_client import minio_client_wrapper
-        from app.clients.postgres_client import SessionLocal, ImageOcrEntity
-        from app.services.ocr_service import ocr_service
-        import io
-        from PIL import Image
-
-        logger.info(f"[OCR-BG] Bắt đầu OCR ngầm cho storagePath={storage_path}, imageId={image_id}")
-
-        image_bytes = minio_client_wrapper.download_image(storage_path)
-        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        ocr_result = ocr_service.extract_text(pil_image)
-
-        if not ocr_result.get("extractedText", "").strip():
-            logger.info(f"[OCR-BG] Không tìm thấy text trong ảnh storagePath={storage_path}, bỏ qua.")
-            return
-
-        if image_id is None:
-            logger.warning(f"[OCR-BG] Không có imageId, không thể lưu OCR vào DB.")
-            return
-
-        db = SessionLocal()
-        try:
-            ocr_record = ImageOcrEntity(
-                image_id=image_id,
-                extracted_text=ocr_result["extractedText"],
-                language=ocr_result["language"],
-                confidence=Decimal(str(min(ocr_result["avgConfidence"], 0.9999))),
-                bounding_boxes=json.dumps(ocr_result["regions"], ensure_ascii=False),
-            )
-            db.add(ocr_record)
-            db.commit()
-            logger.info(
-                f"[OCR-BG] ✅ Lưu OCR thành công cho imageId={image_id}: "
-                f"{ocr_result['regionCount']} vùng text, "
-                f"text='{ocr_result['extractedText'][:60]}'"
-            )
-        except Exception as e:
-            logger.error(f"[OCR-BG] ❌ Lỗi khi lưu OCR vào DB: {e}", exc_info=True)
-            db.rollback()
-        finally:
-            db.close()
-
-    except Exception as e:
-        logger.error(f"[OCR-BG] ❌ Lỗi OCR ngầm cho storagePath={storage_path}: {e}", exc_info=True)
-
 
 @router.post("/image", response_model=EmbeddingResponse)
 async def get_image_embedding(request: ImageEmbeddingRequest, background_tasks: BackgroundTasks):
@@ -98,9 +47,6 @@ async def get_image_embedding(request: ImageEmbeddingRequest, background_tasks: 
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         
         embedding = clip_model.get_image_embedding(pil_image)
-
-        # Trigger OCR ngầm - không block việc trả embedding về cho Java
-        background_tasks.add_task(_run_ocr_in_background, request.storagePath, request.imageId)
 
         return {"embedding": embedding}
     except Exception as e:

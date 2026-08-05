@@ -32,4 +32,6 @@ public interface IndexingJobService {
     int deleteImagesFromJob(Long jobId, List<Long> imageIds);
 
     void deleteJobAndImages(Long jobId);
+
+    int deleteJobsAndImages(List<Long> jobIds);
 }

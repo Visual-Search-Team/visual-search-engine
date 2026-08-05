@@ -1,13 +1,30 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.env
-.venv
-*.log
 .git
 .gitignore
-.dockerignore
+.idea
+.vscode
+
+# Local env and caches
+.env
+.env.*
+venv
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Local runtime/generated data
+uploads
+models
+notebooks
+
+# Local docs and compose files not needed for image build
+README.md
+docker-compose.yml
+
+# Logs and OS files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

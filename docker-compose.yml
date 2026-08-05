@@ -46,7 +46,7 @@ services:
       minio:
         condition: service_started
     entrypoint: >
-      /bin/sh -c " until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+      /bin/sh -c " until mc alias set local ${MINIO_BOOTSTRAP_ENDPOINT:-http://minio:9000} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
         echo 'waiting for minio...';
         sleep 2;
       done; mc mb local/${MINIO_BUCKET} || true; mc anonymous set none local/${MINIO_BUCKET}; exit 0; "
@@ -67,7 +67,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: ${QDRANT_COLLECTION}
       BACKEND_JAVA_URL: http://backend-java:8080
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET}
@@ -109,7 +109,7 @@ services:
       BACKEND_AI_BASE_URL: http://backend-ai:8000
       BACKEND_AI_MOCK_EMBEDDING: ${BACKEND_AI_MOCK_EMBEDDING}
       QDRANT_URL: http://qdrant:6333
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET}

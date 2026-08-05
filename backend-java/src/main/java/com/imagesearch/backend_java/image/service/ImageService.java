@@ -25,7 +25,7 @@ public class ImageService {
 
     // Upload ảnh
     public ImageUploadResponse uploadImage(MultipartFile file) throws Exception {
-        return imageUploadService.uploadImages(new MultipartFile[]{file}).stream()
+        return imageUploadService.uploadImages(new MultipartFile[] { file }).stream()
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No upload result returned"));
     }
@@ -33,6 +33,15 @@ public class ImageService {
     // Download ảnh
     public InputStreamResource downloadImage(Long imageId) throws Exception {
         ImageEntity imageEntity = imageRepository.findByIdAndDeletedFalse(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
+
+        InputStream inputStream = minIOService.downloadFile(imageEntity.getStoragePath());
+        return new InputStreamResource(inputStream);
+    }
+
+    // Download ảnh trong Trash
+    public InputStreamResource downloadTrashImage(Long imageId) throws Exception {
+        ImageEntity imageEntity = imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
 
         InputStream inputStream = minIOService.downloadFile(imageEntity.getStoragePath());
@@ -85,6 +94,12 @@ public class ImageService {
     // Lấy metadata của ảnh
     public ImageEntity getImageMetadata(Long imageId) {
         return imageRepository.findByIdAndDeletedFalse(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
+    }
+
+    // Lấy metadata của ảnh trong Trash
+    public ImageEntity getImageMetadataForTrash(Long imageId) {
+        return imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
     }
 }

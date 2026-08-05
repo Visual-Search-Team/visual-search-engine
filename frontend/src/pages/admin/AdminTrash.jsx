@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FiChevronLeft, FiChevronRight, FiRefreshCw, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
+import {getImageApiUrl} from "../../utils/imageUrl";
 import { resolveImageUrl } from "../../utils/imageUrl";
+import { getTrashImageApiUrl } from "../../services/imageService";
 import {
   getTrashImages,
   getTrashPolicy,
@@ -404,8 +406,10 @@ export const AdminTrash = () => {
                     </label>
                   </div>
                   <ImageWithFallback
-                    //imageId={item.id}
-                    src={item.imageUrl}
+                    imageId={item.id}
+                    src={getTrashImageApiUrl(item.id)}
+                    //src={getImageApiUrl(item.id)}
+                    // src={resolveImageUrl(null, item.id)}
                     //src={resolveImageUrl(item.imageUrl, item.id)}
                     alt={item.originalFileName || `Image ${item.id}`}
                     className="h-full w-full object-cover"

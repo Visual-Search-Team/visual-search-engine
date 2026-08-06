@@ -41,8 +41,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
 
 RUN chown -R app:app /app /opt/venv
-USER app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "mkdir -p /app/base_model_cache /app/ocr_model_cache /app/lora-weights && chown -R app:app /app/base_model_cache /app/ocr_model_cache /app/lora-weights && exec su app -s /bin/sh -c 'uvicorn app.main:app --host 0.0.0.0 --port 8000'"]

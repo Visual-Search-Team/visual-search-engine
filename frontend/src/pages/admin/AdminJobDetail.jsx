@@ -6,57 +6,8 @@ import { getIndexingJobItems, deleteJobImages } from "../../services/adminIndexi
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import Swal from "sweetalert2";
+import { ImagePreviewModal } from "../../components/common/ImagePreviewModal";
 
-const ImagePreviewModal = ({ imageId, onClose }) => {
-    const [scale, setScale] = useState(1);
-    const imageUrl = resolveImageUrl(undefined, imageId);
-
-    const handleZoomIn = () => setScale((s) => Math.min(s + 0.3, 4)); // Zoom tối đa 4x
-    const handleZoomOut = () => setScale((s) => Math.max(s - 0.3, 0.5)); // Thu nhỏ tối đa 0.5x
-    const handleReset = () => setScale(1);
-
-    return (
-        <div
-            className="fixed cursor-pointer inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity"
-            onClick={onClose}
-        >
-            <button
-                onClick={onClose}
-                className="absolute cursor-pointer right-6 top-6 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/80 hover:text-rose-400 transition"
-            >
-                <FiX className="size-8" />
-            </button>
-
-            <div
-                className="absolute cursor-pointer bottom-10 left-1/2 z-10 flex -translate-x-1/2 items-center gap-6 rounded-full bg-black/60 px-6 py-3 shadow-lg backdrop-blur-md"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button onClick={handleZoomOut} className="text-white cursor-pointer hover:text-indigo-400 transition" title="Thu nhỏ">
-                    <FiZoomOut className="size-6" />
-                </button>
-                <button onClick={handleReset} className="text-white cursor-pointer hover:text-indigo-400 transition" title="Kích thước gốc">
-                    <FiMaximize className="size-5" />
-                </button>
-                <button onClick={handleZoomIn} className="text-white cursor-pointer hover:text-indigo-400 transition" title="Phóng to">
-                    <FiZoomIn className="size-6" />
-                </button>
-            </div>
-
-            {/* Khu vực hiển thị ảnh */}
-            <div
-                className="relative max-h-[85vh] max-w-[85vw] flex items-center justify-center overflow-auto rounded-lg"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <ImageWithFallback
-                    src={imageUrl}
-                    alt={`Preview ${imageId}`}
-                    className="max-h-full max-w-full object-contain transition-transform duration-200 ease-out origin-center"
-                    style={{ transform: `scale(${scale})` }}
-                />
-            </div>
-        </div>
-    );
-};
 
 const statusStyles = {
     PENDING: "border-sky-200 bg-sky-50 text-sky-700",
@@ -168,8 +119,8 @@ export const AdminJobDetail = () => {
             text: `Bạn có chắc chắn muốn xoá ${selectedImages.length} ảnh đã chọn?`,
             icon: "warning",
             showCancelButton: true,
-            confirmButtonColor: "#ef4444", 
-            cancelButtonColor: "#6b7280", 
+            confirmButtonColor: "#ef4444",
+            cancelButtonColor: "#6b7280",
             confirmButtonText: "Đồng ý xóa",
             cancelButtonText: "Hủy bỏ"
         }).then((result) => {
@@ -256,9 +207,14 @@ export const AdminJobDetail = () => {
                                                     />
                                                 </td>
                                                 <td className="border-b border-zinc-100 px-4 py-4">
-                                                    <div className="h-24 w-32 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                                                    <div className="h-24 w-32 cursor-pointer flex-shrink-0 overflow-hidden rounded-md border border-gray-200"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPreviewImageId(item.imageId);
+                                                        }}
+                                                    >
                                                         <ImageWithFallback
-                                                            src={resolveImageUrl(item.imageUrl, item.imageId)} 
+                                                            src={resolveImageUrl(item.imageUrl, item.imageId)}
                                                             alt={`Image ${item.imageId}`}
                                                             className="h-full w-full object-cover"
                                                         />
@@ -278,7 +234,10 @@ export const AdminJobDetail = () => {
                                                 </td>
                                                 <td className="border-b border-zinc-100 px-4 py-4 text-center">
                                                     <button
-                                                        onClick={() => setPreviewImageId(item.imageId)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPreviewImageId(item.imageId);
+                                                        }}
                                                         className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-zinc-200 bg-white p-2 text-indigo-600 shadow-sm transition hover:bg-indigo-50 hover:text-indigo-800"
                                                         title="Xem chi tiết ảnh"
                                                     >

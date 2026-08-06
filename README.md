@@ -22,16 +22,24 @@ This compose runs:
 - `postgres` on `:5432`
 - `qdrant` on `:6333`
 
-## Start Full Stack
+## Start Full Stack (Local Development)
 
 ```bash
-docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+This command keeps your deploy image naming but builds all app images locally, so no ECR login is required.
+
+## Start Full Stack (Deploy/Image Mode)
+
+```bash
+docker compose -f docker-compose.yml up -d
 ```
 
 ## Stop Full Stack
 
 ```bash
-docker compose -f docker-compose.yml down
+docker compose -f docker-compose.yml -f docker-compose.build.yml down --remove-orphans
 ```
 
 ## Internal Service Communication

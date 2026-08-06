@@ -5,7 +5,8 @@ import Swal from "sweetalert2";
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { getTrashImageApiUrl } from "../../services/imageService";
 import { ImagePreviewModal } from "../../components/common/ImagePreviewModal";
-import {getTrashImages,getTrashPolicy,permanentlyDeleteAllTrashImages,
+import {
+  getTrashImages, getTrashPolicy, permanentlyDeleteAllTrashImages,
   permanentlyDeleteSelectedTrashImages,
   permanentlyDeleteTrashImage,
   restoreAllTrashImages,
@@ -54,6 +55,7 @@ export const AdminTrash = () => {
     queryFn: () => getTrashImages({ page, size: 10 }),
     refetchInterval: 10000,
   });
+
 
   const policyQuery = useQuery({
     queryKey: ["admin-trash-policy"],
@@ -153,11 +155,14 @@ export const AdminTrash = () => {
   };
 
   const trashItems = trashQuery.data?.content || [];
+
   const retentionDays = policyQuery.data?.retentionDays ?? 30;
   const selectedCount = selectedImageIds.length;
   const currentPageImageIds = trashItems.map((item) => item.id);
+
   const allCurrentPageSelected =
     currentPageImageIds.length > 0 && currentPageImageIds.every((id) => selectedImageIds.includes(id));
+
   const isAnyMutationPending =
     restoreMutation.isPending ||
     permanentDeleteMutation.isPending ||
@@ -335,7 +340,7 @@ export const AdminTrash = () => {
               type="button"
               onClick={confirmRestoreSelected}
               disabled={!selectedCount || isAnyMutationPending}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Khôi phục đã chọn
             </button>
@@ -344,7 +349,7 @@ export const AdminTrash = () => {
               type="button"
               onClick={confirmDeleteSelected}
               disabled={!selectedCount || isAnyMutationPending}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs sm:text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs sm:text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Xóa đã chọn
             </button>
@@ -353,7 +358,7 @@ export const AdminTrash = () => {
               type="button"
               onClick={confirmRestoreAll}
               disabled={!pagination.totalElements || isAnyMutationPending}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs sm:text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs sm:text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Khôi phục tất cả
             </button>
@@ -362,7 +367,7 @@ export const AdminTrash = () => {
               type="button"
               onClick={confirmDeleteAll}
               disabled={!pagination.totalElements || isAnyMutationPending}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs sm:text-sm font-medium text-rose-800 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs sm:text-sm font-medium text-rose-800 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Xóa tất cả
             </button>
@@ -463,7 +468,7 @@ export const AdminTrash = () => {
             type="button"
             disabled={!pagination.hasPrevious}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <FiChevronLeft className="size-4" />
             Trước
@@ -477,13 +482,14 @@ export const AdminTrash = () => {
             type="button"
             disabled={!pagination.hasNext}
             onClick={() => setPage((current) => current + 1)}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Sau
             <FiChevronRight className="size-4" />
           </button>
         </div>
       </div>
+
 
       {previewImageId && (
         <ImagePreviewModal

@@ -13,6 +13,8 @@ import java.util.Map;
 public interface IndexingJobService {
     IndexingJobResponse trackUploadedImages(List<ImageEntity> images);
 
+    IndexingJobResponse trackRestoredImage(ImageEntity image);
+
     IndexingJobResponse createIndexingJob(IndexingJobRequest request);
 
     IndexingJobResponse getIndexingJob(Long jobId);
@@ -26,4 +28,8 @@ public interface IndexingJobService {
     PageResponse<IndexingJobItemResponse> getJobItems(Long jobId, Map<String, Object> params);
 
     IndexingJobResponse retryIndexing(Long jobId);
+
+    int deleteImagesFromJob(Long jobId, List<Long> imageIds);
+
+    void deleteJobAndImages(Long jobId);
 }

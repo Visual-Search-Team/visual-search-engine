@@ -1,11 +1,12 @@
-import { FiBarChart2, FiDatabase, FiUsers } from "react-icons/fi";
-import { NavLink } from "react-router-dom";
+import { FiBarChart2, FiDatabase, FiUsers, FiExternalLink, FiTrash2 } from "react-icons/fi";
+import { NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const navItems = [
   { to: "/admin", label: "Dashboard", icon: FiBarChart2, end: true },
   { to: "/admin/indexing", label: "Indexing", icon: FiDatabase },
-  { to: "/admin/users", label: "Users", icon: FiUsers, disabled: true },
+  { to: "/admin/trash", label: "Trash Bin", icon: FiTrash2 },
+  { to: "/admin/users", label: "Users", icon: FiUsers },
 ];
 
 export const SidebarAdmin = () => {
@@ -41,10 +42,9 @@ export const SidebarAdmin = () => {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-indigo-700 text-white shadow-sm"
-                    : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${isActive
+                  ? "bg-indigo-700 text-white shadow-sm"
+                  : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
                 }`
               }
             >
@@ -53,7 +53,19 @@ export const SidebarAdmin = () => {
             </NavLink>
           );
         })}
+
+        <div className="px-4 pb-2">
+          <Link
+            to="/"
+            className="flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-300"
+          >
+            <FiExternalLink className="size-4" />
+            Test tìm kiếm 
+          </Link>
+        </div>
+
       </nav>
+
 
       <div className="border-t border-zinc-200 p-4">
         <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2">

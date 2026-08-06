@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  FiAlertCircle,
-  FiChevronLeft,
-  FiChevronRight,
-  FiImage,
-  FiRefreshCw,
-  FiRotateCcw,
-  FiTrash2,
-  FiUploadCloud,
+  FiAlertCircle, FiChevronLeft, FiChevronRight, FiImage, FiRefreshCw, FiRotateCcw, FiTrash2, FiUploadCloud, FiEye
 } from "react-icons/fi";
 import {
   getIndexingJobItems,
@@ -18,6 +12,9 @@ import {
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { uploadImages } from "../../services/imageService";
 import { validateFile } from "../../utils/fileValidation";
+import { deleteIndexingJob } from "../../services/adminIndexingService";
+import Swal from "sweetalert2";
+import { SmoothProgressBar } from "../../components/ui/SmoothProgressBar";
 
 const imagesPerPage = 20;
 
@@ -64,9 +61,8 @@ const formatFileSize = (value) => {
 
 const StatusBadge = ({ status }) => (
   <span
-    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
-      statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700"
-    }`}
+    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700"
+      }`}
   >
     {status || "UNKNOWN"}
   </span>
@@ -81,6 +77,9 @@ const StatCard = ({ label, value, hint }) => (
 );
 
 export const AdminIndexing = () => {
+
+  const navigate = useNavigate();
+
   const queryClient = useQueryClient();
   const [uploadMessage, setUploadMessage] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -89,6 +88,8 @@ export const AdminIndexing = () => {
   const [localImages, setLocalImages] = useState([]);
   const [page, setPage] = useState(1);
   const previewUrlsRef = useRef([]);
+  const [retryingJobId, setRetryingJobId] = useState(null);
+
 
   const jobsQuery = useQuery({
     queryKey: ["admin-indexing-jobs", page],
@@ -99,7 +100,30 @@ export const AdminIndexing = () => {
     },
   });
 
+  const deleteJobMutation = useMutation({
+    mutationFn: deleteIndexingJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      Swal.fire({
+        title: "Đã xóa!",
+        text: "Đã xóa job thành công!",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false
+      });
+    },
+    onError: (error) => {
+      Swal.fire({
+        title: "Lỗi!",
+        text: "Có lỗi xảy ra khi xóa job!",
+        icon: "error"
+      });
+      console.error(error);
+    }
+  });
+
   const jobs = jobsQuery.data?.content || [];
+
   const pagination = {
     page: jobsQuery.data?.page || page,
     totalPages: jobsQuery.data?.totalPages || 1,
@@ -167,6 +191,9 @@ export const AdminIndexing = () => {
     onError: (error) => {
       setUploadMessage(getApiErrorMessage(error, "Không thể retry indexing job"));
     },
+    onSettled: () => {
+      setRetryingJobId(null);
+    }
   });
 
   useEffect(() => {
@@ -184,7 +211,16 @@ export const AdminIndexing = () => {
   }, [jobPage, localImages]);
 
   const selectedJob = jobs.find((job) => job.id === effectiveSelectedJobId) || null;
-  const selectedJobItems = itemsQuery.data?.content || [];
+
+  useEffect(() => {
+    if (
+      selectedJob &&
+      selectedJob.status === "COMPLETED" &&
+      selectedJob.progressPercentage === 100
+    ) {
+      setUploadMessage(`Index ${selectedJob.totalImages} ảnh hoàn tất!`);
+    }
+  }, [selectedJob?.status, selectedJob?.progressPercentage, selectedJob?.totalImages]);
 
   const handleUploadPreview = (event) => {
     const files = Array.from(event.target.files || []);
@@ -240,9 +276,6 @@ export const AdminIndexing = () => {
         <div>
           <p className="text-sm font-medium text-indigo-700">Direct Upload Indexing</p>
           <h2 className="mt-1 text-2xl font-semibold text-zinc-900">Upload ảnh và theo dõi indexing job</h2>
-          {/* <p className="mt-2 max-w-2xl text-sm text-gray-600">
-            Frontend này đã bỏ khái niệm batch. Mỗi lần upload sẽ tạo job nền và ảnh được index ngay sau khi upload thành công.
-          </p> */}
         </div>
         <button
           type="button"
@@ -289,22 +322,31 @@ export const AdminIndexing = () => {
           )}
 
           {selectedJob && (
-            <div className="mt-4 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Job đang theo dõi: #{selectedJob.id}</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  Trạng thái {selectedJob.status} • {Number(selectedJob.progressPercentage || 0).toFixed(0)}% hoàn tất
-                </p>
+            <div className="mt-6">
+              <SmoothProgressBar
+                jobId={selectedJob.id}
+                actualProgress={Number(selectedJob.progressPercentage || 0)}
+                status={selectedJob.status}
+              />
+
+              <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">Job đang theo dõi: #{selectedJob.id}</p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Trạng thái {selectedJob.status}
+                    {/* • {Number(selectedJob.progressPercentage || 0).toFixed(0)}% hoàn tất */}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => retryJobMutation.mutate(selectedJob.id)}
+                  disabled={retryJobMutation.isPending}
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  <FiRotateCcw className="size-4" />
+                  {retryJobMutation.isPending ? "Đang retry..." : "Retry job"}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => retryJobMutation.mutate(selectedJob.id)}
-                disabled={retryJobMutation.isPending}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <FiRotateCcw className="size-4" />
-                {retryJobMutation.isPending ? "Đang retry..." : "Retry job"}
-              </button>
             </div>
           )}
         </div>
@@ -394,7 +436,7 @@ export const AdminIndexing = () => {
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-200 p-5">
           <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
-          <p className="mt-1 text-sm text-gray-500">Mỗi lần upload ảnh sẽ tạo một job và job này được xử lý nền bởi backend.</p>
+          {/* <p className="mt-1 text-sm text-gray-500">Mỗi lần upload ảnh sẽ tạo một job và job này được xử lý nền bởi backend.</p> */}
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-[1040px] w-full border-separate border-spacing-0 text-sm">
@@ -408,6 +450,7 @@ export const AdminIndexing = () => {
                 <th className="border-b border-zinc-200 px-4 py-3">Tiến độ</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Bắt đầu</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Kết thúc</th>
+                <th className="border-b border-zinc-200 px-4 py-3 text-center">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -469,6 +512,64 @@ export const AdminIndexing = () => {
                     </td>
                     <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.startedAt || job.createdAt)}</td>
                     <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.finishedAt)}</td>
+                    <td className="border-b border-zinc-100 px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+
+                        {/* Nuts retry (Chỉ hiện khi bị lỗi) */}
+                        {['FAILED', 'PARTIALLY_FAILED', 'UPLOAD_FAILED'].includes(job.status) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              retryJobMutation.mutate(job.id);
+                            }}
+                            disabled={retryJobMutation.isPending && retryingJobId === job.id}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2 text-amber-600 shadow-sm border border-amber-200 transition hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Thử lại (Retry) các ảnh bị lỗi"
+                          >
+                            <FiRotateCcw className={`size-4 ${retryJobMutation.isPending && retryingJobId === job.id ? "animate-spin" : ""}`} />
+                          </button>
+                        )}
+
+                        {/* Nút Xem Chi Tiết */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/indexing/${job.id}`);
+                          }}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2 text-indigo-600 shadow-sm border border-indigo-100 transition hover:bg-indigo-50 hover:text-indigo-700"
+                          title="Xem chi tiết"
+                        >
+                          <FiEye className="size-4" />
+                        </button>
+
+                        {/* Nút Xóa Job */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            Swal.fire({
+                              title: "Cảnh báo nguy hiểm!",
+                              text: `Bạn có chắc chắn muốn xóa toàn bộ Job #${job.id} và các ảnh bên trong không?`,
+                              icon: "warning",
+                              showCancelButton: true,
+                              confirmButtonColor: "#ef4444",
+                              cancelButtonColor: "#6b7280",
+                              confirmButtonText: "Xóa toàn bộ",
+                              cancelButtonText: "Hủy"
+                            }).then((result) => {
+                              if (result.isConfirmed) {
+                                deleteJobMutation.mutate(job.id);
+                              }
+                            });
+                          }}
+                          disabled={deleteJobMutation.isPending}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2 text-rose-600 shadow-sm border border-rose-200 transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          title="Xóa Job"
+                        >
+                          <FiTrash2 className="size-4" />
+                        </button>
+
+                      </div>
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -484,7 +585,7 @@ export const AdminIndexing = () => {
               type="button"
               disabled={!pagination.hasPrevious && page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <FiChevronLeft className="size-4" />
               Trước
@@ -496,7 +597,7 @@ export const AdminIndexing = () => {
               type="button"
               disabled={!pagination.hasNext && page >= pagination.totalPages}
               onClick={() => setPage((current) => current + 1)}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Sau
               <FiChevronRight className="size-4" />
@@ -505,98 +606,6 @@ export const AdminIndexing = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 p-5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-zinc-900">Chi tiết item của job</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {selectedJob ? `Đang xem item của job #${selectedJob.id}` : "Chọn một job ở bảng trên để xem chi tiết."}
-              </p>
-            </div>
-            {selectedJob?.errorMessage && (
-              <div className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                <FiAlertCircle className="size-4" />
-                {selectedJob.errorMessage}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {!effectiveSelectedJobId ? (
-          <div className="px-5 py-10 text-center text-sm text-gray-500">Chưa có job nào để hiển thị.</div>
-        ) : itemsQuery.isLoading ? (
-          <div className="space-y-3 p-5">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-12 animate-pulse rounded bg-slate-100" />
-            ))}
-          </div>
-        ) : itemsQuery.isError ? (
-          <div className="px-5 py-10 text-center text-sm text-rose-700">
-            {getApiErrorMessage(itemsQuery.error, "Không tải được danh sách item của job")}
-          </div>
-        ) : selectedJobItems.length === 0 ? (
-          <div className="px-5 py-10 text-center text-sm text-gray-500">Job này chưa có item nào.</div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-[860px] w-full border-separate border-spacing-0 text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <th className="border-b border-zinc-200 px-4 py-3">Image ID</th>
-                    <th className="border-b border-zinc-200 px-4 py-3">Trạng thái</th>
-                    <th className="border-b border-zinc-200 px-4 py-3 text-right">Retry</th>
-                    <th className="border-b border-zinc-200 px-4 py-3">Xử lý lúc</th>
-                    <th className="border-b border-zinc-200 px-4 py-3">Lỗi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedJobItems.map((item) => (
-                    <tr key={item.id}>
-                      <td className="border-b border-zinc-100 px-4 py-4 font-medium text-zinc-900">#{item.imageId}</td>
-                      <td className="border-b border-zinc-100 px-4 py-4">
-                        <StatusBadge status={item.status} />
-                      </td>
-                      <td className="border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{item.retryCount ?? 0}</td>
-                      <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(item.processedAt)}</td>
-                      <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{item.errorMessage || "--"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-sm text-gray-600">
-              <span>
-                {itemsQuery.data?.totalElements ?? selectedJobItems.length} item
-              </span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={itemPage <= 1}
-                  onClick={() => setItemPage((current) => Math.max(1, current - 1))}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FiChevronLeft className="size-4" />
-                  Trước
-                </button>
-                <span>
-                  Trang {itemsQuery.data?.page ?? itemPage} / {itemsQuery.data?.totalPages ?? 1}
-                </span>
-                <button
-                  type="button"
-                  disabled={!itemsQuery.data?.hasNext}
-                  onClick={() => setItemPage((current) => current + 1)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Sau
-                  <FiChevronRight className="size-4" />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
     </section>
   );
 };

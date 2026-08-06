@@ -40,3 +40,4 @@ export const uploadImages = async (files) => {
 
   return uploadedImages;
 };
+

@@ -22,14 +22,20 @@ class MinIOClientWrapper:
         else:
             secure = False
             
-        logger.info(f"Connecting to MinIO at {endpoint}...")
+        logger.info(f" Kết nối tới MinIO tại địa chỉ:{endpoint}...")
+        import urllib3
         self.client = Minio(
             endpoint,
             access_key=access_key,
             secret_key=secret_key,
-            secure=secure
+            secure=secure,
+            http_client=urllib3.PoolManager(
+                maxsize=20,        # tăng pool từ 10 lên 20, đủ cho 16 download workers
+                timeout=urllib3.Timeout(connect=5, read=30),
+            )
         )
-
+    
+    # Tải ảnh về từ MinIO
     def download_image(self, storage_path: str) -> bytes:
         """
         Downloads a file directly from MinIO using the storage path.
@@ -42,7 +48,7 @@ class MinIOClientWrapper:
             response.release_conn()
             return data
         except Exception as e:
-            logger.error(f"Error downloading {storage_path} from MinIO: {e}")
+            logger.error(f" Lỗi khi download {storage_path} từ MinIO: {e}")
             raise
 
 minio_client_wrapper = MinIOClientWrapper()

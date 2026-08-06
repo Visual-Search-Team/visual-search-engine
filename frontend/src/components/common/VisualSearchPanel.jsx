@@ -4,6 +4,7 @@ import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload, FaTimes } from 'react
 import { MAX_FILE_SIZE } from '../../config/constants';
 import SearchModeTabs from './SearchModeTabs';
 import { searchStore } from '../../utils/searchStore';
+import CropModal from './CropModal';
 
 const searchModes = [
   {
@@ -27,11 +28,23 @@ const searchModes = [
 
 export default function VisualSearchPanel() {
   const navigate = useNavigate();
-  const [activeMode, setActiveMode] = useState(searchModes[0]);
+  const [activeMode, setActiveMode] = useState(() => {
+    const savedModeId = sessionStorage.getItem('lastSearchMode');
+    if (savedModeId) {
+      return searchModes.find((m) => m.id === savedModeId) || searchModes[0];
+    }
+    return searchModes[0];
+  });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [fileError, setFileError] = useState('');
   const [query, setQuery] = useState('');
+
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState(null);
+
+  const [tempOriginalFile, setTempOriginalFile] = useState(null);
+
   const fileInputRef = useRef(null);
   const previewUrlRef = useRef('');
 
@@ -55,16 +68,39 @@ export default function VisualSearchPanel() {
       setFileError('Ảnh cần nhỏ hơn hoặc bằng 10MB.');
       return;
     }
+    const tempUrl = URL.createObjectURL(file);
+    setTempImageUrl(tempUrl);
+    setTempOriginalFile(file);
+    setShowCropModal(true);
+    setFileError('');
 
+  };
+
+  const handleCropComplete = (croppedFile) => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
     }
 
-    const nextPreviewUrl = URL.createObjectURL(file);
+    const nextPreviewUrl = URL.createObjectURL(croppedFile);
     previewUrlRef.current = nextPreviewUrl;
+
     setPreviewUrl(nextPreviewUrl);
-    setSelectedFile(file);
-    setFileError('');
+    setSelectedFile(croppedFile);
+
+    setShowCropModal(false);
+    URL.revokeObjectURL(tempImageUrl);
+    setTempImageUrl(null);
+  };
+
+  const handleCancelCrop = () => {
+    setShowCropModal(false);
+    if (tempImageUrl) {
+      URL.revokeObjectURL(tempImageUrl);
+    }
+    setTempImageUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
+    }
   };
 
   const handleFileChange = (event) => {
@@ -98,6 +134,7 @@ export default function VisualSearchPanel() {
   const handleTabChange = (mode) => {
     setActiveMode(mode);
     setQuery('');
+    sessionStorage.setItem('lastSearchMode', mode.id);
   };
 
   const handleImageSearch = () => {
@@ -108,7 +145,7 @@ export default function VisualSearchPanel() {
 
     searchStore.imageFile = selectedFile;
 
-    navigate('/search-result?type=image&page=0&size=20', {
+    navigate('/search-result?type=image&page=1&size=20', {
       state: {
         type: 'image',
         imageFile: selectedFile,
@@ -128,7 +165,7 @@ export default function VisualSearchPanel() {
       type: 'text',
       q: trimmedQuery,
       mode,
-      page: '0',
+      page: '1',
       size: '20',
     });
 
@@ -142,14 +179,25 @@ export default function VisualSearchPanel() {
   };
 
   const handleTextSearchSubmit = (event) => {
-    event.preventDefault(); 
-    handleTextSearch(); 
+    event.preventDefault();
+    handleTextSearch();
   };
 
   const isImageMode = activeMode.id === 'image';
 
   return (
     <section className="w-full max-w-[896px] overflow-hidden rounded-2xl bg-white pb-8 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-gray-300/30">
+
+      {/*  Modal Crop */}
+      {showCropModal && tempImageUrl && (
+        <CropModal
+          imageUrl={tempImageUrl}
+          onCancel={handleCancelCrop}
+          originalFile={tempOriginalFile}
+          onCropComplete={handleCropComplete}
+        />
+      )}
+
       <SearchModeTabs
         activeMode={activeMode}
         modes={searchModes}
@@ -177,8 +225,8 @@ export default function VisualSearchPanel() {
               //   alt="Ảnh đã chọn"
               //   className="mb-5 h-36 w-36 rounded-xl object-cover shadow-sm"
               // />
-              <div 
-                className="relative mb-5 cursor-pointer" 
+              <div
+                className="relative mb-5 cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <img
@@ -281,7 +329,7 @@ export default function VisualSearchPanel() {
                 type="submit"
                 onClick={handleTextSearch}
                 disabled={!query.trim()}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
+                className="inline-flex cursor-pointer min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
               >
                 <FaSearch className="h-4 w-4" />
                 Tìm kiếm

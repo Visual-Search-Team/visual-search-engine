@@ -1,6 +1,7 @@
 package com.imagesearch.backend_java.search.service;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.search.config.QdrantProperties;
@@ -139,12 +140,24 @@ public class QdrantVectorService {
      * Response chỉ cần point id và score, payload đang được tắt.
      */
     public JsonObject searchByEmbedding(List<Float> embedding, int limit) throws IOException {
+        return searchByEmbedding(embedding, limit, null);
+    }
+
+    /**
+     * Tìm kiếm ảnh tương đồng, có thể kèm theo bộ lọc cứng (payload filter) nhắm vào
+     * các trường metadata_ai (vd. category, color) đã được bóc tách từ câu tìm kiếm.
+     */
+    public JsonObject searchByEmbedding(List<Float> embedding, int limit, Map<String, List<String>> filters) throws IOException {
         validateEmbedding(embedding);
 
-        Map<String, Object> body = Map.of(
-                "vector", embedding,
-                "limit", limit
-        );
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("vector", embedding);
+        body.put("limit", limit);
+
+        JsonObject filterJson = buildPayloadFilter(filters);
+        if (filterJson != null) {
+            body.put("filter", filterJson);
+        }
 
         Request request = new Request.Builder()
                 .url(collectionUrl() + "/points/search")
@@ -157,6 +170,106 @@ public class QdrantVectorService {
                 throw new IOException("Qdrant vector search failed: HTTP " + response.code() + " " + raw);
             }
             return gson.fromJson(raw, JsonObject.class);
+        }
+    }
+
+    /**
+     * Build Qdrant "must" filter khớp chính xác payload metadata_ai.<attr>, dựa theo
+     * filter mà AI service bóc tách từ câu tìm kiếm. YÊU CẦU: point phải có payload
+     * "metadata_ai" được set lúc upsert, nếu không filter này luôn trả về rỗng.
+     */
+    private JsonObject buildPayloadFilter(Map<String, List<String>> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return null;
+        }
+
+        JsonArray must = new JsonArray();
+        for (Map.Entry<String, List<String>> entry : filters.entrySet()) {
+            List<String> values = entry.getValue();
+            if (values == null || values.isEmpty()) {
+                continue;
+            }
+
+            JsonObject condition = new JsonObject();
+            condition.addProperty("key", "metadata_ai." + entry.getKey());
+
+            JsonObject match = new JsonObject();
+            if (values.size() == 1) {
+                // Chỉ 1 giá trị: khớp tuyệt đối (MatchValue)
+                match.addProperty("value", values.get(0));
+            } else {
+                // Nhiều giá trị (vd. gom nhóm "quần" -> Quần âu/Quần jean/Quần short):
+                // khớp 1 trong danh sách (MatchAny)
+                JsonArray any = new JsonArray();
+                values.forEach(any::add);
+                match.add("any", any);
+            }
+            condition.add("match", match);
+            must.add(condition);
+        }
+
+        if (must.isEmpty()) {
+            return null;
+        }
+
+        JsonObject filterJson = new JsonObject();
+        filterJson.add("must", must);
+        return filterJson;
+    }
+
+    /**
+     * Uses an existing Qdrant point as the nearest-neighbour query, so no embedding service is needed.
+     */
+    public JsonObject searchByPointId(Long imageId, int limit) throws IOException {
+        if (imageId == null) {
+            throw new IllegalArgumentException("Image id is required");
+        }
+
+        Map<String, Object> body = Map.of(
+                "query", imageId,
+                "limit", limit,
+                "with_payload", false,
+                "with_vector", false
+        );
+
+        Request request = new Request.Builder()
+                .url(collectionUrl() + "/points/query")
+                .post(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
+                .build();
+
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            String raw = response.body() == null ? "" : response.body().string();
+            if (!response.isSuccessful()) {
+                throw new IOException("Qdrant point search failed: HTTP " + response.code() + " " + raw);
+            }
+            return gson.fromJson(raw, JsonObject.class);
+        }
+    }
+
+    /**
+     * Xoa point embedding cua anh trong Qdrant theo image id.
+     */
+    public void deleteImageEmbedding(Long imageId) throws IOException {
+        if (imageId == null) {
+            throw new IllegalArgumentException("Image id is required");
+        }
+
+        Map<String, Object> body = Map.of("points", List.of(imageId));
+
+        HttpUrl url = HttpUrl.parse(collectionUrl() + "/points/delete")
+                .newBuilder()
+                .addQueryParameter("wait", "true")
+                .build();
+
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(gson.toJson(body), searchConfig.getJsonMediaType()))
+                .build();
+
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Qdrant point delete failed: HTTP " + response.code());
+            }
         }
     }
 

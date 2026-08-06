@@ -29,11 +29,11 @@ public class StatsController {
     public ResponseEntity<BaseResponse<Map<String, Long>>> getStats() {
         log.info("GET /admin/stats: Fetch admin dashboard stats");
         Map<String, Long> stats = new LinkedHashMap<>();
-        stats.put("totalImages", imageRepository.count());
-        stats.put("pending", imageRepository.countByIndexStatus(ImageIndexStatus.PENDING));
-        stats.put("processing", imageRepository.countByIndexStatus(ImageIndexStatus.PROCESSING));
-        stats.put("indexed", imageRepository.countByIndexStatus(ImageIndexStatus.INDEXED));
-        stats.put("failed", imageRepository.countByIndexStatus(ImageIndexStatus.FAILED));
+        stats.put("totalImages", imageRepository.countByDeletedFalse());
+        stats.put("pending", imageRepository.countByIndexStatusAndDeletedFalse(ImageIndexStatus.PENDING));
+        stats.put("processing", imageRepository.countByIndexStatusAndDeletedFalse(ImageIndexStatus.PROCESSING));
+        stats.put("indexed", imageRepository.countByIndexStatusAndDeletedFalse(ImageIndexStatus.INDEXED));
+        stats.put("failed", imageRepository.countByIndexStatusAndDeletedFalse(ImageIndexStatus.FAILED));
         stats.put("totalUsers", userRepository.count());
         return ResponseEntity.ok(BaseResponse.success(stats));
     }

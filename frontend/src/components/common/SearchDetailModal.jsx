@@ -1,12 +1,12 @@
 import { FaBookmark, FaFileImage, FaHashtag, FaImage, FaInfoCircle, FaRulerCombined, FaSearch, FaStar, FaTimes, } from "react-icons/fa";
 import { useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { saveBookmark } from "../../services/bookmarkService";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { Link } from "react-router-dom";
+
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -46,9 +46,6 @@ const getSaveBookmarkErrorMessage = (error) => {
 
 export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) => {
 
-
-  // const navigate = useNavigate();
-
   const queryClient = useQueryClient();
   const saveBookmarkMutation = useMutation({
     mutationFn: saveBookmark,
@@ -75,55 +72,13 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
   const isMockOnly = result.isMock && !result.canBookmark;
   const canSave = !!result.imageId && !isMockOnly && !saveBookmarkMutation.isPending;
 
+  const similarityScore = result.similarityScore ?? result.score ?? 0;
+
   const handleSaveBookmark = () => {
     if (!result.imageId) return;
     saveBookmarkMutation.mutate(result.imageId);
   };
 
-
-  // const onSearchSimilar = async () => {
-  //   try {
-  //     const imageUrl = resolveImageUrl(
-  //       result.imageUrl || result.storagePath || result.thumbnailUrl || result.thumbnailPath,
-  //       result.imageId
-  //     );
-
-  //     const response = await fetch(imageUrl);
-
-  //     if (!response.ok) throw new Error("Không thể tải ảnh");
-
-  //     const blob = await response.blob();
-
-  //     const filename = result.originalFilename || `similar-${result.imageId}.jpg`;
-  //     const mimeType = result.mimeType || blob.type || "image/jpeg";
-
-  //     const imageFile = new File([blob], filename, { type: mimeType });
-
-  //     onClose(); 
-
-  //     const nextParams = new URLSearchParams({
-  //       type: "image",
-  //       page: "0",
-  //       size: "20"
-  //     });
-
-  //     navigate(
-  //       {
-  //         pathname: "/search-result",
-  //         search: nextParams.toString(),
-  //       },
-  //       { 
-  //         state: { 
-  //           type: "image",
-  //           imageFile: imageFile 
-  //         } 
-  //       }
-  //     );
-
-  //   } catch (error) {
-  //     console.error("Lỗi tải ảnh tìm tương tự:", error);
-  //   }
-  // };
 
   return (
     <div
@@ -184,26 +139,28 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
 
           <div className="mt-6 space-y-4 rounded-xl bg-white p-5 shadow-sm">
             <DetailRow icon={FaHashtag} label="Mã ảnh" value={`IMG-${result.imageId}`} />
-            <DetailRow
-              icon={FaStar}
-              label="Điểm tương đồng"
-              value={formatScore(result.score ?? result.similarityScore ?? 0)}
-              highlight
-            />
+            {similarityScore > 0 && (
+              <DetailRow
+                icon={FaStar}
+                label="Điểm tương đồng"
+                value={formatScore(similarityScore)}
+                highlight
+              />
+            )}
             <DetailRow icon={FaRulerCombined} label="Kích thước" value={dimensions} />
             <DetailRow icon={FaSearch} label="Rank" value={result.rankPosition || "N/A"} />
             <DetailRow icon={FaFileImage} label="Định dạng" value={result.mimeType || "N/A"} />
             <DetailRow icon={FaImage} label="Tên file" value={fileName} />
           </div>
 
-          <div className="mt-5 rounded-xl bg-white p-5 shadow-sm">
+          {/* <div className="mt-5 rounded-xl bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-zinc-900">OCR text</h3>
             <p className="mt-2 rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-600">
               {ocrText || "Chưa có dữ liệu OCR cho ảnh này."}
             </p>
-          </div>
+          </div> */}
 
-          <div className="mt-6 border-t border-zinc-200/70 pt-5">
+          <div className="mt-auto border-t border-zinc-200/70 pt-5">
             {saveBookmarkMutation.isSuccess && (
               <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
                 Đã lưu ảnh vào Bookmark! {' '}

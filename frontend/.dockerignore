@@ -2,6 +2,13 @@ node_modules
 .pnpm-store
 dist
 .git
+.gitignore
 .idea
-frontend
+.vscode
+Dockerfile
+README.md
+huongdanchayFE.md
 *.log
+*.tmp
+.DS_Store
+Thumbs.db

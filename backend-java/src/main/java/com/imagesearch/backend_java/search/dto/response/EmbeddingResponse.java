@@ -8,13 +8,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonPropertyOrder({"embedding"})
+@JsonPropertyOrder({"embedding", "filters"})
 public class EmbeddingResponse {
     private List<Float> embedding;
+    private Map<String, List<String>> filters;
 }

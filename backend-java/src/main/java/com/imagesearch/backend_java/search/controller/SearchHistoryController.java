@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,24 +36,17 @@ public class SearchHistoryController {
             summary = "Get search history",
             description = "Returns a paginated list of search history records for the authenticated user, optionally filtered by search type."
     )
-    public ResponseEntity<BaseResponse<SearchHistoryListResponse>> getHistoryList(
+    public BaseResponse<SearchHistoryListResponse> getHistoryList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String type,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered getHistoryList API");
-            validatePagination(page, size);
-            SearchHistoryListResponse data = searchHistoryService.getHistoryList(username(authentication), type, page, size);
-            log.info("Completed getHistoryList API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected getHistoryList error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_HISTORY_ERROR", "Could not get search history"));
-        }
+        log.info("Entered getHistoryList API");
+        validatePagination(page, size);
+        SearchHistoryListResponse data = searchHistoryService.getHistoryList(username(authentication), type, page, size);
+        log.info("Completed getHistoryList API");
+        return BaseResponse.success(data);
     }
 
     @GetMapping("/{historyId}")
@@ -62,24 +54,17 @@ public class SearchHistoryController {
             summary = "Get search history detail",
             description = "Returns a paginated detail view for one search history record that belongs to the authenticated user."
     )
-    public ResponseEntity<BaseResponse<SearchHistoryDetailResponse>> getHistoryDetail(
+    public BaseResponse<SearchHistoryDetailResponse> getHistoryDetail(
             @PathVariable Long historyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered getHistoryDetail API");
-            validatePagination(page, size);
-            SearchHistoryDetailResponse data = searchHistoryService.getHistoryDetail(username(authentication), historyId, page, size);
-            log.info("Completed getHistoryDetail API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected getHistoryDetail error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_HISTORY_ERROR", "Could not get search history detail"));
-        }
+        log.info("Entered getHistoryDetail API");
+        validatePagination(page, size);
+        SearchHistoryDetailResponse data = searchHistoryService.getHistoryDetail(username(authentication), historyId, page, size);
+        log.info("Completed getHistoryDetail API");
+        return BaseResponse.success(data);
     }
 
     @DeleteMapping("/{historyId}")
@@ -87,21 +72,14 @@ public class SearchHistoryController {
             summary = "Delete search history",
             description = "Deletes one search history record that belongs to the authenticated user."
     )
-    public ResponseEntity<BaseResponse<DeleteSearchHistoryResponse>> deleteHistory(
+    public BaseResponse<DeleteSearchHistoryResponse> deleteHistory(
             @PathVariable Long historyId,
             Authentication authentication
     ) {
-        try {
-            log.info("Entered deleteHistory API");
-            DeleteSearchHistoryResponse data = searchHistoryService.deleteHistory(username(authentication), historyId);
-            log.info("Completed deleteHistory API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected deleteHistory error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_HISTORY_ERROR", "Could not delete search history"));
-        }
+        log.info("Entered deleteHistory API");
+        DeleteSearchHistoryResponse data = searchHistoryService.deleteHistory(username(authentication), historyId);
+        log.info("Completed deleteHistory API");
+        return BaseResponse.success(data);
     }
 
     @DeleteMapping
@@ -109,18 +87,11 @@ public class SearchHistoryController {
             summary = "Delete all search history",
             description = "Deletes all search history records for the authenticated user."
     )
-    public ResponseEntity<BaseResponse<DeleteAllSearchHistoryResponse>> deleteAllHistory(Authentication authentication) {
-        try {
-            log.info("Entered deleteAllHistory API");
-            DeleteAllSearchHistoryResponse data = searchHistoryService.deleteAllHistory(username(authentication));
-            log.info("Completed deleteAllHistory API");
-            return ResponseEntity.ok(BaseResponse.success(data));
-        } catch (SearchException e) {
-            return ResponseEntity.status(e.getStatus()).body(BaseResponse.error(e.getCode(), e.getMessage()));
-        } catch (Exception e) {
-            log.error("Unexpected deleteAllHistory error", e);
-            return ResponseEntity.internalServerError().body(BaseResponse.error("SEARCH_HISTORY_ERROR", "Could not delete search history"));
-        }
+    public BaseResponse<DeleteAllSearchHistoryResponse> deleteAllHistory(Authentication authentication) {
+        log.info("Entered deleteAllHistory API");
+        DeleteAllSearchHistoryResponse data = searchHistoryService.deleteAllHistory(username(authentication));
+        log.info("Completed deleteAllHistory API");
+        return BaseResponse.success(data);
     }
 
     private void validatePagination(int page, int size) {

@@ -7,9 +7,13 @@ import { Login } from '../pages/Login';
 import { Register } from '../pages/Register';
 import { SearchResult } from '../pages/SearchResult';
 import { BookMark } from '../pages/BookMark';
+import {BookmarkTrash} from '../pages/BookmarkTrash';
 import { SearchHistory } from '../pages/SearchHistory';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import { AdminIndexing } from '../pages/admin/AdminIndexing';
+import { AdminUser } from '../pages/admin/AdminUser';
+import { AdminJobDetail } from '../pages/admin/AdminJobDetail';
+import { AdminTrash } from '../pages/admin/AdminTrash';
 import AdminRoute from './AdminRoute';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -45,6 +49,11 @@ export default function AppRoutes() {
             <BookMark />
           </MainLayout>
         } />
+        <Route path="/bookmarks/trash" element={
+          <MainLayout>
+            <BookmarkTrash />
+          </MainLayout>
+        } />
         <Route path="/search-history" element={
           <MainLayout>
             <SearchHistory />
@@ -63,8 +72,24 @@ export default function AppRoutes() {
             <AdminIndexing />
           </AdminLayout>
         } />
+        <Route path="/admin/indexing/:jobId" element={
+          <AdminLayout>
+            <AdminJobDetail />
+          </AdminLayout>
+        } />
+        <Route path='/admin/users' element={
+          <AdminLayout>
+            <AdminUser />
+          </AdminLayout>
+        } />
+        <Route path='/admin/trash' element={
+          <AdminLayout>
+            <AdminTrash />
+          </AdminLayout>
+        } />
+
       </Route>
-      
+
     </Routes>
   );
 }

@@ -1,207 +1,293 @@
-import os
 import torch
+import logging
+import os
+
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+
+import re
 import torch.nn.functional as F
 from PIL import Image
-import open_clip
-import logging
-import threading
+from transformers import CLIPModel, CLIPProcessor, MarianMTModel, MarianTokenizer
 
 logger = logging.getLogger(__name__)
 
-# =========================================================
-# Đường dẫn tới thư mục chứa file trọng số LoRA
-# Cấu trúc thư mục cần có:
-#   adapter_config.json      (cấu hình PEFT/LoRA)
-#   adapter_model.safetensors (trọng số LoRA, ~2MB)
-#   dense_weights.pth         (trọng số Dense 768->512, ~1.5MB)
-#
-# Trong Docker: mount qua volume, trỏ bằng env LORA_WEIGHTS_DIR
-# Khi dev local: mặc định đọc từ ../../Lora_weights (tương đối với file này)
-# =========================================================
-_LORA_DIR = os.environ.get(
-    "LORA_WEIGHTS_DIR",
-    os.path.join(os.path.dirname(__file__), "..", "..", "Lora_weights")
-)
-_DENSE_PATH = os.path.join(_LORA_DIR, "dense_weights.pth")
+# model FashionCLIP
+_FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 
-# Tên base model trên HuggingFace (dùng để clone về local)
-_BASE_MCLIP_NAME = "sentence-transformers/clip-ViT-B-32-multilingual-v1"
+# 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
+# Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
+_ATTRIBUTE_VOCAB: dict[str, list[str]] = {
+    "category": ["T-shirt", "Shirt", "Jersey", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Cap", "Bag"],
+    "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
+    "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
+    "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
+    "material": ["Denim", "Leather", "Cotton", "Wool", "Silk", "Velvet", "Linen"],
+    "fit": ["Oversized", "Slim fit", "Regular fit", "Baggy", "Skinny"],
+    "gender": ["Mens", "Womens", "Unisex", "Kids"],
+    "sleeve": ["Short sleeve", "Long sleeve", "Sleeveless"],
+    "neckline": ["Collared", "Crew neck", "V-neck", "Turtleneck"],
+    "brand": ["Nike", "Adidas", "Gucci", "Lacoste", "Chanel", "Louis Vuitton", "Puma", "Manchester United", "Burberry", "Dior", "Balenciaga", "Zara", "H&M", "Unbranded"],
+}
 
-# Đường dẫn local để cache base model (tránh tải lại mỗi lần khởi động)
+# Prompt template riêng cho từng nhóm — cho FashionCLIP ngữ cảnh rõ ràng hơn là chỉ
+# đưa mỗi từ khoá trần trụi vào text encoder, giúp phân loại zero-shot chính xác hơn.
+_ATTRIBUTE_PROMPT_TEMPLATES: dict[str, str] = {
+    "category": "a photo of a {label}",
+    "color": "a photo of a {label} colored clothing item",
+    "pattern": "a photo of a {label} pattern clothing item",
+    "style": "a photo of a {label} style outfit",
+    "material": "a photo of a {label} fabric clothing item",
+    "fit": "a photo of a {label} fit clothing item",
+    "gender": "a photo of {label} fashion clothing",
+    "sleeve": "a photo of a {label} clothing item",
+    "neckline": "a photo of a clothing item with a {label} neckline",
+    "brand": "a photo of a {label} brand clothing item",
+}
+
+# Thư mục cache model, tránh phải tải lại mỗi lần build docker
 _BASE_MODEL_CACHE = os.environ.get(
     "BASE_MODEL_CACHE",
     os.path.join(os.path.dirname(__file__), "..", "..", "base_model_cache")
 )
 
+# Model dịch máy nhỏ gọn, chạy nội bộ (không gọi API ngoài) để dịch câu tìm kiếm
+# tiếng Việt sang tiếng Anh trước khi đưa vào FashionCLIP.
+_VI_EN_TRANSLATOR_NAME = "Helsinki-NLP/opus-mt-vi-en"
+
+# Nhận diện nhanh câu có khả năng là tiếng Việt hay không, dựa vào các ký tự có dấu
+# đặc trưng — không dùng thư viện phát hiện ngôn ngữ ngoài để giữ mọi thứ gọn & nhanh.
+# Nếu câu không có dấu tiếng Việt (vd. khách gõ tiếng Anh, tên thương hiệu...) thì bỏ
+# qua bước dịch, tránh dịch nhầm làm hỏng câu query.
+_VIETNAMESE_CHARS_PATTERN = re.compile(
+    r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
+    re.IGNORECASE,
+)
+
+
+def _looks_vietnamese(text: str) -> bool:
+    return bool(_VIETNAMESE_CHARS_PATTERN.search(text))
+
+
+# Từ điển Việt hóa cho từng nhãn trong _ATTRIBUTE_VOCAB — dùng để dịch kết quả
+# predict_all_attributes_batch() sang tiếng Việt trước khi lưu vào metadata_ai.
+# Có thể chỉnh lại chữ cho tự nhiên hơn tùy gu, đây chỉ là bản dịch mặc định hợp lý.
+_ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
+    "category": {
+        "T-shirt": "Áo thun", "Shirt": "Áo sơ mi", "Jersey": "Áo đá bóng", "Tank top": "Áo ba lỗ", "Crop top": "Áo croptop", "Sweater": "Áo len", "Hoodie": "Áo hoodie", "Jeans": "Quần jean", "Trousers": "Quần âu",
+        "Skirt": "Chân váy", "Dress": "Váy đầm", "Sneakers": "Giày sneaker",
+        "Jacket": "Áo khoác", "Coat": "Áo choàng", "Shorts": "Quần short",
+        "Hat": "Mũ", "Cap": "Mũ lưỡi trai", "Bag": "Túi xách",
+    },
+    "color": {
+        "Red": "Đỏ", "Blue": "Xanh dương", "Black": "Đen", "White": "Trắng",
+        "Yellow": "Vàng", "Green": "Xanh lá", "Pink": "Hồng", "Grey": "Xám",
+        "Brown": "Nâu", "Purple": "Tím", "Orange": "Cam", "Beige": "Be",
+    },
+    "pattern": {
+        "Solid": "Trơn", "Striped": "Sọc", "Plaid": "Caro", "Floral": "Hoa",
+        "Polka dot": "Chấm bi", "Graphic print": "In hình", "Camouflage": "Rằn ri",
+    },
+    "style": {
+        "Casual": "Thường ngày", "Formal": "Trang trọng", "Vintage": "Cổ điển",
+        "Streetwear": "Đường phố", "Sportswear": "Thể thao", "Y2K": "Phong cách Y2K",
+        "Minimalist": "Tối giản",
+    },
+    "material": {
+        "Denim": "Vải bò", "Leather": "Da", "Cotton": "Cotton", "Wool": "Len",
+        "Silk": "Lụa", "Velvet": "Nhung", "Linen": "Vải lanh",
+    },
+    "fit": {
+        "Oversized": "Rộng (Oversize)", "Slim fit": "Ôm sát", "Regular fit": "Dáng chuẩn",
+        "Baggy": "Thùng thình", "Skinny": "Bó sát",
+    },
+    "gender": {
+        "Mens": "Nam", "Womens": "Nữ", "Unisex": "Unisex", "Kids": "Trẻ em",
+    },
+    "sleeve": {
+        "Short sleeve": "Ngắn tay", "Long sleeve": "Dài tay", "Sleeveless": "Sát nách",
+    },
+    "neckline": {
+        "Collared": "Có cổ", "Crew neck": "Cổ tròn", "V-neck": "Cổ tim", "Turtleneck": "Cổ lọ",
+    },
+    "brand": {
+        "Nike": "Nike", "Adidas": "Adidas", "Gucci": "Gucci", "Lacoste": "Lacoste", 
+        "Chanel": "Chanel", "Louis Vuitton": "Louis Vuitton", "Puma": "Puma", 
+        "Manchester United": "Manchester United", "Burberry": "Burberry", "Dior": "Dior", 
+        "Balenciaga": "Balenciaga", "Zara": "Zara", "H&M": "H&M", "Unbranded": "Không rõ hãng"
+    },
+}
+
+
+# Các từ khóa "gốc" của nhóm ngành hàng — dùng khi câu tìm kiếm không khớp thẳng một
+# nhãn category cụ thể nào (vd. "quần màu đen" không khớp "Quần jean"/"Quần âu"...).
+# Trong trường hợp đó, gom TẤT CẢ nhãn category có chứa từ khóa này lại thành 1 danh
+# sách để khóa cứng Qdrant bằng MATCH_ANY, tránh bốc nhầm sang ngành hàng khác (áo).
+_BROAD_CATEGORY_KEYWORDS: list[str] = ["áo", "quần", "giày", "mũ", "váy", "túi"]
+
 
 class CLIPModelWrapper:
-    def __init__(self, model_name: str = "ViT-B-32-quickgelu", pretrained: str = "openai"):
-        # Bắt buộc dùng CPU cho CLIP để nhường toàn bộ GPU (VRAM) cho EasyOCR
-        self.device = "cpu"
-        # Khóa luồng để tránh nghẽn CPU khi có quá nhiều request chạy đồng thời
-        self._cpu_semaphore = threading.Semaphore(2)
-        logger.info(f"Loading CLIP model {model_name} on {self.device}...")
+    def __init__(self, model_name: str = _FASHION_CLIP_NAME):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Đang tải model FashionCLIP: {model_name} trên {self.device}")
 
-        # ── Image Encoder (CLIP ViT-B-32, đóng băng hoàn toàn) ──────────
-        model, _, preprocess = open_clip.create_model_and_transforms(model_name, pretrained=pretrained)
-        self.model = model.to(self.device).eval()
-        self.preprocess = preprocess
+        cache_dir = os.path.abspath(_BASE_MODEL_CACHE)
+        os.makedirs(cache_dir, exist_ok=True)
 
-        # ── Text Encoder đa ngữ (mCLIP + LoRA fine-tuned) ────────────────
-        self.mclip = None
-        self.mclip_tokenizer = None
-        self._load_multilingual_text_encoder()
+        # Dùng thẳng thư viện transformers chuẩn hóa của HuggingFace,
+        # không còn open_clip (ảnh) hay sentence-transformers + LoRA (chữ) nữa
+        self.model = CLIPModel.from_pretrained(model_name, cache_dir=cache_dir).to(self.device).eval()
+        self.processor = CLIPProcessor.from_pretrained(model_name, cache_dir=cache_dir)
 
-        logger.info("CLIP model loaded successfully.")
+        logger.info("Load FashionCLIP thành công")
 
-    def _load_multilingual_text_encoder(self):
-        """
-        Tải Multilingual Text Encoder đã LoRA fine-tune.
+        # Load model dịch máy VI->EN, chạy nội bộ, cache chung thư mục với FashionCLIP
+        logger.info(f"Đang tải model dịch thuật: {_VI_EN_TRANSLATOR_NAME}")
+        self.translator_tokenizer = MarianTokenizer.from_pretrained(
+            _VI_EN_TRANSLATOR_NAME, cache_dir=cache_dir
+        )
+        self.translator_model = MarianMTModel.from_pretrained(
+            _VI_EN_TRANSLATOR_NAME, cache_dir=cache_dir
+        ).to(self.device).eval()
+        logger.info("Load model dịch thuật thành công")
 
-        Cơ chế:
-          1. Load base model DistilBERT multilingual từ local cache hoặc HuggingFace.
-          2. Gắn LoRA adapter (adapter_model.safetensors) vào base model.
-          3. Load trọng số Dense layer (dense_weights.pth).
-          4. Nếu có bất kỳ lỗi nào → fallback về CLIP tiếng Anh gốc.
-        """
-        lora_dir = os.path.abspath(_LORA_DIR)
-        dense_path = os.path.abspath(_DENSE_PATH)
-        adapter_path = os.path.join(lora_dir, "adapter_model.safetensors")
-        adapter_config = os.path.join(lora_dir, "adapter_config.json")
+        # Sinh sẵn vector mẫu cho 7 nhóm thuộc tính — chỉ chạy 1 lần lúc khởi động,
+        # nên việc gắn tag cho từng ảnh lúc indexing không tốn thêm chi phí forward pass nào.
+        self._attribute_vectors: dict[str, torch.Tensor] = {}
+        self._precompute_attribute_vocab_vectors()
 
-        # Kiểm tra file bắt buộc
-        missing = []
-        if not os.path.isdir(lora_dir):
-            missing.append(f"thư mục {lora_dir}")
-        if not os.path.exists(adapter_config):
-            missing.append("adapter_config.json")
-        if not os.path.exists(adapter_path):
-            missing.append("adapter_model.safetensors")
-        if not os.path.exists(dense_path):
-            missing.append("dense_weights.pth")
-
-        if missing:
-            logger.warning(f"Thiếu: {', '.join(missing)}. Fallback về CLIP tiếng Anh.")
-            self.tokenizer = open_clip.get_tokenizer("ViT-B-32-quickgelu")
-            return
-
-        try:
-            from sentence_transformers import SentenceTransformer
-            from transformers import AutoModel
-            from peft import PeftModel
-
-            # ── Bước 1: Load base model ────────────────────────────────────
-            base_cache = os.path.abspath(_BASE_MODEL_CACHE)
-
-            if os.path.isdir(base_cache) and os.path.exists(os.path.join(base_cache, "sentence_bert_config.json")):
-                # Đã có cache local → load offline, nhanh hơn
-                logger.info(f"Load base model từ cache local: {base_cache}")
-                base_mclip = SentenceTransformer(base_cache)
-                base_transformer = base_mclip[0].auto_model
-            else:
-                # Chưa có cache → tải từ HuggingFace
-                logger.info("=" * 60)
-                logger.info(f"ĐANG TẢI BASE MODEL TỪ HUGGINGFACE...")
-                logger.info(f"   Model: {_BASE_MCLIP_NAME}")
-                logger.info(f"   Kích thước: ~500MB — vui lòng chờ...")
-                logger.info("=" * 60)
-                base_mclip = SentenceTransformer(_BASE_MCLIP_NAME)
-                base_transformer = base_mclip[0].auto_model
-                logger.info("Tải model xong!")
-
-                # Lưu TOÀN BỘ SentenceTransformer (bao gồm tokenizer, pooling, dense)
-                logger.info(f"💾 Đang lưu cache vào: {base_cache} ...")
-                os.makedirs(base_cache, exist_ok=True)
-                base_mclip.save(base_cache)
-                logger.info(f"Đã lưu cache xong! Lần sau sẽ load nhanh hơn.")
-
-            # ── Bước 2: Gắn LoRA adapter vào base model ──────────────────
-            logger.info(f"Gắn LoRA adapter từ: {lora_dir}")
-            peft_transformer = PeftModel.from_pretrained(
-                base_transformer,
-                lora_dir,
-                is_trainable=False   # inference mode, không cần gradient
+    # Dịch 1 câu tiếng Việt sang tiếng Anh bằng model MarianMT nội bộ (không gọi API ngoài).
+    # Dùng greedy decode (num_beams=1) để giữ tốc độ ~0.05s/câu như yêu cầu.
+    def _translate_vi_to_en(self, text: str) -> str:
+        inputs = self.translator_tokenizer(
+            [text], return_tensors="pt", padding=True, truncation=True
+        ).to(self.device)
+        with torch.inference_mode():
+            translated_ids = self.translator_model.generate(
+                **inputs, max_new_tokens=64, num_beams=1
             )
+        return self.translator_tokenizer.batch_decode(translated_ids, skip_special_tokens=True)[0]
 
-            # Thay thế transformer bên trong SentenceTransformer bằng bản LoRA
-            base_mclip[0].auto_model = peft_transformer
-
-            # ── Bước 3: Load Dense layer đã fine-tune ──────────────────────
-            logger.info(f"Load dense_weights.pth từ: {dense_path}")
-            dense_state = torch.load(dense_path, map_location=self.device, weights_only=True)
-            base_mclip[2].load_state_dict(dense_state)
-
-            # ── Bước 4: Chuyển toàn bộ sang device và eval mode ───────────
-            self.mclip = base_mclip.to(self.device).eval()
-            self.mclip_tokenizer = self.mclip[0].tokenizer
-
-            lora_size_mb = os.path.getsize(adapter_path) / (1024 * 1024)
-            logger.info(f"✅ Multilingual Text Encoder loaded thành công!")
-            logger.info(f"   LoRA adapter size: {lora_size_mb:.1f} MB")
-            logger.info(f"   Hỗ trợ: Tiếng Việt + Tiếng Anh + 50+ ngôn ngữ khác")
-
-        except Exception as e:
-            logger.error(f"Lỗi khi load Multilingual Text Encoder: {e}", exc_info=True)
-            logger.warning("Fallback về CLIP Text Encoder tiếng Anh gốc.")
-            self.tokenizer = open_clip.get_tokenizer("ViT-B-32-quickgelu")
-            self.mclip = None
-
-    def get_image_embedding(self, img: Image.Image) -> list[float]:
-        """Trích xuất vector đặc trưng từ ảnh (Image Encoder CLIP, 512 chiều)."""
-        img_t = self.preprocess(img).unsqueeze(0).to(self.device)
-        with self._cpu_semaphore:
+    def _precompute_attribute_vocab_vectors(self):
+        logger.info("Đang sinh vector mẫu cho 7 nhóm thuộc tính thời trang...")
+        for attr_name, labels in _ATTRIBUTE_VOCAB.items():
+            template = _ATTRIBUTE_PROMPT_TEMPLATES[attr_name]
+            prompts = [template.format(label=label) for label in labels]
+            inputs = self.processor(
+                text=prompts, return_tensors="pt", padding=True, truncation=True
+            ).to(self.device)
             with torch.inference_mode():
-                feat = self.model.encode_image(img_t)
+                feat = self.model.get_text_features(**inputs)
                 feat = F.normalize(feat, dim=-1)
+            self._attribute_vectors[attr_name] = feat  # shape: (num_labels, dim)
+        logger.info("Đã sinh xong vector mẫu cho toàn bộ thuộc tính.")
+
+    # Trích xuất vector đặc trưng từ 1 ảnh
+    def get_image_embedding(self, img: Image.Image) -> list[float]:
+        inputs = self.processor(images=img, return_tensors="pt").to(self.device)
+        with torch.inference_mode():
+            feat = self.model.get_image_features(**inputs)
+            feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
+    # Trích xuất vector đặc trưng từ nhiều ảnh (theo batch)
     def get_image_embeddings(self, imgs: list[Image.Image]) -> list[list[float]]:
-        """Trích xuất vector đặc trưng từ danh sách ảnh (Batch Inference)."""
         if not imgs:
             return []
-        img_tensors = [self.preprocess(img) for img in imgs]
-        batch_t = torch.stack(img_tensors).to(self.device)
-        with self._cpu_semaphore:
-            with torch.inference_mode():
-                feat = self.model.encode_image(batch_t)
-                feat = F.normalize(feat, dim=-1)
+        inputs = self.processor(images=imgs, return_tensors="pt").to(self.device)
+        with torch.inference_mode():
+            feat = self.model.get_image_features(**inputs)
+            feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy().tolist()
 
+    # Trích xuất vector đặc trưng từ text được nhập FashionCLIP.
+    # Nếu câu có vẻ là tiếng Việt, dịch sang tiếng Anh trước (FashionCLIP chỉ hiểu tiếng Anh).
     def get_text_embedding(self, text: str) -> list[float]:
-        """
-        Trích xuất vector đặc trưng từ văn bản (512 chiều).
-        - Nếu LoRA đã load: dùng mCLIP đa ngữ (tiếng Việt, Anh, 50+ ngôn ngữ).
-        - Nếu không: fallback về CLIP tiếng Anh gốc.
-        """
-        with self._cpu_semaphore:
-            if self.mclip is not None:
-                # === Multilingual Text Encoder (LoRA fine-tuned mCLIP) ===
-                with torch.inference_mode():
-                    text_inputs = self.mclip_tokenizer(
-                        [text],
-                        padding=True,
-                        truncation=True,
-                        max_length=77,
-                        return_tensors="pt"
-                    )
-                    text_inputs = {k: v.to(self.device) for k, v in text_inputs.items()}
+        query_text = text
+        if _looks_vietnamese(text):
+            query_text = self._translate_vi_to_en(text)
+            logger.info(f"[Dịch] '{text}' -> '{query_text}'")
 
-                    # Forward qua pipeline của SentenceTransformer
-                    features = dict(text_inputs)
-                    for module in self.mclip:
-                        features = module(features)
+        inputs = self.processor(
+            text=[query_text],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(self.device)
+        with torch.inference_mode():
+            feat = self.model.get_text_features(**inputs)
+            feat = F.normalize(feat, dim=-1)
+        return feat.cpu().numpy()[0].tolist()
 
-                    feat = features["sentence_embedding"]
-                    feat = F.normalize(feat, dim=-1)
-                return feat.cpu().numpy()[0].tolist()
-            else:
-                # === Fallback: CLIP gốc (English only) ===
-                text_tokens = self.tokenizer([text]).to(self.device)
-                with torch.inference_mode():
-                    feat = self.model.encode_text(text_tokens)
-                    feat = F.normalize(feat, dim=-1)
-                return feat.cpu().numpy()[0].tolist()
+    # Gắn 7 thuộc tính thời trang cho MỘT vector ảnh (vector đã tính sẵn từ
+    # get_image_embedding/get_image_embeddings, không encode lại ảnh).
+    def predict_all_attributes(self, image_embedding: list[float]) -> dict:
+        return self.predict_all_attributes_batch([image_embedding])[0]
+
+    # Gắn 7 thuộc tính thời trang cho MỘT BATCH vector ảnh cùng lúc (1 phép nhân ma
+    # trận cho cả batch mỗi nhóm thuộc tính, thay vì lặp từng ảnh) — dùng hàm này khi
+    # indexing theo batch để tận dụng tối đa.
+    def predict_all_attributes_batch(self, image_embeddings: list[list[float]]) -> list[dict]:
+        if not image_embeddings:
+            return []
+
+        img_tensor = torch.tensor(image_embeddings, dtype=torch.float32, device=self.device)  # (B, dim)
+
+        results: list[dict] = [dict() for _ in image_embeddings]
+        with torch.inference_mode():
+            for attr_name, vocab_vectors in self._attribute_vectors.items():
+                # (B, dim) @ (dim, num_labels) -> (B, num_labels).
+                # Cả 2 phía đều đã normalize nên đây chính là cosine similarity.
+                sims = img_tensor @ vocab_vectors.T
+                best_idx = sims.argmax(dim=-1).cpu().tolist()
+                labels = _ATTRIBUTE_VOCAB[attr_name]
+                vi_labels = _ATTRIBUTE_VI_LABELS[attr_name]
+                for i, idx in enumerate(best_idx):
+                    en_label = labels[idx]
+                    # Việt hóa nhãn trước khi trả về; nếu thiếu trong từ điển thì
+                    # fallback về nhãn tiếng Anh gốc thay vì lỗi.
+                    results[i][attr_name] = vi_labels.get(en_label, en_label)
+
+        return results
+
+    # Bóc tách thuộc tính xuất hiện trực tiếp trong câu tìm kiếm tiếng Việt, dựa vào
+    # so khớp chuỗi con với chính _ATTRIBUTE_VI_LABELS (từ điển này cũng dùng để Việt
+    # hóa metadata_ai lúc indexing, nên nhãn khớp ra luôn trùng khớp tuyệt đối với giá
+    # trị đã lưu trong Payload/DB).
+    # Mỗi nhóm thuộc tính chỉ lấy nhãn khớp DÀI NHẤT (duyệt giảm dần theo độ dài) để
+    # tránh nhãn ngắn (vd. "Áo") ăn nhầm vào nhãn dài hơn chứa nó (vd. "Áo thun").
+    def extract_tags_from_text(self, text: str) -> dict[str, list[str]]:
+        normalized = text.lower()
+        
+        # Xử lý từ đồng nghĩa trước khi match
+        normalized = normalized.replace("quần đùi", "quần short")
+        normalized = normalized.replace("áo phông", "áo thun")
+        normalized = normalized.replace(" mu", " manchester united")
+        normalized = normalized.replace(" lv", " louis vuitton")
+        
+        filters: dict[str, list[str]] = {}
+
+        for attr_name, vi_labels in _ATTRIBUTE_VI_LABELS.items():
+            for vi_label in sorted(vi_labels.values(), key=len, reverse=True):
+                if vi_label.lower() in normalized:
+                    filters[attr_name] = [vi_label]
+                    break
+
+        # Xử lý đặc biệt cho màu "xanh" (nếu không gõ rõ xanh lá hay xanh dương)
+        if "color" not in filters and "xanh" in normalized:
+            filters["color"] = ["Xanh dương", "Xanh lá"]
+
+        # Broad match: "category" chưa khớp nhãn cụ thể nào, nhưng câu vẫn chứa 1 từ
+        # khóa gốc (áo/quần/giày/mũ/váy/túi) -> gom hết nhãn category chứa từ khóa đó.
+        if "category" not in filters:
+            category_labels = _ATTRIBUTE_VI_LABELS["category"]
+            for keyword in _BROAD_CATEGORY_KEYWORDS:
+                if keyword in normalized:
+                    matched = [label for label in category_labels.values() if keyword in label.lower()]
+                    if matched:
+                        filters["category"] = matched
+                    break
+
+        return filters
 
 
-# Singleton — khởi tạo 1 lần duy nhất, dùng chung toàn ứng dụng
 clip_model = CLIPModelWrapper()

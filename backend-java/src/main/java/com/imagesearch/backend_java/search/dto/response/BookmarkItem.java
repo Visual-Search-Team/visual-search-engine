@@ -23,7 +23,10 @@ import java.time.LocalDateTime;
         "width",
         "height",
         "mimeType",
-        "bookmarkedAt"
+        "bookmarkedAt",
+        "deletedAt",
+        "permanentDeletionAt",
+        "remainingDays"
 })
 public class BookmarkItem {
     private Long bookmarkId;
@@ -35,4 +38,7 @@ public class BookmarkItem {
     private Integer height;
     private String mimeType;
     private LocalDateTime bookmarkedAt;
+    private LocalDateTime deletedAt;
+    private LocalDateTime permanentDeletionAt;
+    private Long remainingDays;
 }

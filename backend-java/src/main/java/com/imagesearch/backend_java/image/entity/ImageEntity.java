@@ -18,7 +18,8 @@ import java.util.List;
         indexes = {
                 @Index(name = "idx_images_uploaded_by", columnList = "uploaded_by"),
                 @Index(name = "idx_images_index_status", columnList = "index_status"),
-                @Index(name = "idx_images_checksum", columnList = "checksum")
+            @Index(name = "idx_images_checksum", columnList = "checksum"),
+            @Index(name = "idx_images_deleted", columnList = "is_deleted")
         }
 )
 @Getter
@@ -65,6 +66,10 @@ public class ImageEntity {
     @Column(name = "indexed_at")
     private LocalDateTime indexedAt;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "metadata_ai", columnDefinition = "json")
+    private String metadataAi;
+
     @Column(name = "error_message", length = 2000)
     private String errorMessage;
 
@@ -73,6 +78,13 @@ public class ImageEntity {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Builder.Default
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Transient
     private List<Float> embedding;

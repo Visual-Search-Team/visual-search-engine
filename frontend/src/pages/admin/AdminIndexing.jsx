@@ -8,11 +8,12 @@ import {
   getIndexingJobItems,
   getIndexingJobs,
   retryIndexingJob,
+  deleteMultipleIndexingJobs,
+  deleteIndexingJob,
 } from "../../services/adminIndexingService";
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { uploadImages } from "../../services/imageService";
 import { validateFile } from "../../utils/fileValidation";
-import { deleteIndexingJob } from "../../services/adminIndexingService";
 import Swal from "sweetalert2";
 import { SmoothProgressBar } from "../../components/ui/SmoothProgressBar";
 
@@ -90,6 +91,8 @@ export const AdminIndexing = () => {
   const previewUrlsRef = useRef([]);
   const [retryingJobId, setRetryingJobId] = useState(null);
 
+  const [selectedJobIds, setSelectedJobIds] = useState([]);
+
 
   const jobsQuery = useQuery({
     queryKey: ["admin-indexing-jobs", page],
@@ -104,6 +107,7 @@ export const AdminIndexing = () => {
     mutationFn: deleteIndexingJob,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      setSelectedJobIds(prev => prev.filter(id => id !== selectedJobId));
       Swal.fire({
         title: "Đã xóa!",
         text: "Đã xóa job thành công!",
@@ -122,7 +126,68 @@ export const AdminIndexing = () => {
     }
   });
 
+  const deleteMultipleJobsMutation = useMutation({
+    mutationFn: deleteMultipleIndexingJobs,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      setSelectedJobIds([]); 
+      Swal.fire({
+        title: "Thành công!",
+        text: "Đã xóa các job được chọn!",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false
+      });
+    },
+    onError: (error) => {
+      Swal.fire({ title: "Lỗi!", text: "Có lỗi xảy ra khi xóa các job!", icon: "error" });
+      console.error(error);
+    }
+  });
+
   const jobs = jobsQuery.data?.content || [];
+
+  // Xử lý tick chọn 1 job
+  const handleSelectJob = (jobId, isChecked) => {
+    if (isChecked) {
+      setSelectedJobIds(prev => [...prev, jobId]);
+    } else {
+      setSelectedJobIds(prev => prev.filter(id => id !== jobId));
+    }
+  };
+
+  const isAllCurrentPageSelected = jobs.length > 0 && jobs.every(job => selectedJobIds.includes(job.id));
+
+  // Xử lý tick chọn tất cả ở trang hiện tại
+  const handleSelectAllCurrentPage = (isChecked) => {
+    if (isChecked) {
+      const newIds = jobs.map(j => j.id).filter(id => !selectedJobIds.includes(id));
+      setSelectedJobIds(prev => [...prev, ...newIds]);
+    } else {
+      const currentPageIds = jobs.map(j => j.id);
+      setSelectedJobIds(prev => prev.filter(id => !currentPageIds.includes(id)));
+    }
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedJobIds.length === 0) return;
+    Swal.fire({
+      title: "Cảnh báo nguy hiểm!",
+      text: `Bạn có chắc chắn muốn xóa ${selectedJobIds.length} Job đã chọn và toàn bộ ảnh bên trong không? Hành động này không thể hoàn tác.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: `Xóa ${selectedJobIds.length} job`,
+      cancelButtonText: "Hủy"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteMultipleJobsMutation.mutate(selectedJobIds);
+      }
+    });
+  };
+
+
 
   const pagination = {
     page: jobsQuery.data?.page || page,
@@ -434,14 +499,42 @@ export const AdminIndexing = () => {
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 p-5">
-          <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
-          {/* <p className="mt-1 text-sm text-gray-500">Mỗi lần upload ảnh sẽ tạo một job và job này được xử lý nền bởi backend.</p> */}
+        <div className="border-b border-zinc-200 p-5 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
+          </div>
+
+          {/* NÚT XÓA NHIỀU */}
+          <button
+            onClick={handleConfirmBulkDelete}
+            disabled={selectedJobIds.length === 0 || deleteMultipleJobsMutation.isPending}
+            className={`flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors
+              ${selectedJobIds.length > 0 && !deleteMultipleJobsMutation.isPending
+                ? "bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+          >
+            {deleteMultipleJobsMutation.isPending ? (
+              <FiRotateCcw className="size-4 animate-spin" />
+            ) : (
+              <FiTrash2 className="size-4" />
+            )}
+            Xóa {selectedJobIds.length > 0 ? `(${selectedJobIds.length})` : ""}
+          </button>
         </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-[1040px] w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="border-b border-zinc-200 px-4 py-3 w-12">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                    checked={isAllCurrentPageSelected}
+                    onChange={(e) => handleSelectAllCurrentPage(e.target.checked)}
+                    disabled={jobs.length === 0}
+                  />
+                </th>
                 <th className="border-b border-zinc-200 px-4 py-3">ID</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Trạng thái</th>
                 <th className="border-b border-zinc-200 px-4 py-3 text-right">Tổng ảnh</th>
@@ -490,6 +583,14 @@ export const AdminIndexing = () => {
                     }}
                     className={`cursor-pointer transition hover:bg-indigo-50/70 ${selectedJobId === job.id ? "bg-indigo-50/60" : ""}`}
                   >
+                    <td className="border-b border-zinc-100 px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                        checked={selectedJobIds.includes(job.id)}
+                        onChange={(e) => handleSelectJob(job.id, e.target.checked)}
+                      />
+                    </td>
                     <td className="border-b border-zinc-100 px-4 py-4 font-semibold text-zinc-900">#{job.id}</td>
                     <td className="border-b border-zinc-100 px-4 py-4">
                       <StatusBadge status={job.status} />

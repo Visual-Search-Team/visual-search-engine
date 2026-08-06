@@ -125,7 +125,7 @@ export const AdminJobDetail = () => {
             queryClient.invalidateQueries({ queryKey: ["admin-indexing-job-items", jobId] });
             Swal.fire({
                 title: "Thành công!",
-                text: `Đã xóa thành công ${data?.deletedCount || variables.length} ảnh!`,
+                text: `${data?.deletedCount || variables.length} ảnh đã được chuyển vào thùng rác.`,
                 icon: "success",
                 timer: 2000,
                 showConfirmButton: false
@@ -165,7 +165,7 @@ export const AdminJobDetail = () => {
     const handleDelete = () => {
         Swal.fire({
             title: "Xác nhận xóa?",
-            text: `Bạn có chắc chắn muốn xoá ${selectedImages.length} ảnh đã chọn? Hành động này không thể hoàn tác.`,
+            text: `Bạn có chắc chắn muốn xoá ${selectedImages.length} ảnh đã chọn?`,
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#ef4444", 

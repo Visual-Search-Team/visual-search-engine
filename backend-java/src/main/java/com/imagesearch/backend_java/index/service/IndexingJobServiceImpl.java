@@ -328,6 +328,29 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
     }
 
+    @Transactional
+    @Override
+    public int deleteJobsAndImages(List<Long> jobIds) {
+        if (jobIds == null || jobIds.isEmpty()) {
+            throw new InvalidIndexingJobStateException("jobIds is required");
+        }
+
+        Set<Long> targetJobIds = new LinkedHashSet<>(jobIds);
+        List<IndexingJobEntity> jobs = targetJobIds.stream()
+                .map(this::requireJob)
+                .toList();
+
+        for (IndexingJobEntity job : jobs) {
+            assertJobDeletable(job);
+        }
+
+        for (Long targetJobId : targetJobIds) {
+            deleteJobAndImages(targetJobId);
+        }
+
+        return targetJobIds.size();
+    }
+
     @Scheduled(initialDelay = 5000, fixedDelay = 15000)
     @Transactional
     public void reconcileRunningJobs() {

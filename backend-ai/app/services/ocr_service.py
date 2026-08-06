@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Thư mục cache model EasyOCR (tránh tải lại mỗi lần restart Docker)
 _OCR_MODEL_CACHE = os.environ.get("OCR_MODEL_CACHE", "/app/ocr_model_cache")
-_OCR_LANGUAGES = ["vi", "en"]
+_OCR_LANGUAGES = ["en"]
 
 
 class OCRService:
@@ -54,11 +54,19 @@ class OCRService:
             logger.info(f"   Cache model: {_OCR_MODEL_CACHE}")
             logger.info(f"   GPU: {'CÓ (' + torch.cuda.get_device_name(0) + ')' if use_gpu else 'KHÔNG (fallback CPU)'}")
             os.makedirs(_OCR_MODEL_CACHE, exist_ok=True)
+            # Chi tiết các tham số của easyocr.Reader để thuận tiện benchmark:
             self._reader = easyocr.Reader(
-                _OCR_LANGUAGES,
-                gpu=use_gpu,
-                model_storage_directory=_OCR_MODEL_CACHE,
-                verbose=False,
+                lang_list=_OCR_LANGUAGES,                 # Danh sách ngôn ngữ nhận dạng, VD: ['vi', 'en']
+                gpu=use_gpu,                              # Sử dụng GPU (True) hay CPU (False)
+                model_storage_directory=_OCR_MODEL_CACHE, # Đường dẫn thư mục lưu cache model đã tải
+                user_network_directory=None,              # Thư mục chứa kiến trúc mạng custom (nếu có)
+                recog_network='standard',                 # Lựa chọn model recognize ('standard' hoặc custom)
+                download_enabled=True,                    # Cho phép tự động tải model từ internet nếu chưa có
+                detector=True,                            # Kích hoạt module Detection (CRAFT) tìm text box
+                recognizer=True,                          # Kích hoạt module Recognition đọc chữ
+                verbose=False,                            # Tắt/mở log trong quá trình load
+                quantize=True,                            # Dùng quantize weight để tăng tốc/giảm RAM (chủ yếu cho CPU)
+                cudnn_benchmark=False                     # Kích hoạt tối ưu tốc độ bằng cuDNN (nên dùng nếu size ảnh đầu vào ít thay đổi)
             )
             logger.info(" EasyOCR Reader sẵn sàng! Hỗ trợ Tiếng Việt + Tiếng Anh.")
         return self._reader
@@ -93,11 +101,25 @@ class OCRService:
         # Đổi batch_size = 1 để tránh OOM
         # Sử dụng torch.autocast (16-bit) để tăng tốc và giảm RAM GPU
         with self._gpu_semaphore:
+            # --- Các tham số tuning (benchmark) cho hàm readtext của EasyOCR ---
+            readtext_kwargs = {
+                "detail": 1,
+                "batch_size": 2,
+                # Tiền xử lý tích hợp sẵn trong lõi EasyOCR:
+                "adjust_contrast": True,   # Bật tự động cân bằng tương phản cục bộ
+                "contrast_ths": 0.1,       # Ngưỡng tương phản (chỉ can thiệp những vùng mờ có độ tương phản < 0.1)
+                "mag_ratio": 1.5,          # Tỷ lệ phóng to ảnh trước khi đọc (vd: 1.5 hoặc 2.0 giúp đọc chữ nhỏ tốt hơn)
+                # Các tham số cho thuật toán dò tìm vùng chữ (CRAFT detector):
+                "text_threshold": 0.7,     # Ngưỡng xác định box chữ (Mặc định 0.7. Giảm xuống ví dụ 0.5-0.6 nếu hay bị sót chữ mờ)
+                "low_text": 0.4,           # Ngưỡng bao lưới chữ (Mặc định 0.4. Giảm xuống nếu chữ bị mất nét)
+                "width_ths": 0.5,          # Ngưỡng nối các chữ cái thành từ (Tăng lên nếu chữ hay bị tách đôi, giảm nếu các từ hay bị dính chùm vào nhau)
+            }
+            
             if torch.cuda.is_available():
                 with torch.autocast(device_type='cuda', dtype=torch.float16):
-                    raw_results = reader.readtext(img_array, detail=1, batch_size=2)
+                    raw_results = reader.readtext(img_array, **readtext_kwargs)
             else:
-                raw_results = reader.readtext(img_array, detail=1, batch_size=2)
+                raw_results = reader.readtext(img_array, **readtext_kwargs)
 
         regions = []
         text_parts = []

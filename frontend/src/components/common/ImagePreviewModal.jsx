@@ -3,12 +3,12 @@ import { FiX, FiZoomIn, FiZoomOut, FiMaximize } from 'react-icons/fi';
 import { ImageWithFallback } from './ImageWithFallback';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
-export const ImagePreviewModal = ({ imageId, onClose }) => {
+export const ImagePreviewModal = ({ imageId, imageUrl, onClose }) => {
     const [scale, setScale] = useState(1);
     const [origin, setOrigin] = useState({ x: 50, y: 50 });
     const containerRef = useRef(null);
 
-    const imageUrl = resolveImageUrl(undefined, imageId);
+    const finalImageUrl = imageUrl || resolveImageUrl(undefined, imageId);
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
@@ -61,7 +61,7 @@ export const ImagePreviewModal = ({ imageId, onClose }) => {
         e.stopPropagation();
 
         if (scale > 1) {
-            handleReset(); 
+            handleReset();
         } else {
             if (containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect();
@@ -77,7 +77,7 @@ export const ImagePreviewModal = ({ imageId, onClose }) => {
                 const y = ((clientY - rect.top) / rect.height) * 100;
                 setOrigin({ x, y });
             }
-            setScale(2.5); 
+            setScale(2.5);
         }
     };
 
@@ -95,7 +95,7 @@ export const ImagePreviewModal = ({ imageId, onClose }) => {
 
             <div
                 className="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 md:gap-6 rounded-full bg-black/60 px-4 md:px-6 py-2 md:py-3 shadow-lg backdrop-blur-md"
-                onClick={(e) => e.stopPropagation()} 
+                onClick={(e) => e.stopPropagation()}
             >
                 <button onClick={handleZoomOut} className="text-white hover:text-indigo-400 transition cursor-pointer" title="Thu nhỏ">
                     <FiZoomOut className="size-5 md:size-6" />
@@ -108,7 +108,7 @@ export const ImagePreviewModal = ({ imageId, onClose }) => {
                 </button>
             </div>
 
-           
+
             <div
                 ref={containerRef}
                 className={`relative w-[95vw] md:w-[80vw] lg:w-[50vw] max-w-5xl h-[70vh] lg:h-[80vh] bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-2xl flex items-center justify-center ${scale > 1
@@ -120,7 +120,7 @@ export const ImagePreviewModal = ({ imageId, onClose }) => {
                 onTouchMove={handlePointerMove}
             >
                 <ImageWithFallback
-                    src={imageUrl}
+                    src={finalImageUrl}
                     alt={`Preview ${imageId}`}
                     draggable={false}
                     className="w-full h-full object-contain pointer-events-none select-none"

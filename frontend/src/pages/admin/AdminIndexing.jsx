@@ -335,6 +335,7 @@ export const AdminIndexing = () => {
     });
   };
 
+
   return (
     <section className="mx-auto flex max-w-7xl flex-col gap-6">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -527,7 +528,6 @@ export const AdminIndexing = () => {
         <div className="w-full lg:overflow-x-auto">
           <table className="w-full text-sm block lg:table lg:min-w-[1040px] lg:border-separate lg:border-spacing-0">
 
-            {/* Ẩn Thead trên Mobile, chỉ hiện từ lg trở lên */}
             <thead className="hidden lg:table-header-group">
               <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="border-b border-zinc-200 px-4 py-3 w-12">
@@ -591,9 +591,9 @@ export const AdminIndexing = () => {
                       setSelectedJobId(job.id);
                       setItemPage(1);
                     }}
-                    className={`cursor-pointer block mb-4 rounded-xl border border-zinc-200 bg-white shadow-sm transition-all lg:mb-0 lg:table-row lg:rounded-none lg:border-0 lg:shadow-none lg:hover:bg-indigo-50/70 ${selectedJobId === job.id
-                        ? "border-indigo-400 ring-1 ring-indigo-400 lg:bg-indigo-50/60 lg:ring-0 lg:border-0"
-                        : "hover:border-indigo-300"
+                    className={`cursor-pointer block mb-4 rounded-xl border border-zinc-200 bg-white shadow-sm transition-all lg:mb-0 lg:table-row lg:rounded-none lg:border-0 lg:shadow-none lg:hover:bg-indigo-50/70 ${selectedJobIds.includes(job.id)
+                      ? "border-indigo-400 ring-1 ring-indigo-400 lg:bg-indigo-50/60 lg:ring-0 lg:border-0"
+                      : "hover:border-indigo-300"
                       }`}
                   >
                     {/* Giao diện Mobile */}
@@ -605,7 +605,9 @@ export const AdminIndexing = () => {
                             type="checkbox"
                             className="size-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
                             checked={selectedJobIds.includes(job.id)}
-                            onChange={(e) => handleSelectJob(job.id, e.target.checked)}
+                            onChange={(e) => {
+                              handleSelectJob(job.id, e.target.checked);
+                            }}
                             onClick={(e) => e.stopPropagation()}
                           />
                           <span className="font-semibold text-zinc-900 text-base">#{job.id}</span>

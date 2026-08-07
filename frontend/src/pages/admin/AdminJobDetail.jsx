@@ -144,7 +144,7 @@ export const AdminJobDetail = () => {
                         >
                             <FiArrowLeft className="size-5 text-gray-600" />
                         </button>
-                        <h1 className="text-2xl font-bold text-gray-800">Chi tiết Job #{jobId}</h1>
+                        <h1 className="hidden md:block text-[20px] lg:text-2xl font-bold text-gray-800">Chi tiết Job #{jobId}</h1>
                     </div>
 
                     <button
@@ -158,11 +158,12 @@ export const AdminJobDetail = () => {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+
                     {itemsQuery.isLoading ? (
                         <div className="space-y-3 p-5">
                             {Array.from({ length: 4 }).map((_, index) => (
-                                <div key={index} className="h-12 animate-pulse rounded bg-slate-100" />
+                                <div key={index} className="h-12 lg:h-12 h-28 animate-pulse rounded bg-slate-100" />
                             ))}
                         </div>
                     ) : itemsQuery.isError ? (
@@ -175,9 +176,22 @@ export const AdminJobDetail = () => {
                         </div>
                     ) : (
                         <>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-[860px] w-full border-separate border-spacing-0 text-sm">
-                                    <thead>
+                            {/* Thanh công cụ của mobile */}
+                            <div className="flex items-center gap-3 border-b border-zinc-200 bg-slate-50 px-4 py-3 lg:hidden">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    className="size-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span className="text-sm font-semibold text-gray-700">Chọn tất cả</span>
+                            </div>
+
+                            <div className="w-full lg:overflow-x-auto p-4 lg:p-0 bg-slate-50/50 lg:bg-transparent">
+                                <table className="w-full text-sm block lg:table lg:min-w-[860px] lg:border-separate lg:border-spacing-0">
+
+                                    {/* Header (Chỉ hiện trên Laptop) */}
+                                    <thead className="hidden lg:table-header-group">
                                         <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                                             <th className="border-b border-zinc-200 px-4 py-3 w-12 text-center">
                                                 <input
@@ -195,10 +209,75 @@ export const AdminJobDetail = () => {
                                             <th className="border-b border-zinc-200 px-4 py-3 text-center">Hành động</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+
+                                    <tbody className="block lg:table-row-group space-y-4 lg:space-y-0">
                                         {selectedJobItems.map((item) => (
-                                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="border-b border-zinc-100 px-4 py-4 text-center">
+                                            <tr
+                                                key={item.id}
+                                                className={`block rounded-xl border border-zinc-200 bg-white shadow-sm transition-all lg:table-row lg:rounded-none lg:border-0 lg:shadow-none lg:hover:bg-slate-50 ${selectedImages.includes(item.imageId)
+                                                    ? "border-indigo-400 ring-1 ring-indigo-400 lg:ring-0 lg:border-0"
+                                                    : "hover:border-indigo-300"
+                                                    }`}
+                                            >
+
+                                                {/* Giao diện Mobile */}
+                                                <td className="block p-4 lg:hidden">
+                                                    <div className="flex gap-4">
+                                                        {/* Cột trái: Checkbox + Hình ảnh */}
+                                                        <div className="flex flex-col items-center gap-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedImages.includes(item.imageId)}
+                                                                onChange={() => handleSelectOne(item.imageId)}
+                                                                className="size-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                            />
+                                                            <div
+                                                                className="h-20 w-20 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-gray-200 shadow-sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setPreviewImageId(item.imageId);
+                                                                }}
+                                                            >
+                                                                <ImageWithFallback
+                                                                    src={resolveImageUrl(item.imageUrl, item.imageId)}
+                                                                    alt={`Image ${item.imageId}`}
+                                                                    className="h-full w-full object-cover transition-transform hover:scale-110"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Cột phải: Thông tin chi tiết */}
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setPreviewImageId(item.imageId);
+                                                            }}
+                                                            className="flex flex-1 flex-col justify-between py-1"
+                                                        >
+                                                            <div>
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <span className="font-bold text-zinc-900 line-clamp-1">#{item.imageId}</span>
+                                                                    <StatusBadge status={item.status} />
+                                                                </div>
+
+                                                                <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500">
+                                                                    <div className="flex justify-between">
+                                                                        <span>Retry:</span>
+                                                                        <span className="font-medium text-gray-700">{item.retryCount ?? 0}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between">
+                                                                        <span>Xử lý:</span>
+                                                                        <span className="font-medium text-gray-700">{formatDateTime(item.processedAt)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Giao diện desktop */}
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-center">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedImages.includes(item.imageId)}
@@ -206,8 +285,9 @@ export const AdminJobDetail = () => {
                                                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                                     />
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4">
-                                                    <div className="h-24 w-32 cursor-pointer flex-shrink-0 overflow-hidden rounded-md border border-gray-200"
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4">
+                                                    <div
+                                                        className="h-16 w-24 cursor-pointer flex-shrink-0 overflow-hidden rounded-md border border-gray-200 transition-opacity hover:opacity-80"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setPreviewImageId(item.imageId);
@@ -220,19 +300,19 @@ export const AdminJobDetail = () => {
                                                         />
                                                     </div>
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4 font-medium text-zinc-900">
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 font-medium text-zinc-900">
                                                     #{item.imageId}
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4">
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4">
                                                     <StatusBadge status={item.status} />
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4 text-right text-gray-700">
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-right text-gray-700">
                                                     {item.retryCount ?? 0}
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-gray-600">
                                                     {formatDateTime(item.processedAt)}
                                                 </td>
-                                                <td className="border-b border-zinc-100 px-4 py-4 text-center">
+                                                <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-center">
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -244,6 +324,7 @@ export const AdminJobDetail = () => {
                                                         <FiEye className="size-4" />
                                                     </button>
                                                 </td>
+
                                             </tr>
                                         ))}
                                     </tbody>

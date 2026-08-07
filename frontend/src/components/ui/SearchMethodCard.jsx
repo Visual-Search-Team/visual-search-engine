@@ -1,29 +1,26 @@
 export const SearchMethodCard = ({
-    iconBackgroundClassName,
-    iconClassName,
-    Icon,
-    title,
-    titleWrapperClassName,
-    description,
-    descriptionWrapperClassName,
+  iconBackgroundClassName,
+  iconClassName,
+  Icon,
+  title,
+  description,
 }) => {
-    return (
-        <div className="flex-1 h-56 relative bg-white rounded-2xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-offset-[-1px] outline-gray-300/20">
-            <div className="w-14 h-16 pb-4 left-[164px] top-[25px] absolute inline-flex flex-col justify-start items-start">
-                <div className={`size-14 ${iconBackgroundClassName} rounded-full inline-flex justify-center items-center`}>
-                    <div className="size- inline-flex flex-col justify-start items-center">
-                        <Icon className={`size-6 ${iconClassName}`} />
-                    </div>
-                </div>
-            </div>
-            <div className={`size- pb-2 ${titleWrapperClassName} absolute inline-flex flex-col justify-start items-start`}>
-                <div className="size- flex flex-col justify-start items-center">
-                    <div className="text-center justify-center text-zinc-900 text-lg font-semibold font-['Inter'] leading-7">{title}</div>
-                </div>
-            </div>
-            <div className={`size- ${descriptionWrapperClassName} absolute inline-flex flex-col justify-start items-center`}>
-                <div className="text-center justify-center text-gray-700 text-sm font-normal font-['Inter'] leading-6">{description}</div>
-            </div>
-        </div>
-    )
-}
+  return (
+    <div className="group flex flex-1 flex-col items-center text-center p-8 bg-white rounded-3xl border border-gray-100 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-500/5">
+      
+      <div
+        className={`w-16 h-16 mb-6 ${iconBackgroundClassName} rounded-2xl flex justify-center items-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
+      >
+        <Icon className={`w-7 h-7 ${iconClassName}`} />
+      </div>
+      
+      <div className="mb-3 text-zinc-900 text-xl font-bold font-['Inter'] transition-colors group-hover:text-indigo-600">
+        {title}
+      </div>
+      
+      <div className="text-gray-500 text-sm font-normal font-['Inter'] leading-relaxed">
+        {description}
+      </div>
+    </div>
+  );
+};

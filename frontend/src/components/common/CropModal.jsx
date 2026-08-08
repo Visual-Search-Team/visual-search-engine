@@ -87,7 +87,7 @@ export default function CropModal({ imageUrl, originalFile, onCancel, onCropComp
                 </div>
 
                 <p className="mt-4 text-center text-sm font-bold text-indigo-600">
-                    * Dùng chuột vẽ một ô vuông bao quanh khu vực bạn muốn tìm
+                    * Kéo thả khu vực bạn muốn tìm
                 </p>
 
                 <div className="mt-6 flex justify-end gap-3">

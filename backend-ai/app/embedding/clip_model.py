@@ -218,6 +218,17 @@ class CLIPModelWrapper:
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
+    # Trộn image embedding + text embedding thành 1 composed embedding duy nhất.
+    # Dùng cho Composed Query Search: người dùng vừa upload ảnh vừa nhập mô tả bổ sung.
+    # alpha điều khiển trọng số ảnh (0.7 = 70% ảnh, 30% text). Kết quả được L2-normalize
+    # để giữ tương thích với cosine similarity trên Qdrant.
+    def get_composed_embedding(self, img: Image.Image, text: str, alpha: float = 0.7) -> list[float]:
+        img_emb = torch.tensor(self.get_image_embedding(img), device=self.device)
+        txt_emb = torch.tensor(self.get_text_embedding(text), device=self.device)
+        composed = alpha * img_emb + (1.0 - alpha) * txt_emb
+        composed = F.normalize(composed, dim=-1)
+        return composed.cpu().numpy().tolist()
+
     # Gắn 7 thuộc tính thời trang cho MỘT vector ảnh (vector đã tính sẵn từ
     # get_image_embedding/get_image_embeddings, không encode lại ảnh).
     def predict_all_attributes(self, image_embedding: list[float]) -> dict:

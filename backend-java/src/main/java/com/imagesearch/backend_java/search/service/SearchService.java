@@ -56,7 +56,7 @@ public class SearchService {
 
     // Ngưỡng "rớt đài": nếu score giảm đột ngột hơn mức này so với điểm liền trước,
     // coi như phần còn lại là hàng dạt (AI phân loại nhầm bị ép lấy cho đủ limit).
-    private static final float ELBOW_DROP_THRESHOLD = 0.04f;
+    private static final float ELBOW_DROP_THRESHOLD = 0.15f;
     // Ngưỡng tuyệt đối: score thấp hơn mức này thì luôn bị loại dù không rớt đột ngột.
     private static final float MIN_ABSOLUTE_SCORE = 0.22f;
 
@@ -173,6 +173,66 @@ public class SearchService {
             return searchTextSemantic(query.trim(), username, startTime, pageCriteria);
         }
         return searchTextOcr(query.trim(), username, startTime, pageCriteria);
+    }
+
+    public ImageSearchResponse searchComposed(MultipartFile image, String text, Float alpha, String username, Integer limit, Integer page, Integer pageSize) {
+        long startTime = System.currentTimeMillis();
+        validateImage(image);
+        if (text == null || text.trim().isEmpty()) {
+            throw new SearchException("QUERY_REQUIRED", "Text query is required for composed search", HttpStatus.BAD_REQUEST);
+        }
+        SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
+
+        String storagePath = uploadQueryImage(image);
+        String imageUrl = minIOService.getPresignedFileUrl(storagePath);
+
+        try {
+            ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(image);
+
+            ImageEntity queryImage = ImageEntity.builder()
+                    .uploadedBy(resolveUser(username))
+                    .originalFileName(image.getOriginalFilename())
+                    .storagePath(storagePath)
+                    .thumbnailPath(thumbnail.thumbnailPath())
+                    .mimeType(normalizeContentType(image.getContentType()))
+                    .fileSize(image.getSize())
+                    .width(thumbnail.width())
+                    .height(thumbnail.height())
+                    .indexStatus(null)
+                    .indexedAt(null)
+                    .build();
+            queryImage = imageRepository.save(queryImage);
+
+            log.info("Call AI composed embedding (image + text)");
+            EmbeddingResponse embeddingResponse = aiEmbeddingClient.getComposedEmbedding(storagePath, text.trim(), alpha);
+            log.info("Get composed embedding success");
+
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
+            SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
+                    username,
+                    SearchType.COMPOSED,
+                    text.trim(),
+                    storagePath,
+                    queryImage.getId(),
+                    startTime
+            ) : null;
+
+            ImageSearchResponse response = new ImageSearchResponse();
+            response.setSearchId(history == null ? null : history.getId());
+            response.setSearchType(SearchType.COMPOSED.name());
+            response.setQueryImageUrl(imageUrl);
+            response.setQueryText(text.trim());
+            response.setProcessingTimeMs(history == null ? System.currentTimeMillis() - startTime : history.getProcessingTimeMs());
+            applyPage(response, results, pageCriteria);
+            return response;
+        } catch (IOException e) {
+            throw new SearchException("AI_SERVICE_ERROR", "Could not create composed embedding", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        } catch (SearchException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            throw new SearchException("SEARCH_ERROR", "Could not search by composed query", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
     }
 
     private TextSearchResponse searchTextSemantic(String query, String username, long startTime, SearchPageCriteria pageCriteria) {

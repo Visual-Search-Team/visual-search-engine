@@ -16,4 +16,5 @@ public class EmbeddingRequest {
     private String storagePath;
     private String mimeType;
     private Long imageId;
+    private Float alpha;
 }

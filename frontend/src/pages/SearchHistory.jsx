@@ -14,6 +14,7 @@ const PAGE_SIZE = 20;
 const filters = [
   { label: "Tất cả", value: "" },
   { label: "Tìm bằng hình ảnh", value: "IMAGE_TO_IMAGE" },
+  { label: "Ảnh + Mô tả", value: "COMPOSED" },
   { label: "Text Semantic", value: "TEXT_SEMANTIC" },
   { label: "Text OCR", value: "TEXT_OCR" },
 ];

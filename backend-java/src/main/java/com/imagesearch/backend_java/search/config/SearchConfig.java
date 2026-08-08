@@ -11,6 +11,7 @@ import java.util.Set;
 public class SearchConfig {
     private final String imageEmbeddingPath = "/api/v1/embeddings/image";
     private final String textEmbeddingPath = "/api/v1/embeddings/text";
+    private final String composedEmbeddingPath = "/api/v1/embeddings/composed";
     private final long maxImageSizeBytes = 10 * 1024 * 1024;
     private final int defaultSearchLimit = 20;
     private final int defaultPage = 0;

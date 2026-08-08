@@ -1,48 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaUpload, FaTimes, FaImage, FaFont } from 'react-icons/fa';
 import { MAX_FILE_SIZE } from '../../config/constants';
-import SearchModeTabs from './SearchModeTabs';
 import { searchStore } from '../../utils/searchStore';
 import CropModal from './CropModal';
 
-const searchModes = [
-  {
-    id: 'image',
-    label: 'Tìm bằng hình ảnh',
-    icon: FaImage,
-  },
-  {
-    id: 'description',
-    label: 'Tìm bằng mô tả',
-    icon: FaAlignLeft,
-    placeholder: 'Nhập mô tả hình ảnh bạn muốn tìm...',
-  },
-  {
-    id: 'ocr',
-    label: 'Tìm chữ trong ảnh',
-    icon: FaFont,
-    placeholder: 'Nhập nội dung chữ xuất hiện trong ảnh...',
-  },
-];
-
 export default function VisualSearchPanel() {
   const navigate = useNavigate();
-  const [activeMode, setActiveMode] = useState(() => {
-    const savedModeId = sessionStorage.getItem('lastSearchMode');
-    if (savedModeId) {
-      return searchModes.find((m) => m.id === savedModeId) || searchModes[0];
-    }
-    return searchModes[0];
-  });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [fileError, setFileError] = useState('');
   const [query, setQuery] = useState('');
+  const [isOcrMode, setIsOcrMode] = useState(false);
 
   const [showCropModal, setShowCropModal] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState(null);
-
   const [tempOriginalFile, setTempOriginalFile] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -55,6 +27,29 @@ export default function VisualSearchPanel() {
       }
     };
   }, []);
+
+  // Xác định mode tự động
+  const hasImage = !!selectedFile;
+  const hasText = !!query.trim();
+  const canSearch = hasImage || hasText;
+
+  const getSearchMode = () => {
+    if (hasImage && hasText) return 'composed';
+    if (hasImage) return 'image';
+    if (hasText) return isOcrMode ? 'ocr' : 'semantic';
+    return null;
+  };
+
+  const getModeLabel = () => {
+    const mode = getSearchMode();
+    switch (mode) {
+      case 'composed': return 'Ảnh + Mô tả';
+      case 'image': return 'Tìm bằng ảnh';
+      case 'ocr': return 'Tìm chữ trong ảnh (OCR)';
+      case 'semantic': return 'Tìm bằng mô tả';
+      default: return '';
+    }
+  };
 
   const updateSelectedFile = (file) => {
     const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
@@ -73,7 +68,6 @@ export default function VisualSearchPanel() {
     setTempOriginalFile(file);
     setShowCropModal(true);
     setFileError('');
-
   };
 
   const handleCropComplete = (croppedFile) => {
@@ -90,6 +84,9 @@ export default function VisualSearchPanel() {
     setShowCropModal(false);
     URL.revokeObjectURL(tempImageUrl);
     setTempImageUrl(null);
+
+    // Khi có ảnh, tắt OCR mode
+    setIsOcrMode(false);
   };
 
   const handleCancelCrop = () => {
@@ -99,13 +96,12 @@ export default function VisualSearchPanel() {
     }
     setTempImageUrl(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; 
+      fileInputRef.current.value = "";
     }
   };
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
-
     if (file) {
       updateSelectedFile(file);
     }
@@ -115,7 +111,6 @@ export default function VisualSearchPanel() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setFileError("");
-
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -123,72 +118,68 @@ export default function VisualSearchPanel() {
 
   const handleDrop = (event) => {
     event.preventDefault();
-
     const file = event.dataTransfer.files?.[0];
-
     if (file) {
       updateSelectedFile(file);
     }
   };
 
-  const handleTabChange = (mode) => {
-    setActiveMode(mode);
-    setQuery('');
-    sessionStorage.setItem('lastSearchMode', mode.id);
-  };
+  const handleSearch = () => {
+    const mode = getSearchMode();
+    if (!mode) return;
 
-  const handleImageSearch = () => {
-    if (!selectedFile) {
-      setFileError('Vui lòng chọn ảnh trước khi tìm kiếm.');
-      return;
-    }
-
-    searchStore.imageFile = selectedFile;
-
-    navigate('/search-result?type=image&page=1&size=20', {
-      state: {
-        type: 'image',
-        imageFile: selectedFile,
-      },
-    });
-  };
-
-  const handleTextSearch = () => {
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery) {
-      return;
-    }
-
-    const mode = activeMode.id === 'ocr' ? 'OCR' : 'SEMANTIC';
-    const searchParams = new URLSearchParams({
-      type: 'text',
-      q: trimmedQuery,
-      mode,
-      page: '1',
-      size: '20',
-    });
-
-    navigate(`/search-result?${searchParams.toString()}`, {
-      state: {
+    if (mode === 'composed') {
+      searchStore.imageFile = selectedFile;
+      const searchParams = new URLSearchParams({
+        type: 'composed',
+        q: query.trim(),
+        page: '1',
+        size: '20',
+      });
+      navigate(`/search-result?${searchParams.toString()}`, {
+        state: {
+          type: 'composed',
+          imageFile: selectedFile,
+          query: query.trim(),
+        },
+      });
+    } else if (mode === 'image') {
+      searchStore.imageFile = selectedFile;
+      navigate('/search-result?type=image&page=1&size=20', {
+        state: {
+          type: 'image',
+          imageFile: selectedFile,
+        },
+      });
+    } else {
+      // semantic or ocr
+      const textMode = mode === 'ocr' ? 'OCR' : 'SEMANTIC';
+      const searchParams = new URLSearchParams({
         type: 'text',
-        query: trimmedQuery,
-        mode,
-      },
-    });
+        q: query.trim(),
+        mode: textMode,
+        page: '1',
+        size: '20',
+      });
+      navigate(`/search-result?${searchParams.toString()}`, {
+        state: {
+          type: 'text',
+          query: query.trim(),
+          mode: textMode,
+        },
+      });
+    }
   };
 
-  const handleTextSearchSubmit = (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
-    handleTextSearch();
+    handleSearch();
   };
-
-  const isImageMode = activeMode.id === 'image';
 
   return (
     <section className="w-full max-w-[896px] overflow-hidden rounded-2xl bg-white pb-8 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] outline outline-1 outline-gray-300/30">
 
-      {/*  Modal Crop */}
+      {/* Modal Crop */}
       {showCropModal && tempImageUrl && (
         <CropModal
           imageUrl={tempImageUrl}
@@ -198,143 +189,129 @@ export default function VisualSearchPanel() {
         />
       )}
 
-      <SearchModeTabs
-        activeMode={activeMode}
-        modes={searchModes}
-        onChange={handleTabChange}
-      />
+      {/* Header */}
+      <div className="border-b border-gray-200/60 bg-gradient-to-r from-indigo-50/50 to-white px-4 py-4 sm:px-8">
+        <h2 className="text-lg font-semibold text-zinc-900">Tìm kiếm hình ảnh</h2>
+        <p className="mt-0.5 text-sm text-gray-500">Tải ảnh lên, nhập mô tả — hoặc cả hai cùng lúc.</p>
+      </div>
 
-      <div className="px-4 pt-8 sm:px-8">
-        {isImageMode ? (
-          <div
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleDrop}
-            className="group flex min-h-[320px] flex-col items-center justify-center rounded-2xl border-2 border-indigo-700/20 bg-gray-50 px-4 py-16 text-center transition-all duration-200 hover:border-indigo-600 hover:bg-indigo-50/30"
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+      <div className="px-4 pt-6 sm:px-8">
+        {/* Khu vực upload ảnh */}
+        <div
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          className={`group flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-all duration-200 ${
+            previewUrl
+              ? 'border-indigo-300 bg-indigo-50/30'
+              : 'border-gray-300 bg-gray-50 hover:border-indigo-400 hover:bg-indigo-50/30'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
 
-            {previewUrl ? (
-              // <img
-              //   src={previewUrl}
-              //   alt="Ảnh đã chọn"
-              //   className="mb-5 h-36 w-36 rounded-xl object-cover shadow-sm"
-              // />
+          {previewUrl ? (
+            <div className="flex flex-col items-center gap-3">
               <div
-                className="relative mb-5 cursor-pointer"
+                className="relative cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <img
                   src={previewUrl}
                   alt="Ảnh đã chọn"
-                  className="h-36 w-36 rounded-xl object-cover shadow-sm"
+                  className="h-28 w-28 rounded-xl object-cover shadow-sm ring-2 ring-indigo-200"
                 />
-
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveImage();
                   }}
-                  className="absolute -right-2 -top-2 cursor-pointer flex h-7 w-7 items-center justify-center rounded-full bg-white text-gray-600 shadow transition hover:bg-red-500 hover:text-white"
+                  className="absolute -right-2 -top-2 cursor-pointer flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-500 shadow transition hover:bg-red-500 hover:text-white"
                 >
-                  <FaTimes className="h-3.5 w-3.5" />
+                  <FaTimes className="h-3 w-3" />
                 </button>
               </div>
-            ) : (
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-700/10 text-indigo-700">
-                <FaUpload className="h-6 w-6" />
-              </div>
-            )}
-
-            {/* <h2 className="text-lg font-semibold leading-7 text-zinc-900">
-              Kéo thả ảnh vào đây hoặc chọn ảnh từ máy
-            </h2>
-            <p className="mt-2 text-xs leading-4 text-gray-700">
-              Hỗ trợ JPG, PNG, WebP. Tối đa 10MB.
-            </p> */}
-
-            {selectedFile && (
-              <p className="mt-3 max-w-full truncate text-sm font-medium text-indigo-700">
+              <p className="max-w-[200px] truncate text-xs font-medium text-indigo-600">
                 {selectedFile.name}
               </p>
-            )}
+              <p className="text-xs text-gray-400">Click vào ảnh để chọn ảnh khác</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <FaUpload className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-700">
+                  Kéo thả ảnh vào đây hoặc{' '}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="cursor-pointer text-indigo-600 underline underline-offset-2 hover:text-indigo-700"
+                  >
+                    chọn từ máy
+                  </button>
+                </p>
+                <p className="mt-1 text-xs text-gray-400">JPG, PNG, WebP • Tối đa 10MB</p>
+              </div>
+            </div>
+          )}
 
-            {fileError && (
-              <p className="mt-3 text-sm font-medium text-red-600">
-                {fileError}
-              </p>
-            )}
+          {fileError && (
+            <p className="mt-3 text-sm font-medium text-red-600">{fileError}</p>
+          )}
+        </div>
 
-            {/* <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-6 rounded-full bg-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition hover:bg-indigo-800"
+        {/* Ô nhập text + nút tìm kiếm */}
+        <form className="mt-4 flex flex-col gap-3" onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              id="visual-search-query"
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={hasImage ? "Thêm mô tả bổ sung (tuỳ chọn)..." : "Nhập mô tả hình ảnh bạn muốn tìm..."}
+              className="min-h-12 flex-1 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+            />
+            <button
+              type="submit"
+              disabled={!canSearch}
+              className="inline-flex cursor-pointer min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-6 text-sm font-medium text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Chọn tệp
-            </button> */}
-
-            {selectedFile ? (
-              <div className="">
-                <p className="mt-2 text-xs leading-4 text-gray-700 text-[20px]">
-                  Click vào ảnh để chọn ảnh khác!
-                </p>
-                <button
-                  type="button"
-                  onClick={handleImageSearch}
-                  className="cursor-pointer mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white transition hover:bg-gray-100 hover:text-indigo-700 bg-indigo-700"
-                >
-                  <FaSearch className="h-4 w-4" />
-                  Tìm kiếm
-                </button>
-              </div>
-            ) : (
-              <div className="">
-                <h2 className="text-lg font-semibold leading-7 text-zinc-900">
-                  Kéo thả ảnh vào đây hoặc chọn ảnh từ máy
-                </h2>
-                <p className="mt-2 text-xs leading-4 text-gray-700">
-                  Hỗ trợ JPG, PNG, WebP. Tối đa 10MB.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="cursor-pointer mt-6 rounded-full bg-indigo-700 px-6 py-2.5 text-sm font-medium tracking-tight text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition hover:bg-indigo-800"
-                >
-                  Chọn tệp
-                </button>
-              </div>
-            )}
+              <FaSearch className="h-4 w-4" />
+              Tìm kiếm
+            </button>
           </div>
-        ) : (
-          <div className="rounded-2xl bg-gray-50 p-4 outline outline-2 outline-offset-[-2px] outline-indigo-700/20 sm:p-6">
-            <label htmlFor="visual-search-query" className="mb-3 block text-sm font-medium text-gray-800">
-              {activeMode.label}
-            </label>
-            <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleTextSearchSubmit}>
+
+          {/* OCR toggle — chỉ hiện khi không có ảnh */}
+          {!hasImage && hasText && (
+            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm text-gray-600 transition hover:text-gray-800">
               <input
-                id="visual-search-query"
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={activeMode.placeholder}
-                className="min-h-12 flex-1 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10"
+                type="checkbox"
+                checked={isOcrMode}
+                onChange={(e) => setIsOcrMode(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <button
-                type="submit"
-                onClick={handleTextSearch}
-                disabled={!query.trim()}
-                className="inline-flex cursor-pointer min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 text-sm font-medium text-white transition hover:bg-indigo-800"
-              >
-                <FaSearch className="h-4 w-4" />
-                Tìm kiếm
-              </button>
-            </form>
+              <FaFont className="h-3 w-3" />
+              Tìm chữ trong ảnh (OCR)
+            </label>
+          )}
+        </form>
+
+        {/* Gợi ý mode hiện tại */}
+        {canSearch && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+              {getSearchMode() === 'composed' && <><FaImage className="h-3 w-3" /> + <FaFont className="h-3 w-3" /></>}
+              {getSearchMode() === 'image' && <FaImage className="h-3 w-3" />}
+              {(getSearchMode() === 'semantic' || getSearchMode() === 'ocr') && <FaFont className="h-3 w-3" />}
+              {getModeLabel()}
+            </span>
           </div>
         )}
       </div>

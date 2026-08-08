@@ -89,6 +89,27 @@ public class SearchController {
         return BaseResponse.success(data);
     }
 
+    @PostMapping("/composed")
+    @Operation(
+            summary = "Search by image + text combined",
+            description = "Combines image and text embeddings using weighted average to search for images matching both visual and textual criteria."
+    )
+    public BaseResponse<ImageSearchResponse> searchComposed(
+            @RequestParam("image") MultipartFile image,
+            @RequestParam("text") String text,
+            @RequestParam(value = "alpha", required = false, defaultValue = "0.7") Float alpha,
+            @RequestParam(value = "limit", required = false) Integer limit,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            Authentication authentication
+    ) {
+        String username = username(authentication);
+        log.info("Entered searchComposed API");
+        ImageSearchResponse data = searchService.searchComposed(image, text, alpha, username, limit, page, pageSize);
+        log.info("Completed searchComposed API");
+        return BaseResponse.success(data);
+    }
+
     private String username(Authentication authentication) {
         return authentication == null ? null : authentication.getName();
     }

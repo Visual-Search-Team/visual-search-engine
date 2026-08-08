@@ -31,7 +31,7 @@ def process_pending_images(db: Session):
     - Updates status to 'INDEXED'.
     """
     query = select(ImageEntity).where(
-        ImageEntity.index_status == 'PROCESSING',
+        ImageEntity.index_status.in_(['PENDING', 'PROCESSING']),
         ImageEntity.is_deleted.is_(False)
     )
 

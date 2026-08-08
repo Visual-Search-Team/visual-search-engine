@@ -7,6 +7,7 @@ import { getImageBlob } from "../services/imageService";
 import { resolveStorageUrl } from "../utils/imageUrl";
 import AOS from "aos";
 import Swal from 'sweetalert2';
+import { ImagePreviewModal } from "../components/common/ImagePreviewModal";
 
 const PAGE_SIZE = 20;
 
@@ -87,11 +88,75 @@ const BookmarkImage = ({ bookmark, fileName }) => {
     );
 };
 
+const SecurePreviewModal = ({ bookmark, onClose }) => {
+    const directUrl = bookmark.thumbnailUrl || bookmark.imageUrl || bookmark.thumbnailPath || bookmark.storagePath;
+    const [blobUrl, setBlobUrl] = useState("");
+    const [hasError, setHasError] = useState(false);
+
+    const canUseDirectUrl = isDirectImageUrl(directUrl) && !isInternalMinioUrl(directUrl);
+    const imageUrl = canUseDirectUrl ? resolveStorageUrl(directUrl) : blobUrl;
+
+    useEffect(() => {
+        let isMounted = true;
+        let objectUrl = "";
+
+        if (!bookmark.imageId || canUseDirectUrl) {
+            return undefined;
+        }
+
+        getImageBlob(bookmark.imageId)
+            .then((blob) => {
+                if (!isMounted) return;
+                objectUrl = URL.createObjectURL(blob);
+                setBlobUrl(objectUrl);
+            })
+            .catch(() => {
+                if (isMounted) setHasError(true);
+            });
+
+        return () => {
+            isMounted = false;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [bookmark.imageId, canUseDirectUrl]);
+
+    if (!imageUrl && !hasError) {
+        return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-900/80 backdrop-blur-sm" onMouseDown={onClose}>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
+            </div>
+        );
+    }
+
+    if (hasError) {
+        return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-900/80 backdrop-blur-sm" onMouseDown={onClose}>
+                <div className="rounded-lg bg-white p-6 text-center shadow-xl">
+                    <p className="text-red-600 font-medium">Không tải được ảnh độ phân giải cao.</p>
+                    <button onClick={onClose} className="mt-4 rounded bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 transition-colors">Đóng</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <ImagePreviewModal
+            imageId={bookmark.imageId}
+            imageUrl={imageUrl}
+            onClose={onClose}
+        />
+    );
+};
+
 export const BookmarkTrash = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const page = Math.max(Number(searchParams.get("page") || 0), 0);
     const navigate = useNavigate();
+
+    const [previewImage, setPreviewImage] = useState(null);
 
     // Quản lý thông báo 
     const [toasts, setToasts] = useState([]);
@@ -246,13 +311,21 @@ export const BookmarkTrash = () => {
                                     key={bookmark.bookmarkId || bookmark.id || bookmark.imageId}
                                     className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md flex flex-col"
                                 >
-                                    <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
+                                    {/* Khu vực chứa ảnh */}
+                                    <div
+                                        className="relative aspect-[4/5] overflow-hidden bg-gray-100 cursor-pointer"
+                                        onClick={() => setPreviewImage(bookmark)}
+                                    >
                                         <BookmarkImage bookmark={bookmark} fileName={fileName} />
 
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 transition-opacity bg-black/40 group-hover:opacity-100">
+                                        {/* Giao diện laptop */}
+                                        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-3 opacity-0 transition-opacity bg-black/40 group-hover:opacity-100 z-10">
                                             <button
                                                 type="button"
-                                                onClick={() => restoreMutation.mutate(bookmark.imageId)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    restoreMutation.mutate(bookmark.imageId);
+                                                }}
                                                 disabled={isRestoring || isDeleting}
                                                 className="flex cursor-pointer items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-600 disabled:opacity-50"
                                             >
@@ -261,7 +334,8 @@ export const BookmarkTrash = () => {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     Swal.fire({
                                                         title: 'Bạn có chắc chắn?',
                                                         text: "Ảnh này sẽ bị xoá vĩnh viễn và không thể khôi phục!",
@@ -285,10 +359,52 @@ export const BookmarkTrash = () => {
                                             </button>
                                         </div>
 
-                                        {/* Hiển thị số ngày còn lại */}
-                                        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-6 text-center text-xs font-medium text-white">
+                                        {/* Số ngày còn lại */}
+                                        <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 text-center text-xs font-medium text-white pointer-events-none">
                                             Xóa vĩnh viễn sau {bookmark.remainingDays} ngày
                                         </div>
+                                    </div>
+
+                                    {/* Hiển thị mobile */}
+                                    <div className="flex md:hidden w-full divide-x divide-gray-200 border-t border-gray-200 bg-gray-50">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                restoreMutation.mutate(bookmark.imageId);
+                                            }}
+                                            disabled={isRestoring || isDeleting}
+                                            className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-white bg-green-500  transition hover:bg-green-700 disabled:opacity-50"
+                                        >
+                                            <FaUndo className="h-4 w-4" />
+                                            Khôi phục
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                Swal.fire({
+                                                    title: 'Bạn có chắc chắn?',
+                                                    text: "Ảnh này sẽ bị xoá vĩnh viễn!",
+                                                    icon: 'warning',
+                                                    showCancelButton: true,
+                                                    confirmButtonColor: '#dc2626',
+                                                    cancelButtonColor: '#6b7280',
+                                                    confirmButtonText: 'Xoá vĩnh viễn',
+                                                    cancelButtonText: 'Hủy'
+                                                }).then((result) => {
+                                                    if (result.isConfirmed) {
+                                                        permanentDeleteMutation.mutate(bookmark.imageId);
+                                                    }
+                                                });
+                                            }}
+                                            disabled={isRestoring || isDeleting}
+                                            className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium text-white bg-red-500 transition hover:bg-red-700 disabled:opacity-50"
+                                        >
+                                            <FaTrash className="h-4 w-4" />
+                                            Xóa
+                                        </button>
                                     </div>
                                 </article>
                             );
@@ -325,6 +441,12 @@ export const BookmarkTrash = () => {
                         </div>
                     </div>
                 </>
+            )}
+            {previewImage && (
+                <SecurePreviewModal
+                    bookmark={previewImage}
+                    onClose={() => setPreviewImage(null)}
+                />
             )}
         </section>
     );

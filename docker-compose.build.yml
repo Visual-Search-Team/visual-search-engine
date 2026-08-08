@@ -1,0 +1,25 @@
+name: ${COMPOSE_PROJECT_NAME:-visual-search-engine}
+
+services:
+  backend-ai:
+    image: ${REGISTRY}/${BACKEND_AI_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./backend-ai
+      dockerfile: Dockerfile
+    user: "0:0"
+    command: >
+      sh -c "mkdir -p /app/base_model_cache /app/ocr_model_cache /app/lora-weights
+      && chown -R app:app /app/base_model_cache /app/ocr_model_cache /app/lora-weights
+      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  backend-java:
+    image: ${REGISTRY}/${BACKEND_JAVA_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./backend-java
+      dockerfile: Dockerfile
+
+  frontend:
+    image: ${REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile

@@ -55,7 +55,8 @@ public class BookmarkService {
     }
 
     private BookmarkListResponse toBookmarkListResponse(Page<Bookmark> bookmarks) {
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllById(
+        // Map<Long, ImageEntity> imagesById = imageRepository.findAllById(
+        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(
                         bookmarks.getContent().stream().map(Bookmark::getImageId).toList()
                 ).stream()
                 .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));
@@ -70,7 +71,7 @@ public class BookmarkService {
 
     public CreateBookmarkResponse createBookmark(String username, Long imageId) {
         Long userId = resolveUserId(username);
-        if (!imageRepository.existsById(imageId)) {
+        if (!imageRepository.existsByIdAndDeletedFalse(imageId)) {
             throw new SearchException("IMAGE_NOT_FOUND", "Image not found", HttpStatus.NOT_FOUND);
         }
         if (bookmarkRepository.existsByUserIdAndImageIdAndIsDeletedFalse(userId, imageId)) {

@@ -43,6 +43,12 @@ app:
       enabled: ${BOOKMARK_CLEANUP_ENABLED:true}
       retention-days: ${BOOKMARK_CLEANUP_RETENTION_DAYS:30}
       cron: ${BOOKMARK_CLEANUP_CRON:0 0 2 * * *}
+  indexing:
+    restore-batch-max-images: ${APP_INDEXING_RESTORE_BATCH_MAX_IMAGES:50}
+    restore-batch-window-seconds: ${APP_INDEXING_RESTORE_BATCH_WINDOW_SECONDS:120}
+  trash:
+    retention-days: ${APP_TRASH_RETENTION_DAYS:30}
+    purge-cron: ${APP_TRASH_PURGE_CRON:0 0 3 * * *}
 
 springdoc:
   api-docs:
@@ -70,6 +76,7 @@ minio:
   # Local defaults to localhost; Docker Compose overrides this with
   # MINIO_ENDPOINT=http://minio:9000 so the backend reaches the MinIO container.
   url: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-url: ${MINIO_PUBLIC_URL:${MINIO_ENDPOINT:http://localhost:9000}}
   access-key: ${MINIO_ACCESS_KEY:admin}
   secret-key: ${MINIO_SECRET_KEY:password123}
   bucket-name: ${MINIO_BUCKET:images}

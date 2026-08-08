@@ -1,16 +1,23 @@
+# syntax=docker/dockerfile:1.7
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 COPY pom.xml ./
+RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests dependency:go-offline
+
 COPY src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests clean package
 
-RUN mvn -B -DskipTests package
-
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre-jammy AS runtime
 WORKDIR /app
 
-COPY --from=build /workspace/target/*.jar app.jar
+RUN groupadd --system app && useradd --system --gid app --create-home app
+
+COPY --from=build /workspace/target/*.jar /app/app.jar
+RUN chown -R app:app /app
+
+USER app
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]

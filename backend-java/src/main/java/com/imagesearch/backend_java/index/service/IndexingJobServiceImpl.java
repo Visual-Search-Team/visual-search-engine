@@ -5,7 +5,6 @@ import com.imagesearch.backend_java.auth.repository.UserRepository;
 import com.imagesearch.backend_java.image.entity.ImageEntity;
 import com.imagesearch.backend_java.image.enums.ImageIndexStatus;
 import com.imagesearch.backend_java.image.repository.ImageRepository;
-import com.imagesearch.backend_java.image.service.ImageIndexingService;
 import com.imagesearch.backend_java.image.service.MinIOService;
 import com.imagesearch.backend_java.index.dto.IndexingJobItemResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
@@ -15,6 +14,7 @@ import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
 import com.imagesearch.backend_java.index.entity.IndexingJobEntity;
 import com.imagesearch.backend_java.index.entity.IndexingJobItemEntity;
 import com.imagesearch.backend_java.index.enums.JobStatus;
+import com.imagesearch.backend_java.index.enums.JobType;
 import com.imagesearch.backend_java.index.exception.IndexingJobNotFoundException;
 import com.imagesearch.backend_java.index.exception.InvalidIndexingJobStateException;
 import com.imagesearch.backend_java.index.repository.IndexingJobItemRepository;
@@ -35,7 +35,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,12 +50,17 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     private final IndexingJobItemRepository indexingJobItemRepository;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
-    private final ImageIndexingService imageIndexingService;
     private final QdrantVectorService qdrantVectorService;
     private final MinIOService minIOService;
 
     @Value("${app.indexing.processing-timeout-minutes:15}")
     private long processingTimeoutMinutes;
+
+    @Value("${app.indexing.restore-batch-max-images:50}")
+    private int restoreBatchMaxImages;
+
+    @Value("${app.indexing.restore-batch-window-seconds:120}")
+    private long restoreBatchWindowSeconds;
 
     @Transactional
     @Override
@@ -69,7 +73,26 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             throw new InvalidIndexingJobStateException("No uploaded images available to track");
         }
 
-        IndexingJobEntity job = createJob(validImages, JobStatus.RUNNING, true);
+        IndexingJobEntity job = createJob(validImages, JobStatus.RUNNING, true, JobType.UPLOAD);
+        refreshJobProgress(job);
+        return toResponse(job);
+    }
+
+    @Transactional
+    @Override
+    public IndexingJobResponse trackRestoredImage(ImageEntity image) {
+        if (image == null || image.getId() == null) {
+            throw new InvalidIndexingJobStateException("No restored image available to track");
+        }
+
+        IndexingJobEntity job = findReusableRestoreBatchJob()
+                .filter(candidate -> !isBatchFull(candidate))
+                .orElseGet(() -> createJob(List.of(image), JobStatus.RUNNING, true, JobType.RESTORE));
+
+        if (job.getId() != null && !indexingJobItemRepository.existsByIndexingJobIdAndImage_Id(job.getId(), image.getId())) {
+            appendImageToJob(job, image);
+        }
+
         refreshJobProgress(job);
         return toResponse(job);
     }
@@ -83,7 +106,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
 
         boolean startImmediately = request == null || request.getStartImmediately() == null || request.getStartImmediately();
-        IndexingJobEntity job = createJob(images, startImmediately ? JobStatus.RUNNING : JobStatus.PENDING, startImmediately);
+        IndexingJobEntity job = createJob(images, startImmediately ? JobStatus.RUNNING : JobStatus.PENDING, startImmediately, JobType.UPLOAD);
 
         if (startImmediately) {
             scheduleAsyncIndexing(images);
@@ -187,18 +210,16 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             return toResponse(job);
         }
 
-        List<ImageEntity> retryImages = new ArrayList<>();
         for (IndexingJobItemEntity item : failedItems) {
             ImageEntity image = item.getImage();
             if (image != null) {
-                image.setIndexStatus(ImageIndexStatus.PENDING);
+                image.setIndexStatus(ImageIndexStatus.PROCESSING);
                 image.setErrorMessage(null);
                 image.setIndexedAt(null);
                 imageRepository.save(image);
-                retryImages.add(image);
             }
 
-            item.setStatus(ImageIndexStatus.PENDING);
+            item.setStatus(ImageIndexStatus.PROCESSING);
             item.setRetryCount((item.getRetryCount() == null ? 0 : item.getRetryCount()) + 1);
             item.setErrorMessage(null);
             item.setProcessedAt(null);
@@ -213,7 +234,6 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         job.setErrorMessage(null);
         indexingJobRepository.save(job);
 
-        scheduleAsyncIndexing(retryImages);
         refreshJobProgress(job);
         return toResponse(job);
     }
@@ -308,6 +328,29 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         }
     }
 
+    @Transactional
+    @Override
+    public int deleteJobsAndImages(List<Long> jobIds) {
+        if (jobIds == null || jobIds.isEmpty()) {
+            throw new InvalidIndexingJobStateException("jobIds is required");
+        }
+
+        Set<Long> targetJobIds = new LinkedHashSet<>(jobIds);
+        List<IndexingJobEntity> jobs = targetJobIds.stream()
+                .map(this::requireJob)
+                .toList();
+
+        for (IndexingJobEntity job : jobs) {
+            assertJobDeletable(job);
+        }
+
+        for (Long targetJobId : targetJobIds) {
+            deleteJobAndImages(targetJobId);
+        }
+
+        return targetJobIds.size();
+    }
+
     @Scheduled(initialDelay = 5000, fixedDelay = 15000)
     @Transactional
     public void reconcileRunningJobs() {
@@ -319,10 +362,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         runningJobs.forEach(this::refreshJobProgress);
     }
 
-    private IndexingJobEntity createJob(List<ImageEntity> images, JobStatus status, boolean started) {
+    private IndexingJobEntity createJob(List<ImageEntity> images, JobStatus status, boolean started, JobType jobType) {
         IndexingJobEntity job = IndexingJobEntity.builder()
                 .triggeredBy(resolveCurrentUser())
                 .status(status)
+                .jobType(jobType)
                 .totalImages(images.size())
                 .successCount(0)
                 .failedCount(0)
@@ -331,6 +375,31 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         indexingJobRepository.save(job);
         createJobItems(job, images);
         return job;
+    }
+
+    private java.util.Optional<IndexingJobEntity> findReusableRestoreBatchJob() {
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(Math.max(restoreBatchWindowSeconds, 0));
+        return indexingJobRepository.findFirstByJobTypeAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(JobType.RESTORE, threshold);
+    }
+
+    private boolean isBatchFull(IndexingJobEntity job) {
+        if (job == null || job.getId() == null) {
+            return true;
+        }
+        long maxImages = Math.max(restoreBatchMaxImages, 1);
+        Long count = indexingJobItemRepository.countByIndexingJobId(job.getId());
+        return count != null && count >= maxImages;
+    }
+
+    private void appendImageToJob(IndexingJobEntity job, ImageEntity image) {
+        IndexingJobItemEntity item = IndexingJobItemEntity.builder()
+                .indexingJob(job)
+                .image(image)
+                .status(image.getIndexStatus())
+                .retryCount(0)
+                .errorMessage(image.getErrorMessage())
+                .build();
+        indexingJobItemRepository.save(item);
     }
 
     private void createJobItems(IndexingJobEntity job, List<ImageEntity> images) {
@@ -349,10 +418,10 @@ public class IndexingJobServiceImpl implements IndexingJobService {
 
     private List<ImageEntity> resolveImagesForJob(IndexingJobRequest request) {
         if (request != null && request.getImageIds() != null && !request.getImageIds().isEmpty()) {
-            return imageRepository.findAllById(request.getImageIds());
+            return imageRepository.findAllByIdInAndDeletedFalse(request.getImageIds());
         }
 
-        return imageRepository.findByIndexStatusIn(List.of(
+        return imageRepository.findByIndexStatusInAndDeletedFalse(List.of(
                 ImageIndexStatus.PENDING,
                 ImageIndexStatus.FAILED
         ));
@@ -374,7 +443,6 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 image.setIndexStatus(ImageIndexStatus.PROCESSING);
                 image.setErrorMessage(null);
                 imageRepository.save(image);
-                imageIndexingService.indexImageAsync(image.getId());
             }
         }
     }
@@ -390,7 +458,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
             return;
         }
 
-        Runnable dispatch = () -> triggerAsyncIndexing(imageRepository.findAllById(imageIds));
+        Runnable dispatch = () -> triggerAsyncIndexing(imageRepository.findAllByIdInAndDeletedFalse(imageIds));
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             dispatch.run();
             return;
@@ -451,7 +519,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 job.setFinishedAt(LocalDateTime.now());
             }
         } else {
-            job.setStatus(JobStatus.PARTIALLY_FAILED);
+            if (job.getJobType() == JobType.RESTORE) {
+                job.setStatus(JobStatus.FAILED);
+            } else {
+                job.setStatus(JobStatus.PARTIALLY_FAILED);
+            }
             if (job.getFinishedAt() == null) {
                 job.setFinishedAt(LocalDateTime.now());
             }
@@ -545,7 +617,7 @@ public class IndexingJobServiceImpl implements IndexingJobService {
     }
 
     private void deleteImageAndCleanup(Long imageId, Set<Long> affectedJobIds) {
-        ImageEntity image = imageRepository.findById(imageId)
+        ImageEntity image = imageRepository.findByIdAndDeletedFalse(imageId)
                 .orElseThrow(() -> new InvalidIndexingJobStateException("Image not found: " + imageId));
 
         List<IndexingJobItemEntity> linkedItems = indexingJobItemRepository.findByImage_Id(imageId);
@@ -555,23 +627,11 @@ public class IndexingJobServiceImpl implements IndexingJobService {
                 .map(IndexingJobEntity::getId)
                 .forEach(affectedJobIds::add);
 
-        try {
-            qdrantVectorService.deleteImageEmbedding(imageId);
-        } catch (Exception ex) {
-            throw new InvalidIndexingJobStateException("Failed to delete vector from Qdrant for image " + imageId + ": " + ex.getMessage());
-        }
-
-        try {
-            minIOService.deleteFile(image.getStoragePath());
-            if (image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank()) {
-                minIOService.deleteFile(image.getThumbnailPath());
-            }
-        } catch (Exception ex) {
-            throw new InvalidIndexingJobStateException("Failed to delete file from MinIO for image " + imageId + ": " + ex.getMessage());
-        }
+        image.setDeleted(true);
+        image.setDeletedAt(LocalDateTime.now());
+        imageRepository.save(image);
 
         indexingJobItemRepository.deleteByImage_Id(imageId);
-        imageRepository.deleteById(imageId);
     }
 
     private IndexingJobResponse toResponse(IndexingJobEntity job) {

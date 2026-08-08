@@ -6,6 +6,7 @@ import com.imagesearch.backend_java.index.dto.IndexingJobResponse;
 import com.imagesearch.backend_java.index.dto.IndexingJobSummaryResponse;
 import com.imagesearch.backend_java.index.dto.PageResponse;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobDeleteImagesRequest;
+import com.imagesearch.backend_java.index.dto.request.IndexingJobsDeleteRequest;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobRequest;
 import com.imagesearch.backend_java.index.dto.request.IndexingJobRetryRequest;
 import com.imagesearch.backend_java.index.service.IndexingJobService;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -174,6 +176,22 @@ public class IndexingJobController {
             log.error("Error deleting job {}", jobId, ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(BaseResponse.error("INDEXING_JOB_DELETE_ERROR", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping
+    public ResponseEntity<BaseResponse<Map<String, Object>>> deleteJobs(
+            @RequestBody(required = false) IndexingJobsDeleteRequest request) {
+        try {
+            List<Long> jobIds = request == null ? null : request.getJobIds();
+            int deletedCount = indexingJobService.deleteJobsAndImages(jobIds);
+            return ResponseEntity.ok(BaseResponse.success(Map.of(
+                    "deletedCount", deletedCount
+            )));
+        } catch (Exception ex) {
+            log.error("Error deleting jobs", ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(BaseResponse.error("INDEXING_JOB_BULK_DELETE_ERROR", ex.getMessage()));
         }
     }
 }

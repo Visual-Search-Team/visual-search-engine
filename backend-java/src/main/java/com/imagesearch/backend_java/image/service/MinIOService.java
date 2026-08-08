@@ -25,6 +25,9 @@ public class MinIOService {
     @Value("${minio.url}")
     private String minioUrl;
 
+    @Value("${minio.public-url:${minio.url}}")
+    private String minioPublicUrl;
+
     @Value("${minio.presigned-url-expiration-seconds:3600}")
     private int presignedUrlExpirationSeconds;
 
@@ -180,7 +183,8 @@ public class MinIOService {
 
     // Lấy URL của file
     public String getFileUrl(String objectName) {
-        return String.format("%s/%s/%s", minioUrl, bucketName, objectName);
+        String baseUrl = (minioPublicUrl == null || minioPublicUrl.isBlank()) ? minioUrl : minioPublicUrl;
+        return String.format("%s/%s/%s", baseUrl.replaceAll("/+$", ""), bucketName, objectName);
     }
 
     // Tao URL GET tam thoi de client co the doc object trong bucket private.

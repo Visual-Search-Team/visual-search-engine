@@ -1,11 +1,32 @@
 import { API_BASE_URL } from "../config/constants";
 
 const isAbsoluteUrl = (value) => /^https?:\/\//i.test(value);
-const MINIO_PUBLIC_URL = import.meta.env.VITE_MINIO_PUBLIC_URL || "http://localhost:9000";
-const MINIO_PUBLIC_URLS = (import.meta.env.VITE_MINIO_PUBLIC_URLS || "")
-  .split(",")
-  .map((item) => item.trim())
-  .filter(Boolean);
+const normalizeBaseUrl = (value) => {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `http://${trimmed}`;
+};
+const PUBLIC_HOST = import.meta.env.VITE_PUBLIC_HOST || "";
+const MINIO_PUBLIC_URL = normalizeBaseUrl(
+  import.meta.env.VITE_MINIO_PUBLIC_URL || (PUBLIC_HOST ? `http://${PUBLIC_HOST}:9000` : "http://localhost:9000")
+);
+const MINIO_PUBLIC_URLS = [...new Set(
+  [
+    MINIO_PUBLIC_URL,
+    ...(import.meta.env.VITE_MINIO_PUBLIC_URLS || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+    PUBLIC_HOST ? `http://${PUBLIC_HOST}:9000` : "",
+    "http://localhost:9000",
+  ]
+    .map(normalizeBaseUrl)
+    .filter(Boolean)
+)];
 const MINIO_BUCKET = import.meta.env.VITE_MINIO_BUCKET || "images";
 const INTERNAL_MINIO_HOSTS = new Set(["minio", "visualsearch-minio"]);
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);

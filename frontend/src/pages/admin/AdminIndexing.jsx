@@ -501,8 +501,19 @@ export const AdminIndexing = () => {
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-200 p-5 flex items-center justify-between">
-          <div>
+          <div className="flex flex-col gap-1 items-start">
             <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
+            <div className="flex items-center gap-3 border-b border-zinc-200 bg-slate-50 py-3 lg:hidden">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                checked={isAllCurrentPageSelected}
+                onChange={(e) => handleSelectAllCurrentPage(e.target.checked)}
+                disabled={jobs.length === 0}
+              />
+              <span className="text-[15px] font-semibold text-gray-700">Chọn tất cả</span>
+            </div>
+
           </div>
 
           {/* NÚT XÓA NHIỀU */}

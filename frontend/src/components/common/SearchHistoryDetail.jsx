@@ -2,18 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FaTimes, FaImage, FaAlignLeft, FaFont, FaClock, FaExpandArrowsAlt, FaFileAlt } from "react-icons/fa";
 import { getSearchHistoryDetail } from "../../services/searchHistoryService";
 import { ImageWithFallback } from "../common/ImageWithFallback";
-
-const formatDateTime = (value) => {
-    if (!value) return "Chưa có thời gian";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat("vi-VN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
-};
+import { formatDateTime } from "../../utils/formatDateTime";
 
 export const SearchHistoryDetailModal = ({ isOpen, onClose, searchId }) => {
     const { data, isLoading, isError } = useQuery({

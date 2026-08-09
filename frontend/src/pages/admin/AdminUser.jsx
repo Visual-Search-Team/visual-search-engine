@@ -27,7 +27,7 @@ export const AdminUser = () => {
         const safeDateString = dateString.endsWith('Z') ? dateString : `${dateString}Z`;
         const date = new Date(safeDateString);
         
-        return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString('vi-VN');
     };
 
     return (

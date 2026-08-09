@@ -1,6 +1,7 @@
 import { FaAlignLeft, FaClock, FaFont, FaHashtag, FaImage } from "react-icons/fa";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { ImageWithFallback } from "../common/ImageWithFallback";
+import { formatDateTime } from "../../utils/formatDateTime";
 
 const searchTypeConfig = {
   IMAGE_TO_IMAGE: {
@@ -20,17 +21,6 @@ const searchTypeConfig = {
   },
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "Chưa có thời gian";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-};
 
 const getHistoryId = (history) => {
   return history.searchId || history.id;

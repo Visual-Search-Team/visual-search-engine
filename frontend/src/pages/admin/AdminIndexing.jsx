@@ -16,6 +16,7 @@ import { uploadImages } from "../../services/imageService";
 import { validateFile } from "../../utils/fileValidation";
 import Swal from "sweetalert2";
 import { SmoothProgressBar } from "../../components/ui/SmoothProgressBar";
+import { formatDateTime } from "../../utils/formatDateTime";
 
 const imagesPerPage = 20;
 
@@ -31,20 +32,6 @@ const statusStyles = {
   UPLOAD_FAILED: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "--";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
 
 const getApiErrorMessage = (error, fallback) => {
   return (

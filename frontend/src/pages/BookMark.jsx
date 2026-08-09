@@ -297,55 +297,39 @@ export const BookMark = () => {
         ))}
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
 
-        <div className="flex flex-row justify-between items-center gap-4 border-b border-gray-200 pb-6">
-          <div className="hidden sm:flex flex-col gap-2 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
-            >
-              <FaArrowLeft />
-              <span>Quay lại trang trước</span>
-            </button>
+        <div>
+          <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-xs font-semibold text-indigo-700">
+            <FaBookmark className="h-3.5 w-3.5" />
+            Bookmark
+          </p>
+          <h1 className="text-2xl font-semibold leading-10 text-zinc-900 sm:text-3xl">
+            Ảnh đã lưu
+          </h1>
+          <p className="mt-1 text-sm leading-6 text-gray-600 sm:mt-2">
+            Xem lại những hình ảnh bạn đã lưu trong quá trình tìm kiếm.
+          </p>
+        </div>
 
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
-            >
-              <FaHome className="h-4 w-4" />
-              <span>Quay lại trang chủ</span>
-            </button>
+        <div className="flex flex-row gap-4 sm:flex-row sm:items-center mt-2 sm:mt-0">
+
+          <div className="flex w-full items-center justify-start justify-between rounded-xl bg-gray-50 sm:px-4 py-2.5 text-sm text-gray-600 sm:w-auto sm:justify-start sm:py-2">
+            <span>Tổng cộng:</span>
+            <span className="ml-1 font-semibold text-zinc-900">
+              {bookmarkData.totalElements} ảnh
+            </span>
           </div>
 
           <button
             type="button"
             onClick={() => navigate("/bookmarks/trash")}
-            className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-red-500 bg-white px-5 py-3 text-sm font-medium text-red-500 transition hover:bg-red-50"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-red-600 hover:shadow sm:w-auto sm:py-2"
           >
-            <FaTrashRestore className="h-4 w-4" />
+            <FaTrashRestore className="h-3.5 w-3.5" />
             <span>Thùng rác</span>
           </button>
-        </div>
 
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-xs font-semibold text-indigo-700">
-              <FaBookmark className="h-3.5 w-3.5" />
-              Bookmark
-            </p>
-            <h1 className="text-3xl font-semibold leading-10 text-zinc-900">Ảnh đã lưu</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              Xem lại những hình ảnh bạn đã lưu trong quá trình tìm kiếm.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            Tổng cộng:{" "}
-            <span className="font-semibold text-zinc-900">{bookmarkData.totalElements}</span> ảnh
-          </div>
         </div>
       </div>
 

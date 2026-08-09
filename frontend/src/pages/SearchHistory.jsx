@@ -14,8 +14,8 @@ const PAGE_SIZE = 20;
 const filters = [
   { label: "Tất cả", value: "" },
   { label: "Tìm bằng hình ảnh", value: "IMAGE_TO_IMAGE" },
-  { label: "Text Semantic", value: "TEXT_SEMANTIC" },
-  { label: "Text OCR", value: "TEXT_OCR" },
+  { label: "Tìm bằng mô tả", value: "TEXT_SEMANTIC" },
+  // { label: "Text OCR", value: "TEXT_OCR" },
 ];
 
 const normalizeHistoryResponse = (response) => {
@@ -78,39 +78,39 @@ export const SearchHistory = () => {
   };
 
   const handleDeleteAll = () => {
-  Swal.fire({
-    title: 'Bạn có chắc muốn xoá?',
-    text: "Toàn bộ lịch sử tìm kiếm sẽ bị xoá vĩnh viễn và không thể khôi phục!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#ef4444', 
-    cancelButtonColor: '#6b7280',  
-    confirmButtonText: 'Đồng ý, xoá tất cả!',
-    cancelButtonText: 'Huỷ'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      
-      deleteAllMutation.mutate(undefined, {
-        onSuccess: () => {
-          Swal.fire({
-            title: 'Đã xoá!',
-            text: 'Lịch sử tìm kiếm của bạn đã được làm sạch.',
-            icon: 'success',
-            confirmButtonColor: '#3b82f6' 
-          });
-        },
-        onError: () => {
-          Swal.fire({
-            title: 'Lỗi!',
-            text: 'Không thể xoá lịch sử lúc này. Vui lòng thử lại.',
-            icon: 'error',
-            confirmButtonColor: '#3b82f6'
-          });
-        }
-      });
-    }
-  });
-};
+    Swal.fire({
+      title: 'Bạn có chắc muốn xoá?',
+      text: "Toàn bộ lịch sử tìm kiếm sẽ bị xoá vĩnh viễn và không thể khôi phục!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Đồng ý, xoá tất cả!',
+      cancelButtonText: 'Huỷ'
+    }).then((result) => {
+      if (result.isConfirmed) {
+
+        deleteAllMutation.mutate(undefined, {
+          onSuccess: () => {
+            Swal.fire({
+              title: 'Đã xoá!',
+              text: 'Lịch sử tìm kiếm của bạn đã được làm sạch.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+          },
+          onError: () => {
+            Swal.fire({
+              title: 'Lỗi!',
+              text: 'Không thể xoá lịch sử lúc này. Vui lòng thử lại.',
+              icon: 'error',
+              confirmButtonColor: '#3b82f6'
+            });
+          }
+        });
+      }
+    });
+  };
 
   const currentPage = historyData.pageNumber + 1;
   const totalPages = historyData.totalPages || 1;
@@ -118,35 +118,6 @@ export const SearchHistory = () => {
 
   return (
     <section className="mx-auto flex w-full max-w-[1280px] flex-col gap-8">
-      <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-indigo-700 bg-white px-5 py-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-50"
-        >
-          <FaArrowLeft />
-          <span>Quay lại trang trước</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="flex w-[200px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
-        >
-          <FaHome className="h-4 w-4" />
-          <span>Quay lại trang chủ</span>
-        </button>
-      </div>
-      {/* <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
-        >
-          <FaArrowLeft />
-          <span>Quay lại trang chủ</span>
-        </button>
-      </div> */}
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -168,8 +139,10 @@ export const SearchHistory = () => {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2">
+        {/* Filters & Delete Button */}
+        <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between mt-2">
+
+          <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide w-full sm:w-auto snap-x">
             {filters.map((filter) => {
               const isActive = activeFilter === filter.value;
 
@@ -178,7 +151,7 @@ export const SearchHistory = () => {
                   key={filter.label}
                   type="button"
                   onClick={() => handleFilterChange(filter.value)}
-                  className={`rounded-lg cursor-pointer border px-4 py-2 text-sm font-medium transition ${isActive
+                  className={`shrink-0 snap-start rounded-full sm:rounded-lg border px-4 py-2 text-sm font-medium transition ${isActive
                     ? "border-indigo-700 bg-indigo-700 text-white"
                     : "border-gray-300 bg-white text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     }`}
@@ -193,12 +166,13 @@ export const SearchHistory = () => {
             type="button"
             onClick={handleDeleteAll}
             disabled={deleteAllMutation.isPending || historyData.totalElements === 0}
-            className="inline-flex cursor-pointer w-fit items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full sm:w-fit cursor-pointer items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 hover:border-red-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FaTrash className="h-3.5 w-3.5" />
             {deleteAllMutation.isPending ? "Đang xoá..." : "Xoá lịch sử"}
           </button>
         </div>
+
       </div>
 
       {historyQuery.isLoading ? (

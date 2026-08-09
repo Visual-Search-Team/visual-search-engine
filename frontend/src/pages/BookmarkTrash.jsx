@@ -246,7 +246,7 @@ export const BookmarkTrash = () => {
             </div>
 
             <div className="flex flex-col gap-4">
-                <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
+                {/* <div className="flex flex-row gap-4 border-b border-gray-200 pb-6">
                     <button
                         type="button"
                         onClick={() => navigate("/bookmarks")}
@@ -255,7 +255,7 @@ export const BookmarkTrash = () => {
                         <FaArrowLeft />
                         <span>Quay lại Bookmark</span>
                     </button>
-                </div>
+                </div> */}
 
                 <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -269,7 +269,7 @@ export const BookmarkTrash = () => {
                         </p>
                     </div>
 
-                    <div className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    <div className="rounded-xl bg-gray-50 sm:px-4 py-3 text-sm text-gray-600">
                         Tổng cộng:{" "}
                         <span className="font-semibold text-zinc-900">{trashData.totalElements}</span> ảnh
                     </div>

@@ -17,13 +17,13 @@ export const SearchMethods = () => {
       title: "Mô tả nội dung",
       description: "Sử dụng ngôn ngữ tự nhiên để miêu tả hình ảnh bạn muốn tìm. AI sẽ hiểu ngữ cảnh và trả về kết quả chính xác nhất.",
     },
-    {
-      iconBackgroundClassName: "bg-indigo-500/10",
-      iconClassName: "text-indigo-600",
-      Icon: FaFont,
-      title: "Tìm chữ trong ảnh",
-      description: "Trích xuất và tìm kiếm hình ảnh dựa trên văn bản xuất hiện bên trong bức ảnh nhờ công nghệ OCR tiên tiến.",
-    },
+    // {
+    //   iconBackgroundClassName: "bg-indigo-500/10",
+    //   iconClassName: "text-indigo-600",
+    //   Icon: FaFont,
+    //   title: "Tìm chữ trong ảnh",
+    //   description: "Trích xuất và tìm kiếm hình ảnh dựa trên văn bản xuất hiện bên trong bức ảnh nhờ công nghệ OCR tiên tiến.",
+    // },
   ];
 
   return (
@@ -34,7 +34,6 @@ export const SearchMethods = () => {
             Bạn có thể tìm kiếm bằng
           </div>
         </div>
-        {/* Khúc bẻ layout quan trọng nằm ở md:flex-row */}
         <div className="w-full flex flex-col md:flex-row justify-center items-stretch gap-6">
           {searchMethods.map((method) => (
             <SearchMethodCard key={method.title} {...method} />

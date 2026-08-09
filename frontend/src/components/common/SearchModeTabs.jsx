@@ -1,6 +1,6 @@
 export default function SearchModeTabs({ activeMode, modes, onChange }) {
   return (
-    <div className="grid grid-cols-1 border-b border-gray-300/30 sm:grid-cols-3">
+    <div className="grid grid-cols-1 border-b border-gray-300/30 sm:grid-cols-2">
       {modes.map((mode) => {
         const Icon = mode.icon;
         const isActive = mode.id === activeMode.id;

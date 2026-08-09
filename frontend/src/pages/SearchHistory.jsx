@@ -14,8 +14,8 @@ const PAGE_SIZE = 20;
 const filters = [
   { label: "Tất cả", value: "" },
   { label: "Tìm bằng hình ảnh", value: "IMAGE_TO_IMAGE" },
-  { label: "Text Semantic", value: "TEXT_SEMANTIC" },
-  { label: "Text OCR", value: "TEXT_OCR" },
+  { label: "Tìm bằng mô tả", value: "TEXT_SEMANTIC" },
+  // { label: "Text OCR", value: "TEXT_OCR" },
 ];
 
 const normalizeHistoryResponse = (response) => {
@@ -137,16 +137,6 @@ export const SearchHistory = () => {
           <span>Quay lại trang chủ</span>
         </button>
       </div>
-      {/* <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
-        >
-          <FaArrowLeft />
-          <span>Quay lại trang chủ</span>
-        </button>
-      </div> */}
       <div className="flex flex-col gap-5 border-b border-gray-200 pb-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>

@@ -266,7 +266,7 @@ export const SearchResult = () => {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold leading-10 text-zinc-900">
+            <h1 className="text-xl sm:text-3xl font-semibold leading-10 text-zinc-900">
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">

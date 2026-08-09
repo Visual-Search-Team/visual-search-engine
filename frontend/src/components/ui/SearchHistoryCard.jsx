@@ -67,7 +67,10 @@ export const SearchHistoryCard = ({ history, onClick }) => {
   const queryText = history.queryText || history.query_text || history.query || "Không có nội dung tìm kiếm";
 
   return (
-    <article onClick={onClick} className="group cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <article
+      onClick={onClick}
+      className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-gray-200/50 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg hover:ring-indigo-100"
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {isImageSearch && imageUrl ? (
           <ImageWithFallback
@@ -97,39 +100,35 @@ export const SearchHistoryCard = ({ history, onClick }) => {
         )}
       </div>
 
-      <div className="space-y-3 p-4">
-        <div>
-          <h3 className="truncate text-sm font-semibold text-zinc-900">
+      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">
+        <div className="space-y-1">
+          <h3 className="line-clamp-2 text-sm sm:text-base font-semibold text-zinc-900 leading-snug group-hover:text-indigo-600 transition-colors">
             {isImageSearch ? `Ảnh tìm kiếm #${historyId}` : queryText}
           </h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="text-xs text-gray-500 font-medium">
             {formatDateTime(history.createdAt || history.createAt)}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-          <span className="inline-flex items-center gap-1.5">
-            <FaHashtag className="h-3 w-3 text-gray-400" />
-            {historyId ? `ID ${historyId}` : "Chưa có ID"}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <FaClock className="h-3 w-3 text-gray-400" />
-            {history.processingTimeMs ?? 0}ms
-          </span>
+        <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col gap-2"> 
+          <div className="grid grid-cols-2 gap-2 text-[11px] sm:text-xs text-gray-600">
+            <span className="inline-flex items-center gap-1.5 truncate">
+              <FaHashtag className="h-3 w-3 shrink-0 text-gray-400" />
+              <span className="truncate">{historyId ? `ID ${historyId}` : "Chưa có ID"}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 justify-end">
+              <FaClock className="h-3 w-3 shrink-0 text-gray-400" />
+              {history.processingTimeMs ?? 0}ms
+            </span>
+          </div>
+
+          {isImageSearch && history.width && history.height && (
+            <p className="text-[11px] sm:text-xs text-gray-500">
+              {history.width}x{history.height}
+              {history.mimeType ? ` • ${history.mimeType}` : ""}
+            </p>
+          )}
         </div>
-
-        {isImageSearch && history.width && history.height && (
-          <p className="text-xs text-gray-500">
-            {history.width}x{history.height}
-            {history.mimeType ? ` • ${history.mimeType}` : ""}
-          </p>
-        )}
-
-        {/* {isImageSearch && imagePath && (
-          <p className="truncate text-xs text-gray-400" title={imagePath}>
-            {imagePath}
-          </p>
-        )} */}
       </div>
     </article>
   );

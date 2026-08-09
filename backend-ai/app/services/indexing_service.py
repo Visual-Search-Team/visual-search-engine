@@ -1,4 +1,5 @@
 import gc
+import re
 import logging
 import io
 import json
@@ -76,12 +77,36 @@ def process_pending_images(db: Session):
             attributes_list = clip_model.predict_all_attributes_batch(embeddings)
             attributes_by_id = dict(zip(valid_ids, attributes_list))
 
+            # Dict lookup O(1) thay vì next() O(n) bên trong vòng lặp → tránh O(n²)
+            entity_map = {img.id: img for img in pending_images}
+
             payloads = []
             for img_id in valid_ids:
-                img_entity = next(i for i in pending_images if i.id == img_id)
+                img_entity = entity_map[img_id]
+                filename = img_entity.original_filename or ""
+
+                # --- Filename Hacking: Manual Brand Override ---
+                # Nếu người dùng nhập tên hãng qua popup, tên file sẽ có dạng:
+                # `[BRAND]OWEN[BRAND]tenfile.jpg`
+                # Cắt lấy chữ OWEN và ghi đè vào trường `brand`, rồi dọn sạch lại tên file.
+                match = re.search(r'\[BRAND\](.*?)\[BRAND\]', filename)
+                if match:
+                    manual_brand = match.group(1).strip()
+                    attributes_by_id[img_id]["brand"] = manual_brand
+                    logger.info(f"[MANUAL OVERRIDE] Ghi đè brand='{manual_brand}' cho image id={img_id}")
+                    
+                    # AI tự động nạp brand này vào từ điển text search (nếu chưa có)
+                    from app.embedding.clip_model import clip_model
+                    clip_model.add_dynamic_brand(manual_brand)
+                    
+                    clean_filename = re.sub(r'\[BRAND\].*?\[BRAND\]', '', filename)
+                    img_entity.original_filename = clean_filename
+                    filename = clean_filename
+                # --- End Override ---
+
                 payloads.append({
                     "image_id": img_entity.id,
-                    "original_filename": img_entity.original_filename,
+                    "original_filename": filename,
                     "uploaded_by": img_entity.uploaded_by,
                     "metadata_ai": attributes_by_id.get(img_id)
                 })

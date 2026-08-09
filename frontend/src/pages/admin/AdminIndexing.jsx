@@ -93,6 +93,12 @@ export const AdminIndexing = () => {
 
   const [selectedJobIds, setSelectedJobIds] = useState([]);
 
+  // --- Brand Override ---
+  const [brandEnabled, setBrandEnabled] = useState(false);
+  const [uploadBrand, setUploadBrand] = useState("");
+  // ---
+
+
 
   const jobsQuery = useQuery({
     queryKey: ["admin-indexing-jobs", page],
@@ -293,10 +299,25 @@ export const AdminIndexing = () => {
 
     const validImages = files.filter(validateFile);
     const invalidCount = files.length - validImages.length;
-    const previews = validImages.map((file) => {
+
+    if (invalidCount > 0) {
+      setUploadMessage(`${invalidCount} file bị bỏ qua vì không đúng định dạng hoặc vượt 10MB.`);
+    }
+
+    if (validImages.length === 0) return;
+
+    // Nếu có bật brand override, đổi tên file trước khi upload
+    let filesToUpload = validImages;
+    if (brandEnabled && uploadBrand.trim()) {
+      const brandText = uploadBrand.trim();
+      filesToUpload = validImages.map(
+        (file) => new File([file], `[BRAND]${brandText}[BRAND]${file.name}`, { type: file.type })
+      );
+    }
+
+    const previews = filesToUpload.map((file) => {
       const previewUrl = URL.createObjectURL(file);
       previewUrlsRef.current.push(previewUrl);
-
       return {
         id: `${file.name}-${file.lastModified}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         fileName: file.name,
@@ -308,17 +329,12 @@ export const AdminIndexing = () => {
 
     setLocalImages((current) => [...previews, ...current]);
     setJobPage(1);
-    setUploadMessage(
-      invalidCount > 0
-        ? `Đang upload ${validImages.length} ảnh hợp lệ. ${invalidCount} file bị bỏ qua vì không đúng định dạng hoặc vượt 10MB.`
-        : `Đang upload ${validImages.length} ảnh và tạo indexing job nền.`
-    );
-    event.target.value = "";
+    setUploadMessage(`Đang upload ${filesToUpload.length} ảnh và tạo indexing job nền.`);
+    uploadImagesMutation.mutate(filesToUpload);
 
-    if (validImages.length > 0) {
-      uploadImagesMutation.mutate(validImages);
-    }
+    event.target.value = "";
   };
+
 
   const handleRemoveImage = (imageId) => {
     setLocalImages((current) => {
@@ -380,6 +396,36 @@ export const AdminIndexing = () => {
               className="sr-only"
             />
           </label>
+          {/* Tùy chọn Ghi đè Thương hiệu - Inline */}
+          <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                id="brand-override-toggle"
+                checked={brandEnabled}
+                onChange={(e) => {
+                  setBrandEnabled(e.target.checked);
+                  if (!e.target.checked) setUploadBrand("");
+                }}
+                className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+              />
+              <div>
+                <p className="text-sm font-medium text-zinc-900">Ghi đè thương hiệu</p>
+                <p className="text-xs text-gray-500">Bật nếu ảnh thuộc về một hãng cụ thể, AI sẽ không đoán sắt mà dùng tên bạn nhập.</p>
+              </div>
+            </label>
+            {brandEnabled && (
+              <input
+                type="text"
+                id="brand-override-input"
+                placeholder="Nhập tên hãng, ví dụ: OWEN"
+                value={uploadBrand}
+                onChange={(e) => setUploadBrand(e.target.value)}
+                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                autoFocus
+              />
+            )}
+          </div>
 
           {uploadMessage && (
             <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
@@ -843,7 +889,7 @@ export const AdminIndexing = () => {
           </div>
         </div>
       </div>
-
     </section>
   );
 };
+

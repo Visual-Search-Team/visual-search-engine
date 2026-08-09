@@ -26,7 +26,7 @@ _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
     "gender": ["Mens", "Womens", "Unisex", "Kids"],
     "sleeve": ["Short sleeve", "Long sleeve", "Sleeveless"],
     "neckline": ["Collared", "Crew neck", "V-neck", "Turtleneck"],
-    "brand": ["Nike", "Adidas", "Gucci", "Lacoste", "Chanel", "Louis Vuitton", "Puma", "Manchester United", "Burberry", "Dior", "Balenciaga", "Zara", "H&M", "Unbranded"],
+    "brand": ["Nike", "Adidas", "Gucci", "Lacoste", "Chanel", "Louis Vuitton", "Puma", "Manchester United", "Burberry", "Dior", "Balenciaga", "Zara", "H&M", "Unbranded", "Owen", "Torano", "Coolmate", "Aristino", "Routine", "Biluxury", "Canifa", "Yame", "Kenta"],
 }
 
 # Prompt template riêng cho từng nhóm — cho FashionCLIP ngữ cảnh rõ ràng hơn là chỉ
@@ -113,7 +113,9 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
         "Nike": "Nike", "Adidas": "Adidas", "Gucci": "Gucci", "Lacoste": "Lacoste", 
         "Chanel": "Chanel", "Louis Vuitton": "Louis Vuitton", "Puma": "Puma", 
         "Manchester United": "Manchester United", "Burberry": "Burberry", "Dior": "Dior", 
-        "Balenciaga": "Balenciaga", "Zara": "Zara", "H&M": "H&M", "Unbranded": "Không rõ hãng"
+        "Balenciaga": "Balenciaga", "Zara": "Zara", "H&M": "H&M", "Unbranded": "Không rõ hãng",
+        "Owen": "OWEN", "Torano": "TORANO", "Coolmate": "COOLMATE", "Aristino": "ARISTINO", 
+        "Routine": "ROUTINE", "Biluxury": "BILUXURY", "Canifa": "CANIFA", "Yame": "YAME", "Kenta": "KENTA"
     },
 }
 
@@ -139,6 +141,7 @@ class CLIPModelWrapper:
         self.processor = CLIPProcessor.from_pretrained(model_name, cache_dir=cache_dir)
 
         logger.info("Load FashionCLIP thành công")
+        self._load_custom_brands()
 
         # Load model dịch máy VI->EN, chạy nội bộ, cache chung thư mục với FashionCLIP
         logger.info(f"Đang tải model dịch thuật: {_VI_EN_TRANSLATOR_NAME}")
@@ -166,6 +169,44 @@ class CLIPModelWrapper:
                 **inputs, max_new_tokens=64, num_beams=1
             )
         return self.translator_tokenizer.batch_decode(translated_ids, skip_special_tokens=True)[0]
+
+    def _load_custom_brands(self):
+        try:
+            cache_dir = os.path.abspath(_BASE_MODEL_CACHE)
+            file_path = os.path.join(cache_dir, "custom_brands.txt")
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    count = 0
+                    for line in f:
+                        b = line.strip()
+                        if b:
+                            _ATTRIBUTE_VI_LABELS["brand"][b.title()] = b.upper()
+                            count += 1
+                logger.info(f"Đã nạp {count} thương hiệu mới từ file custom_brands.txt")
+        except Exception as e:
+            logger.error(f"Lỗi khi nạp custom brands: {e}")
+
+    def add_dynamic_brand(self, brand: str):
+        brand_clean = brand.strip()
+        if not brand_clean: return
+        
+        # Kiểm tra xem brand đã có trong từ điển chưa (không phân biệt hoa thường)
+        existing_keys = [k.lower() for k in _ATTRIBUTE_VI_LABELS["brand"].keys()]
+        if brand_clean.lower() not in existing_keys:
+            # 1. Thêm vào bộ nhớ RAM ngay lập tức
+            title_brand = brand_clean.title()
+            upper_brand = brand_clean.upper()
+            _ATTRIBUTE_VI_LABELS["brand"][title_brand] = upper_brand
+            
+            # 2. Ghi vào file trong Volume cache để khi khởi động lại Docker không bị mất
+            try:
+                cache_dir = os.path.abspath(_BASE_MODEL_CACHE)
+                file_path = os.path.join(cache_dir, "custom_brands.txt")
+                with open(file_path, "a", encoding="utf-8") as f:
+                    f.write(brand_clean + "\n")
+                logger.info(f"[HỌC TỰ ĐỘNG] Đã tự động thêm hãng mới vào từ điển tìm kiếm: {upper_brand}")
+            except Exception as e:
+                logger.error(f"Lỗi khi lưu brand mới {brand_clean}: {e}")
 
     def _precompute_attribute_vocab_vectors(self):
         logger.info("Đang sinh vector mẫu cho 7 nhóm thuộc tính thời trang...")

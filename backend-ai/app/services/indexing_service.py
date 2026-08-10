@@ -15,6 +15,7 @@ from app.clients.postgres_client import ImageEntity
 from app.clients.minio_client import minio_client_wrapper
 from app.embedding.clip_model import clip_model
 from app.qdrant.client import qdrant_client_wrapper
+from app.utils.color_extractor import color_extractor
 
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,15 @@ def process_pending_images(db: Session):
 
             attributes_list = clip_model.predict_all_attributes_batch(embeddings)
             attributes_by_id = dict(zip(valid_ids, attributes_list))
+            
+            # Ghi đè thuộc tính color bằng K-Means + LAB từ OpenCV & rembg
+            for img_id, img_obj in zip(valid_ids, valid_images):
+                dom_colors_vi = color_extractor.get_dominant_colors(img_obj)
+                
+                # Lưu ý: thuộc tính metadata_ai trong model cho phép dict tùy ý
+                if img_id in attributes_by_id:
+                    # Gán mảng các màu (top 2 màu) vào thuộc tính 'color'
+                    attributes_by_id[img_id]["color"] = dom_colors_vi
 
             payloads = []
             for img_id in valid_ids:

@@ -79,3 +79,11 @@ export const deleteIndexingJob = async (jobId) => {
   const response = await apiClient.delete(`/admin/indexing-jobs/${jobId}`);
   return unwrapResponse(response);
 };
+
+// Xóa nhiều indexing job cùng lúc
+export const deleteMultipleIndexingJobs = async (jobIds) => {
+  const response = await apiClient.delete(`/admin/indexing-jobs`, {
+    data: { jobIds }, 
+  });
+  return unwrapResponse(response);
+};

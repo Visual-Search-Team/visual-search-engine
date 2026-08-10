@@ -1,12 +1,14 @@
-import { FaBookmark, FaFileImage, FaHashtag, FaImage, FaInfoCircle, FaRulerCombined, FaSearch, FaStar, FaTimes, } from "react-icons/fa";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import { 
+  FaBookmark, FaFileImage, FaHashtag, FaImage, FaInfoCircle, 
+  FaRulerCombined, FaSearch, FaStar, FaTimes, FaChevronDown, FaChevronUp 
+} from "react-icons/fa";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { saveBookmark } from "../../services/bookmarkService";
 import { ImageWithFallback } from "./ImageWithFallback";
 import { Link } from "react-router-dom";
-
 
 const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   <div className="flex items-center justify-between gap-4 border-b border-zinc-200/70 pb-3">
@@ -15,8 +17,9 @@ const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
       {label}
     </div>
     <div
-      className={`max-w-[220px] truncate text-right text-sm font-semibold ${highlight ? "text-indigo-700" : "text-zinc-900"
-        }`}
+      className={`max-w-[220px] truncate text-right text-sm font-semibold ${
+        highlight ? "text-indigo-700" : "text-zinc-900"
+      }`}
       title={String(value)}
     >
       {value}
@@ -24,27 +27,8 @@ const DetailRow = ({ icon: Icon, label, value, highlight = false }) => (
   </div>
 );
 
-const getSaveBookmarkErrorMessage = (error) => {
-  const status = error?.response?.status;
-  const apiError = error?.response?.data?.error;
-
-  if (status === 401 || status === 403 || apiError?.code === "UNAUTHORIZED") {
-    return "Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.";
-  }
-
-  if (status === 404) {
-    return "Không tìm thấy ảnh này trong backend. Nếu bạn đang dùng mock data, hãy đổi sang dữ liệu tìm kiếm thật rồi lưu lại.";
-  }
-
-  if (apiError?.message) {
-    return apiError.message;
-  }
-
-  return "Không thể lưu ảnh. Vui lòng thử lại.";
-};
-
-
 export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) => {
+  const [showDetails, setShowDetails] = useState(false);
 
   const queryClient = useQueryClient();
   const saveBookmarkMutation = useMutation({
@@ -79,65 +63,79 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
     saveBookmarkMutation.mutate(result.imageId);
   };
 
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/60 p-2 sm:px-4 sm:py-6 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="search-detail-title"
       onMouseDown={onClose}
     >
       <div
-        className="relative grid max-h-[92vh] w-full max-w-[1180px] overflow-hidden rounded-2xl bg-gray-50 shadow-2xl lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]"
+        className="relative flex flex-col lg:grid max-h-[95vh] lg:max-h-[92vh] w-full max-w-[1180px] overflow-y-auto lg:overflow-hidden rounded-2xl bg-gray-50 shadow-2xl lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Đóng modal"
-          className="absolute cursor-pointer right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm transition hover:bg-red-600 hover:text-white sm:right-6 sm:top-6"
+          className="absolute cursor-pointer right-3 top-3 z-10 flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm transition hover:bg-red-600 hover:text-white sm:right-6 sm:top-6"
         >
           <FaTimes className="h-4 w-4" />
         </button>
 
-        <div className="relative flex min-h-[420px] items-center justify-center bg-white lg:min-h-[720px]">
+        {/* Khung chứa ảnh */}
+        <div className="relative flex h-[35vh] min-h-[250px] sm:h-[45vh] lg:h-auto lg:min-h-[720px] items-center justify-center bg-white">
           {imageUrl ? (
             <ImageWithFallback
               src={imageUrl}
               imageId={result.imageId}
               alt={fileName}
               loading="eager"
-              className="h-full max-h-[92vh] w-full object-contain"
+              className="h-full w-full object-contain lg:max-h-[92vh]"
             />
           ) : (
-            <div className="flex h-full min-h-[420px] w-full items-center justify-center text-gray-500">
+            <div className="flex h-full w-full items-center justify-center text-gray-500">
               Không có ảnh để hiển thị
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-zinc-900/45 to-transparent p-6">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-zinc-900/45 to-transparent p-4 sm:p-6">
             <p className="max-w-xl truncate text-sm font-medium text-white" title={fileName}>
               {fileName}
             </p>
           </div>
         </div>
 
-        <aside className="flex max-h-[92vh] flex-col overflow-y-auto bg-gray-50 p-6 sm:p-8">
+        <aside className="flex flex-col lg:max-h-[92vh] lg:overflow-y-auto bg-gray-50 p-4 sm:p-6 lg:p-8">
           <div>
             <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-xs font-semibold text-indigo-700">
               <FaInfoCircle className="h-3.5 w-3.5" />
               Chi tiết kết quả
             </p>
-            <h2
-              id="search-detail-title"
-              className="text-2xl font-semibold leading-9 text-zinc-900"
-            >
-              Thông tin hình ảnh
-            </h2>
+            
+            {/* Header sidebar + Nút Xem thêm */}
+            <div className="flex items-center justify-between">
+              <h2
+                id="search-detail-title"
+                className="text-xl sm:text-2xl font-semibold leading-9 text-zinc-900"
+              >
+                Thông tin hình ảnh
+              </h2>
+              
+              <button
+                type="button"
+                onClick={() => setShowDetails(!showDetails)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-200/50 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200 lg:hidden"
+              >
+                {showDetails ? "Thu gọn" : "Xem thêm"}
+                {showDetails ? <FaChevronUp className="h-3 w-3" /> : <FaChevronDown className="h-3 w-3" />}
+              </button>
+            </div>
           </div>
 
-          <div className="mt-6 space-y-4 rounded-xl bg-white p-5 shadow-sm">
+          {/* Cụm thông tin chi tiết */}
+          <div className={`mt-4 sm:mt-6 space-y-3 sm:space-y-4 rounded-xl bg-white p-4 sm:p-5 shadow-sm transition-all duration-300 ease-in-out ${showDetails ? 'block' : 'hidden lg:block'}`}>
             <DetailRow icon={FaHashtag} label="Mã ảnh" value={`IMG-${result.imageId}`} />
             {similarityScore > 0 && (
               <DetailRow
@@ -153,14 +151,8 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
             <DetailRow icon={FaImage} label="Tên file" value={fileName} />
           </div>
 
-          {/* <div className="mt-5 rounded-xl bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-zinc-900">OCR text</h3>
-            <p className="mt-2 rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-600">
-              {ocrText || "Chưa có dữ liệu OCR cho ảnh này."}
-            </p>
-          </div> */}
-
-          <div className="mt-auto border-t border-zinc-200/70 pt-5">
+          {/* Các nút Action */}
+          <div className="mt-6 sm:mt-auto border-t border-zinc-200/70 pt-5">
             {saveBookmarkMutation.isSuccess && (
               <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
                 Đã lưu ảnh vào Bookmark! {' '}
@@ -181,7 +173,6 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
                 >
                   Click vào đây để xem ảnh đã lưu
                 </Link>
-                {/* {getSaveBookmarkErrorMessage(saveBookmarkMutation.error)} */}
               </p>
             )}
             {isMockOnly && (
@@ -199,7 +190,6 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
               <button
                 type="button"
                 onClick={() => onSearchSimilar?.(result)}
-                // onClick={onSearchSimilar}
                 className="cursor-pointer inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-800"
               >
                 <FaSearch className="h-4 w-4" />

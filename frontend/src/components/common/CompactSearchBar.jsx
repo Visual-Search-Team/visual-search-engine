@@ -1,9 +1,12 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FaAlignLeft, FaFont, FaImage, FaSearch, FaUpload, FaTimes } from 'react-icons/fa';
+import { FaFont, FaImage, FaSearch, FaTimes, FaMicrophone } from 'react-icons/fa';
 import { searchStore } from '../../utils/searchStore';
+import CropModal from './CropModal'; 
 
-export const CompactSearchBar = ({className = "" }) => {
+const MAX_FILE_SIZE = 10 * 1024 * 1024; 
+
+export const CompactSearchBar = ({ className = "" }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
@@ -16,7 +19,13 @@ export const CompactSearchBar = ({className = "" }) => {
     currentType === 'image' || currentType === 'composed' ? searchStore.imageFile : null
   );
   const [isOcrMode, setIsOcrMode] = useState(initialIsOcr);
+  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef(null);
+
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState(null);
+  const [tempOriginalFile, setTempOriginalFile] = useState(null);
+  const [fileError, setFileError] = useState('');
 
   const hasImage = !!selectedFile;
   const hasText = !!query.trim();
@@ -30,7 +39,7 @@ export const CompactSearchBar = ({className = "" }) => {
   };
 
   const handleSearch = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     const mode = getSearchMode();
     if (!mode) return;
 
@@ -54,11 +63,80 @@ export const CompactSearchBar = ({className = "" }) => {
     }
   };
 
+  // Voice Search (Web Speech API)
+  const handleVoiceSearch = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      setQuery(event.results[0][0].transcript);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
+
+  const updateSelectedFile = (file) => {
+    const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+
+    if (!isValidType) {
+      setFileError('Vui lòng chọn ảnh JPG, PNG hoặc WebP.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('Ảnh cần nhỏ hơn hoặc bằng 10MB.');
+      return;
+    }
+
+    const tempUrl = URL.createObjectURL(file);
+    setTempImageUrl(tempUrl);
+    setTempOriginalFile(file);
+    setShowCropModal(true);
+    setFileError('');
+  };
+
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      setIsOcrMode(false);
+      updateSelectedFile(file);
+    }
+  };
+
+  // Hoàn tất/Hủy Crop
+  const handleCropComplete = (croppedFile) => {
+    setShowCropModal(false);
+    if (tempImageUrl) {
+      URL.revokeObjectURL(tempImageUrl);
+    }
+    setTempImageUrl(null);
+
+    setSelectedFile(croppedFile);
+    setIsOcrMode(false);
+    searchStore.imageFile = croppedFile;
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
+    }
+  };
+
+  const handleCancelCrop = () => {
+    setShowCropModal(false);
+    if (tempImageUrl) {
+      URL.revokeObjectURL(tempImageUrl);
+    }
+    setTempImageUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -69,17 +147,26 @@ export const CompactSearchBar = ({className = "" }) => {
   };
 
   return (
-    <div className={`sticky top-0 z-10 mb-6 bg-slate-50/80 p-4 pt-6 backdrop-blur-md ${className}`}>
-      <form
-        onSubmit={handleSearch}
-        className="mx-auto flex w-full flex-col items-center gap-2 md:flex-row md:rounded-full md:border md:border-zinc-300 md:bg-white md:p-1 md:shadow-sm"
-      >
-        {/* Nút chọn ảnh */}
-        <div className="flex shrink-0 items-center gap-2 px-2">
-          {selectedFile ? (
-            <div className="flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5">
+    <div className={`sticky top-0 z-10 w-full bg-slate-50/80 p-3 sm:p-4 md:pt-6 backdrop-blur-md ${className}`}>
+      <div className="mx-auto w-full max-w-3xl relative">
+        <form 
+          onSubmit={handleSearch} 
+          className="flex w-full items-center gap-2 rounded-full border border-gray-300 bg-white px-3 py-2 shadow-sm transition-shadow hover:shadow-md focus-within:shadow-md md:px-4 md:py-3"
+        >
+          <button 
+            type="submit"
+            disabled={!canSearch}
+            className="flex shrink-0 items-center justify-center p-1 text-gray-500 hover:text-indigo-600 disabled:opacity-50"
+            title="Tìm kiếm"
+          >
+            <FaSearch className="size-4 md:size-5" />
+          </button>
+
+          {/* Hiển thị ảnh đã chọn nếu có */}
+          {selectedFile && (
+            <div className="flex shrink-0 items-center gap-2 rounded-full bg-indigo-50 px-2.5 py-1.5 ml-1">
               <FaImage className="h-3.5 w-3.5 text-indigo-600" />
-              <span className="max-w-[100px] truncate text-xs font-medium text-indigo-700">
+              <span className="max-w-[80px] sm:max-w-[120px] truncate text-xs font-medium text-indigo-700">
                 {selectedFile.name}
               </span>
               <button
@@ -90,61 +177,83 @@ export const CompactSearchBar = ({className = "" }) => {
                 <FaTimes className="h-3 w-3" />
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-            >
-              <FaUpload className="h-3 w-3" />
-              Ảnh
-            </button>
           )}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleImageUpload}
-          />
-        </div>
 
-        {/* Ô nhập text */}
-        <div className="flex w-full flex-1 items-center gap-2 px-2">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={hasImage ? "Thêm mô tả bổ sung..." : "Nhập mô tả ảnh..."}
-            className="w-full border-none bg-transparent px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0"
+            placeholder={hasImage ? "Thêm mô tả bổ sung..." : "Nhập mô tả để tìm kiếm..."}
+            className="flex-1 w-full bg-transparent px-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none md:text-base"
           />
 
-          {/* OCR toggle — chỉ khi không có ảnh */}
-          {!hasImage && (
+          <div className="flex shrink-0 items-center gap-1 md:gap-2 border-l pl-2 md:pl-3 border-gray-200">
+            {/* OCR Toggle */}
+            {!hasImage && (
+              <button
+                type="button"
+                onClick={() => setIsOcrMode(!isOcrMode)}
+                className={`group relative flex cursor-pointer items-center justify-center rounded-full p-2 transition-colors ${
+                  isOcrMode
+                    ? 'bg-indigo-100 text-indigo-600'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-indigo-600'
+                }`}
+                title="Tìm chữ trong ảnh (OCR)"
+              >
+                <FaFont className="size-4 md:size-5" />
+              </button>
+            )}
+
+            {/* Voice Search */}
             <button
               type="button"
-              onClick={() => setIsOcrMode(!isOcrMode)}
-              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                isOcrMode
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-zinc-500 hover:bg-zinc-100'
+              onClick={handleVoiceSearch}
+              className={`group relative flex cursor-pointer items-center justify-center rounded-full p-2 transition-colors ${
+                isListening ? 'bg-red-100 text-red-600' : 'text-gray-500 hover:bg-gray-100 hover:text-indigo-600'
               }`}
-              title="Tìm chữ trong ảnh (OCR)"
+              title="Tìm bằng giọng nói"
             >
-              <FaFont className="h-3 w-3" />
-              <span className="hidden sm:inline">OCR</span>
+              <FaMicrophone className={`size-4 md:size-5 ${isListening ? 'animate-pulse' : ''}`} />
             </button>
-          )}
 
-          <button
-            type="submit"
-            disabled={!canSearch}
-            className="flex size-9 cursor-pointer shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:opacity-50 md:size-10"
-          >
-            <FaSearch className="size-4" />
-          </button>
-        </div>
-      </form>
+            {/* Image Search Button */}
+            {!selectedFile && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="group relative flex cursor-pointer items-center justify-center rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-indigo-600"
+                title="Tìm bằng hình ảnh"
+              >
+                <FaImage className="size-4 md:size-5" />
+              </button>
+            )}
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/jpeg, image/png, image/webp"
+              onChange={handleImageUpload}
+            />
+          </div>
+        </form>
+
+        {fileError && (
+          <p className="absolute -bottom-6 left-4 text-xs font-medium text-red-500">
+            {fileError}
+          </p>
+        )}
+      </div>
+
+      {/* Modal Crop */}
+      {showCropModal && tempImageUrl && (
+        <CropModal
+          imageUrl={tempImageUrl}
+          onCancel={handleCancelCrop}
+          originalFile={tempOriginalFile}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 };

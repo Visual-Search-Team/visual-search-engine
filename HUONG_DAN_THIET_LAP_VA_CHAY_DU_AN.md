@@ -59,7 +59,15 @@ Neu can local profile rieng, co the tao `backend-java/.env` de luu bien tuy chin
 Tu thu muc goc `VisualSearchEngine`:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+Luu y:
+- Lenh tren danh cho local development (build image ngay tren may local, khong can dang nhap ECR).
+- Neu ban muon chay theo image da push len registry (deploy mode), dung:
+
+```bash
+docker compose -f docker-compose.yml up -d
 ```
 
 Kiem tra trang thai:

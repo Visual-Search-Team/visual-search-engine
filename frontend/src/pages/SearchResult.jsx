@@ -25,12 +25,12 @@ const PAGE_SIZE = 20;
 const USE_MOCK_SEARCH_RESULTS = import.meta.env.VITE_USE_MOCK_SEARCH_RESULTS === "true";
 
 const breakpointColumnsObj = {
-  default: 4,      
-  1280: 4,        
-  1024: 3,         
-  768: 2,          
-  640: 2,          
-  500: 2           
+  default: 4,
+  1280: 4,
+  1024: 3,
+  768: 2,
+  640: 2,
+  500: 2
 };
 
 const getModeLabel = (type, mode) => {
@@ -245,7 +245,7 @@ export const SearchResult = () => {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="mt-6 cursor-pointer rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
+          className="mt-6 hidden md:block cursor-pointer rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800"
         >
           Quay lại tìm kiếm
         </button>
@@ -256,9 +256,8 @@ export const SearchResult = () => {
   return (
     <section className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8">
 
-      <div className="flex flex-row items-center gap-20px">
-
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-6 w-[200px]">
+      <div className="flex w-full items-center mb-4">
+        {/* <div className="hidden md:block md:w-[200px]">
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -267,17 +266,16 @@ export const SearchResult = () => {
             <FaArrowLeft />
             <span>Quay lại trang chủ</span>
           </button>
-        </div>
+        </div> */}
 
-        <CompactSearchBar className="flex-1" />
-
+        <CompactSearchBar className="w-full md:flex-1" />
       </div>
 
       <div className="flex flex-col gap-4 border-b border-gray-200 pb-6">
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold leading-10 text-zinc-900">
+            <h1 className="text-xl sm:text-3xl font-semibold leading-10 text-zinc-900">
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">

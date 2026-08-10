@@ -62,7 +62,7 @@ const statusCards = [
 const formatNumber = (value) => numberFormatter.format(Number(value ?? 0));
 
 const MetricCard = ({ label, description, value, icon: Icon, tone }) => (
-  <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+  <article className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 shadow-sm">
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className="text-sm font-medium text-zinc-600">{label}</p>
@@ -126,9 +126,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         {statCards.map((card) => (
-          <MetricCard
+          < MetricCard
             key={card.key}
             label={card.label}
             description={card.description}
@@ -139,8 +139,8 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:gap-6">
+        <div className="rounded-2xl border border-zinc-200 p-4 sm:p-5 bg-white p-5 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-700">
               <FiAlertCircle className="size-5" />
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
 
         <div className="rounded-2xl border border-zinc-200 bg-indigo-900 p-5 text-white shadow-sm">
           <p className="text-sm font-medium text-indigo-200">Pipeline snapshot</p>
-          <p className="mt-3 text-4xl font-semibold tracking-tight">{formatNumber(stats.indexed)}</p>
+          <p className="mt-3 sm:mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">{formatNumber(stats.indexed)}</p>
           <p className="mt-2 text-sm leading-6 text-slate-200">
             Ảnh đã index xong và sẵn sàng cho tìm kiếm. Hệ thống hiện có {formatNumber(stats.totalUsers)} người dùng và {formatNumber(stats.processing)} ảnh đang xử lý nền.
           </p>

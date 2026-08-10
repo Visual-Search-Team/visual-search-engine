@@ -8,13 +8,15 @@ import {
   getIndexingJobItems,
   getIndexingJobs,
   retryIndexingJob,
+  deleteMultipleIndexingJobs,
+  deleteIndexingJob,
 } from "../../services/adminIndexingService";
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { uploadImages } from "../../services/imageService";
 import { validateFile } from "../../utils/fileValidation";
-import { deleteIndexingJob } from "../../services/adminIndexingService";
 import Swal from "sweetalert2";
 import { SmoothProgressBar } from "../../components/ui/SmoothProgressBar";
+import { formatDateTime } from "../../utils/formatDateTime";
 
 const imagesPerPage = 20;
 
@@ -30,20 +32,6 @@ const statusStyles = {
   UPLOAD_FAILED: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "--";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
 
 const getApiErrorMessage = (error, fallback) => {
   return (
@@ -90,6 +78,8 @@ export const AdminIndexing = () => {
   const previewUrlsRef = useRef([]);
   const [retryingJobId, setRetryingJobId] = useState(null);
 
+  const [selectedJobIds, setSelectedJobIds] = useState([]);
+
 
   const jobsQuery = useQuery({
     queryKey: ["admin-indexing-jobs", page],
@@ -104,6 +94,7 @@ export const AdminIndexing = () => {
     mutationFn: deleteIndexingJob,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      setSelectedJobIds(prev => prev.filter(id => id !== selectedJobId));
       Swal.fire({
         title: "Đã xóa!",
         text: "Đã xóa job thành công!",
@@ -122,7 +113,68 @@ export const AdminIndexing = () => {
     }
   });
 
+  const deleteMultipleJobsMutation = useMutation({
+    mutationFn: deleteMultipleIndexingJobs,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-indexing-jobs"] });
+      setSelectedJobIds([]);
+      Swal.fire({
+        title: "Thành công!",
+        text: "Đã xóa các job được chọn!",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false
+      });
+    },
+    onError: (error) => {
+      Swal.fire({ title: "Lỗi!", text: "Có lỗi xảy ra khi xóa các job!", icon: "error" });
+      console.error(error);
+    }
+  });
+
   const jobs = jobsQuery.data?.content || [];
+
+  // Xử lý tick chọn 1 job
+  const handleSelectJob = (jobId, isChecked) => {
+    if (isChecked) {
+      setSelectedJobIds(prev => [...prev, jobId]);
+    } else {
+      setSelectedJobIds(prev => prev.filter(id => id !== jobId));
+    }
+  };
+
+  const isAllCurrentPageSelected = jobs.length > 0 && jobs.every(job => selectedJobIds.includes(job.id));
+
+  // Xử lý tick chọn tất cả ở trang hiện tại
+  const handleSelectAllCurrentPage = (isChecked) => {
+    if (isChecked) {
+      const newIds = jobs.map(j => j.id).filter(id => !selectedJobIds.includes(id));
+      setSelectedJobIds(prev => [...prev, ...newIds]);
+    } else {
+      const currentPageIds = jobs.map(j => j.id);
+      setSelectedJobIds(prev => prev.filter(id => !currentPageIds.includes(id)));
+    }
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedJobIds.length === 0) return;
+    Swal.fire({
+      title: "Cảnh báo nguy hiểm!",
+      text: `Bạn có chắc chắn muốn xóa ${selectedJobIds.length} Job đã chọn và toàn bộ ảnh bên trong không? Hành động này không thể hoàn tác.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: `Xóa ${selectedJobIds.length} job`,
+      cancelButtonText: "Hủy"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteMultipleJobsMutation.mutate(selectedJobIds);
+      }
+    });
+  };
+
+
 
   const pagination = {
     page: jobsQuery.data?.page || page,
@@ -269,6 +321,7 @@ export const AdminIndexing = () => {
       return nextImages;
     });
   };
+
 
   return (
     <section className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -434,14 +487,56 @@ export const AdminIndexing = () => {
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 p-5">
-          <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
-          {/* <p className="mt-1 text-sm text-gray-500">Mỗi lần upload ảnh sẽ tạo một job và job này được xử lý nền bởi backend.</p> */}
+        <div className="border-b border-zinc-200 p-5 flex items-center justify-between">
+          <div className="flex flex-col gap-1 items-start">
+            <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
+            <div className="flex items-center gap-3 border-b border-zinc-200 bg-slate-50 py-3 lg:hidden">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                checked={isAllCurrentPageSelected}
+                onChange={(e) => handleSelectAllCurrentPage(e.target.checked)}
+                disabled={jobs.length === 0}
+              />
+              <span className="text-[15px] font-semibold text-gray-700">Chọn tất cả</span>
+            </div>
+
+          </div>
+
+          {/* NÚT XÓA NHIỀU */}
+          <button
+            onClick={handleConfirmBulkDelete}
+            disabled={selectedJobIds.length === 0 || deleteMultipleJobsMutation.isPending}
+            className={`flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors
+              ${selectedJobIds.length > 0 && !deleteMultipleJobsMutation.isPending
+                ? "bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+          >
+            {deleteMultipleJobsMutation.isPending ? (
+              <FiRotateCcw className="size-4 animate-spin" />
+            ) : (
+              <FiTrash2 className="size-4" />
+            )}
+            Xóa {selectedJobIds.length > 0 ? `(${selectedJobIds.length})` : ""}
+          </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[1040px] w-full border-separate border-spacing-0 text-sm">
-            <thead>
+
+        {/* Bảng danh sách indexing job */}
+
+        <div className="w-full lg:overflow-x-auto">
+          <table className="w-full text-sm block lg:table lg:min-w-[1040px] lg:border-separate lg:border-spacing-0">
+
+            <thead className="hidden lg:table-header-group">
               <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="border-b border-zinc-200 px-4 py-3 w-12">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                    checked={isAllCurrentPageSelected}
+                    onChange={(e) => handleSelectAllCurrentPage(e.target.checked)}
+                    disabled={jobs.length === 0}
+                  />
+                </th>
                 <th className="border-b border-zinc-200 px-4 py-3">ID</th>
                 <th className="border-b border-zinc-200 px-4 py-3">Trạng thái</th>
                 <th className="border-b border-zinc-200 px-4 py-3 text-right">Tổng ảnh</th>
@@ -453,32 +548,38 @@ export const AdminIndexing = () => {
                 <th className="border-b border-zinc-200 px-4 py-3 text-center">Hành động</th>
               </tr>
             </thead>
-            <tbody>
+
+            <tbody className="block lg:table-row-group">
+
+              {/* TRẠNG THÁI LOADING */}
               {jobsQuery.isLoading &&
                 Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={index}>
-                    <td colSpan={8} className="border-b border-zinc-100 px-4 py-3">
-                      <div className="h-8 animate-pulse rounded bg-slate-100" />
+                  <tr key={index} className="block mb-4 rounded-xl border border-zinc-200 p-4 lg:mb-0 lg:table-row lg:rounded-none lg:border-0 lg:p-0">
+                    <td colSpan={10} className="lg:border-b lg:border-zinc-100 lg:px-4 lg:py-3">
+                      <div className="h-8 lg:h-8 h-24 animate-pulse rounded bg-slate-100" />
                     </td>
                   </tr>
                 ))}
 
+              {/* TRẠNG THÁI LỖI */}
               {jobsQuery.isError && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-rose-700">
+                <tr className="block lg:table-row">
+                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-rose-700 block lg:table-cell">
                     {getApiErrorMessage(jobsQuery.error, "Không tải được danh sách indexing job")}
                   </td>
                 </tr>
               )}
 
+              {/* TRẠNG THÁI TRỐNG */}
               {!jobsQuery.isLoading && !jobsQuery.isError && jobs.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-500">
+                <tr className="block lg:table-row">
+                  <td colSpan={10} className="px-4 py-10 text-center text-sm text-gray-500 block lg:table-cell">
                     Chưa có indexing job nào.
                   </td>
                 </tr>
               )}
 
+              {/* HIỂN THỊ DỮ LIỆU */}
               {!jobsQuery.isLoading &&
                 !jobsQuery.isError &&
                 jobs.map((job) => (
@@ -488,16 +589,143 @@ export const AdminIndexing = () => {
                       setSelectedJobId(job.id);
                       setItemPage(1);
                     }}
-                    className={`cursor-pointer transition hover:bg-indigo-50/70 ${selectedJobId === job.id ? "bg-indigo-50/60" : ""}`}
+                    className={`cursor-pointer block mb-4 rounded-xl border border-zinc-200 bg-white shadow-sm transition-all lg:mb-0 lg:table-row lg:rounded-none lg:border-0 lg:shadow-none lg:hover:bg-indigo-50/70 ${selectedJobIds.includes(job.id)
+                      ? "border-indigo-400 ring-1 ring-indigo-400 lg:bg-indigo-50/60 lg:ring-0 lg:border-0"
+                      : "hover:border-indigo-300"
+                      }`}
                   >
-                    <td className="border-b border-zinc-100 px-4 py-4 font-semibold text-zinc-900">#{job.id}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4">
+                    {/* Giao diện Mobile */}
+                    <td className="block p-4 lg:hidden">
+                      {/* Card Header: Checkbox + ID + Badge */}
+                      <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            className="size-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                            checked={selectedJobIds.includes(job.id)}
+                            onChange={(e) => {
+                              handleSelectJob(job.id, e.target.checked);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="font-semibold text-zinc-900 text-base">#{job.id}</span>
+                        </div>
+                        <StatusBadge status={job.status} />
+                      </div>
+
+                      {/* Card Body: 3 cột số liệu (Tổng, Thành công, Thất bại) */}
+                      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-slate-50 py-2">
+                          <p className="text-xs text-gray-500">Tổng ảnh</p>
+                          <p className="mt-1 font-semibold text-gray-700">{job.totalImages ?? 0}</p>
+                        </div>
+                        <div className="rounded-lg bg-emerald-50 py-2">
+                          <p className="text-xs text-emerald-600/80">Đã index</p>
+                          <p className="mt-1 font-semibold text-emerald-700">{job.successCount ?? 0}</p>
+                        </div>
+                        <div className="rounded-lg bg-rose-50 py-2">
+                          <p className="text-xs text-rose-600/80">Thất bại</p>
+                          <p className="mt-1 font-semibold text-rose-700">{job.failedCount ?? 0}</p>
+                        </div>
+                      </div>
+
+                      {/* Card Body: Tiến độ */}
+                      <div className="mt-4 flex items-center gap-3 border-b border-zinc-100 pb-4">
+                        <span className="text-xs font-medium text-gray-500 w-16">Tiến độ</span>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className="h-full rounded-full bg-indigo-700 transition-all"
+                            style={{ width: `${Math.min(Number(job.progressPercentage || 0), 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-700">
+                          {Number(job.progressPercentage || 0).toFixed(0)}%
+                        </span>
+                      </div>
+
+                      {/* Card Body: Thời gian */}
+                      <div className="mt-3 flex flex-col gap-2 text-xs text-gray-600">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Bắt đầu:</span>
+                          <span className="font-medium">{formatDateTime(job.startedAt || job.createdAt)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Kết thúc:</span>
+                          <span className="font-medium">{formatDateTime(job.finishedAt) || "-"}</span>
+                        </div>
+                      </div>
+
+                      {/* Card Footer: Buttons */}
+                      <div className="mt-4 flex justify-end gap-3 pt-3 border-t border-zinc-100">
+                        {['FAILED', 'PARTIALLY_FAILED', 'UPLOAD_FAILED'].includes(job.status) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              retryJobMutation.mutate(job.id);
+                            }}
+                            disabled={retryJobMutation.isPending && retryingJobId === job.id}
+                            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-white p-2.5 text-amber-600 shadow-sm border border-amber-200 transition hover:bg-amber-50"
+                          >
+                            <FiRotateCcw className={`size-4 ${retryJobMutation.isPending && retryingJobId === job.id ? "animate-spin" : ""}`} />
+                            <span className="font-medium text-sm">Thử lại</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/indexing/${job.id}`);
+                          }}
+                          className="inline-flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-white p-2.5 text-indigo-600 shadow-sm border border-indigo-100 transition hover:bg-indigo-50"
+                        >
+                          <FiEye className="size-4" />
+                          <span className="font-medium text-sm">Chi tiết</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            Swal.fire({
+                              title: "Cảnh báo nguy hiểm!",
+                              text: `Bạn có chắc chắn muốn xóa toàn bộ Job #${job.id} và các ảnh bên trong không?`,
+                              icon: "warning",
+                              showCancelButton: true,
+                              confirmButtonColor: "#ef4444",
+                              cancelButtonColor: "#6b7280",
+                              confirmButtonText: "Xóa toàn bộ",
+                              cancelButtonText: "Hủy"
+                            }).then((result) => {
+                              if (result.isConfirmed) {
+                                deleteJobMutation.mutate(job.id);
+                              }
+                            });
+                          }}
+                          disabled={deleteJobMutation.isPending}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white p-2.5 text-rose-600 shadow-sm border border-rose-200 transition hover:bg-rose-50"
+                        >
+                          <FiTrash2 className="size-4" />
+                        </button>
+                      </div>
+                    </td>
+
+
+                    {/* Giao diện desktop */}
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                        checked={selectedJobIds.includes(job.id)}
+                        onChange={(e) => handleSelectJob(job.id, e.target.checked)}
+                      />
+                    </td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 font-semibold text-zinc-900">#{job.id}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4">
                       <StatusBadge status={job.status} />
                     </td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.totalImages ?? 0}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.successCount ?? 0}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.failedCount ?? 0}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4">
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.totalImages ?? 0}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.successCount ?? 0}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-right text-gray-700">{job.failedCount ?? 0}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4">
                       <div className="flex min-w-32 items-center gap-3">
                         <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
                           <div
@@ -510,12 +738,11 @@ export const AdminIndexing = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.startedAt || job.createdAt)}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.finishedAt)}</td>
-                    <td className="border-b border-zinc-100 px-4 py-4 text-center">
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.startedAt || job.createdAt)}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-gray-600">{formatDateTime(job.finishedAt)}</td>
+                    <td className="hidden lg:table-cell border-b border-zinc-100 px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
 
-                        {/* Nuts retry (Chỉ hiện khi bị lỗi) */}
                         {['FAILED', 'PARTIALLY_FAILED', 'UPLOAD_FAILED'].includes(job.status) && (
                           <button
                             onClick={(e) => {
@@ -530,7 +757,6 @@ export const AdminIndexing = () => {
                           </button>
                         )}
 
-                        {/* Nút Xem Chi Tiết */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -542,7 +768,6 @@ export const AdminIndexing = () => {
                           <FiEye className="size-4" />
                         </button>
 
-                        {/* Nút Xóa Job */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

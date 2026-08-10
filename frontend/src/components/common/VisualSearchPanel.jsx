@@ -5,6 +5,7 @@ import { MAX_FILE_SIZE } from '../../config/constants';
 import { searchStore } from '../../utils/searchStore';
 import CropModal from './CropModal';
 
+
 export default function VisualSearchPanel() {
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState(null);

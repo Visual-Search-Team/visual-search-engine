@@ -36,7 +36,7 @@ public class ImageController {
             MultipartFile[] filesToUpload = files;
 
             if ((files == null || files.length == 0) && singleFile != null) {
-                filesToUpload = new MultipartFile[]{singleFile};
+                filesToUpload = new MultipartFile[] { singleFile };
             }
 
             if (filesToUpload == null || filesToUpload.length == 0) {
@@ -91,6 +91,32 @@ public class ImageController {
                     .body(resource);
         } catch (Exception e) {
             log.error("Error getting image", e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/trash/{imageId}")
+    public ResponseEntity<InputStreamResource> getTrashImage(@PathVariable Long imageId) {
+        try {
+            InputStreamResource resource = imageService.downloadTrashImage(imageId);
+
+            String mimeType = imageService.getImageMetadataForTrash(imageId).getMimeType();
+
+            MediaType mediaType;
+            try {
+                mediaType = (mimeType == null || mimeType.isBlank())
+                        ? MediaType.APPLICATION_OCTET_STREAM
+                        : MediaType.parseMediaType(mimeType);
+            } catch (Exception ignored) {
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .body(resource);
+
+        } catch (Exception e) {
+            log.error("Error getting trash image", e);
             return ResponseEntity.notFound().build();
         }
     }

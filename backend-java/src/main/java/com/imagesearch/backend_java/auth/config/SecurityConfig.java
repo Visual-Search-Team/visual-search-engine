@@ -59,6 +59,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/indexing-jobs/**").hasRole("ADMIN")
                         .requestMatchers("/images/upload").hasRole("ADMIN")
                         .requestMatchers("/images/{imageId}").permitAll()
+                        .requestMatchers("/images/trash/{imageId}").permitAll()
                         .requestMatchers("/images/download/{imageId}").authenticated()
                         .requestMatchers(
                                 "/search-history/**",

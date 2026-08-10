@@ -3,32 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FiChevronLeft, FiChevronRight, FiRefreshCw, FiRotateCcw, FiTrash2 } from "react-icons/fi";
 import Swal from "sweetalert2";
 import { ImageWithFallback } from "../../components/common/ImageWithFallback";
-import { resolveImageUrl } from "../../utils/imageUrl";
+import { getTrashImageApiUrl } from "../../services/imageService";
+import { ImagePreviewModal } from "../../components/common/ImagePreviewModal";
 import {
-  getTrashImages,
-  getTrashPolicy,
-  permanentlyDeleteAllTrashImages,
+  getTrashImages, getTrashPolicy, permanentlyDeleteAllTrashImages,
   permanentlyDeleteSelectedTrashImages,
   permanentlyDeleteTrashImage,
   restoreAllTrashImages,
   restoreSelectedTrashImages,
   restoreTrashImage,
 } from "../../services/adminTrashService";
+import { formatDateTime } from "../../utils/formatDateTime";
 
-const formatDateTime = (value) => {
-  if (!value) return "--";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
 
 const getApiErrorMessage = (error, fallback) => {
   return (
@@ -49,12 +35,14 @@ export const AdminTrash = () => {
   const [page, setPage] = useState(1);
   const [feedback, setFeedback] = useState("");
   const [selectedImageIds, setSelectedImageIds] = useState([]);
+  const [previewImageId, setPreviewImageId] = useState(null);
 
   const trashQuery = useQuery({
     queryKey: ["admin-trash-images", page],
     queryFn: () => getTrashImages({ page, size: 10 }),
     refetchInterval: 10000,
   });
+
 
   const policyQuery = useQuery({
     queryKey: ["admin-trash-policy"],
@@ -154,11 +142,14 @@ export const AdminTrash = () => {
   };
 
   const trashItems = trashQuery.data?.content || [];
+
   const retentionDays = policyQuery.data?.retentionDays ?? 30;
   const selectedCount = selectedImageIds.length;
   const currentPageImageIds = trashItems.map((item) => item.id);
+
   const allCurrentPageSelected =
     currentPageImageIds.length > 0 && currentPageImageIds.every((id) => selectedImageIds.includes(id));
+
   const isAnyMutationPending =
     restoreMutation.isPending ||
     permanentDeleteMutation.isPending ||
@@ -312,58 +303,62 @@ export const AdminTrash = () => {
         </button>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-zinc-800">
-            <input
-              type="checkbox"
-              checked={allCurrentPageSelected}
-              onChange={toggleSelectAllCurrentPage}
-              disabled={!trashItems.length || isAnyMutationPending}
-              className="size-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            Chọn tất cả ảnh ở trang hiện tại
-          </label>
+      <div className="rounded-lg border border-zinc-200 bg-white p-3 lg:p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-          <p className="text-sm text-gray-500">Đã chọn: {selectedCount} ảnh</p>
-        </div>
+          <div className="flex items-center justify-between lg:justify-start gap-4">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-zinc-800">
+              <input
+                type="checkbox"
+                checked={allCurrentPageSelected}
+                onChange={toggleSelectAllCurrentPage}
+                disabled={!trashItems.length || isAnyMutationPending}
+                className="size-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="hidden sm:inline">Chọn tất cả ảnh ở trang hiện tại</span>
+              <span className="sm:hidden">Chọn tất cả</span>
+            </label>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={confirmRestoreSelected}
-            disabled={!selectedCount || isAnyMutationPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Khôi phục đã chọn
-          </button>
+            <p className="text-sm text-gray-500 whitespace-nowrap">Đã chọn: {selectedCount}</p>
+          </div>
 
-          <button
-            type="button"
-            onClick={confirmDeleteSelected}
-            disabled={!selectedCount || isAnyMutationPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Xóa đã chọn
-          </button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:mt-0">
+            <button
+              type="button"
+              onClick={confirmRestoreSelected}
+              disabled={!selectedCount || isAnyMutationPending}
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Khôi phục đã chọn
+            </button>
 
-          <button
-            type="button"
-            onClick={confirmRestoreAll}
-            disabled={!pagination.totalElements || isAnyMutationPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Khôi phục tất cả
-          </button>
+            <button
+              type="button"
+              onClick={confirmDeleteSelected}
+              disabled={!selectedCount || isAnyMutationPending}
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs sm:text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Xóa đã chọn
+            </button>
 
-          <button
-            type="button"
-            onClick={confirmDeleteAll}
-            disabled={!pagination.totalElements || isAnyMutationPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-sm font-medium text-rose-800 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Xóa tất cả
-          </button>
+            <button
+              type="button"
+              onClick={confirmRestoreAll}
+              disabled={!pagination.totalElements || isAnyMutationPending}
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs sm:text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Khôi phục tất cả
+            </button>
+
+            <button
+              type="button"
+              onClick={confirmDeleteAll}
+              disabled={!pagination.totalElements || isAnyMutationPending}
+              className="inline-flex cursor-pointer w-full sm:w-auto items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs sm:text-sm font-medium text-rose-800 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Xóa tất cả
+            </button>
+          </div>
         </div>
       </div>
 
@@ -384,52 +379,56 @@ export const AdminTrash = () => {
         ) : trashItems.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">Thùng rác hiện đang trống.</div>
         ) : (
-          <div className="space-y-4 p-4">
+          <div className="space-y-3 sm:space-y-4 p-2 sm:p-4">
             {trashItems.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 lg:grid-cols-[180px_1fr_auto]"
+                className="grid gap-3 sm:gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 sm:p-4 md:grid-cols-[150px_1fr_auto] lg:grid-cols-[180px_1fr_auto] shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="h-40 overflow-hidden rounded-md bg-slate-100">
-                  <div className="mb-2">
-                    <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-700">
+                <div className="relative h-48 md:h-36 lg:h-40 overflow-hidden rounded-md bg-slate-100 group">
+                  <div className="absolute top-2 left-2 z-10">
+                    <label
+                      className="inline-flex items-center gap-2 rounded bg-white/80 px-2 py-1 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur-sm cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
                         checked={selectedImageIds.includes(item.id)}
                         onChange={() => toggleSelectImage(item.id)}
                         disabled={isAnyMutationPending}
-                        className="size-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                        className="size-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
-                      Chọn ảnh
                     </label>
                   </div>
+
                   <ImageWithFallback
-                    //imageId={item.id}
-                    src={item.imageUrl}
-                    //src={resolveImageUrl(item.imageUrl, item.id)}
+                    imageId={item.id}
+                    src={getTrashImageApiUrl(item.id)}
                     alt={item.originalFileName || `Image ${item.id}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                    onClick={() => setPreviewImageId(item.id)}
                   />
                 </div>
 
-                <div className="space-y-1 text-sm text-gray-700">
-                  <p className="text-base font-semibold text-zinc-900">#{item.id} - {item.originalFileName || "--"}</p>
-                  <p>Kích thước: {formatFileSize(item.fileSize)}</p>
-                  <p>Loại tệp: {item.mimeType || "--"}</p>
-                  <p>Kích thước ảnh: {item.width || "--"} x {item.height || "--"}</p>
-                  <p>Đưa vào thùng rác: {formatDateTime(item.deletedAt)}</p>
-                  <p>Tự xóa vào: {formatDateTime(item.expiresAt)}</p>
-                  <p className="font-medium text-amber-700">
+                <div className="space-y-1 text-sm text-gray-700 flex flex-col justify-center">
+                  <p className="hidden md:block text-base font-semibold text-zinc-900 truncate">#{item.id} - {item.originalFileName || "--"}</p>
+                  <p className="hidden md:block">Kích thước: {formatFileSize(item.fileSize)}</p>
+                  <p className="hidden md:block">Loại tệp: {item.mimeType || "--"}</p>
+                  <p className="hidden md:block">Kích thước ảnh: {item.width || "--"} x {item.height || "--"}</p>
+                  <p className="hidden md:block">Đưa vào thùng rác: {formatDateTime(item.deletedAt)}</p>
+                  <p className="hidden md:block">Tự xóa vào: {formatDateTime(item.expiresAt)}</p>
+
+                  <p className="font-medium text-amber-700 text-center md:text-left text-base md:text-sm mt-1 md:mt-0">
                     Còn lại: {Number(item.daysUntilPermanentDeletion ?? 0)} ngày
                   </p>
                 </div>
 
-                <div className="flex items-start gap-2 lg:flex-col lg:items-stretch">
+                <div className="grid grid-cols-2 gap-2 md:flex md:flex-col md:items-stretch md:justify-center">
                   <button
                     type="button"
                     onClick={() => confirmRestore(item.id)}
                     disabled={isAnyMutationPending}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex cursor-pointer w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <FiRotateCcw className="size-4" />
                     Khôi phục
@@ -439,10 +438,11 @@ export const AdminTrash = () => {
                     type="button"
                     onClick={() => confirmPermanentDelete(item.id)}
                     disabled={isAnyMutationPending}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex cursor-pointer w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <FiTrash2 className="size-4" />
-                    Xóa vĩnh viễn
+                    Xóa
+                    <span className="hidden md:inline">vĩnh viễn</span>
                   </button>
                 </div>
               </article>
@@ -455,7 +455,7 @@ export const AdminTrash = () => {
             type="button"
             disabled={!pagination.hasPrevious}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <FiChevronLeft className="size-4" />
             Trước
@@ -469,13 +469,22 @@ export const AdminTrash = () => {
             type="button"
             disabled={!pagination.hasNext}
             onClick={() => setPage((current) => current + 1)}
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Sau
             <FiChevronRight className="size-4" />
           </button>
         </div>
       </div>
+
+
+      {previewImageId && (
+        <ImagePreviewModal
+          imageId={previewImageId}
+          imageUrl={getTrashImageApiUrl(previewImageId)}
+          onClose={() => setPreviewImageId(null)}
+        />
+      )}
     </section>
   );
 };

@@ -1,4 +1,5 @@
 import apiClient from "./apiClient";
+import { API_BASE_URL } from "../config/constants";
 
 const UPLOAD_CHUNK_SIZE = 50;
 
@@ -41,3 +42,7 @@ export const uploadImages = async (files) => {
   return uploadedImages;
 };
 
+export const getTrashImageApiUrl = (imageId) => {
+  if (!imageId) return "";
+  return `${API_BASE_URL}/images/trash/${imageId}`;
+};

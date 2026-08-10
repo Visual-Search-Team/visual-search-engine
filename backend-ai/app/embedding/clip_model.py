@@ -259,12 +259,7 @@ class CLIPModelWrapper:
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
-    # Gắn 7 thuộc tính thời trang cho MỘT vector ảnh (vector đã tính sẵn từ
-    # get_image_embedding/get_image_embeddings, không encode lại ảnh).
-    def predict_all_attributes(self, image_embedding: list[float]) -> dict:
-        return self.predict_all_attributes_batch([image_embedding])[0]
-
-    # Gắn 7 thuộc tính thời trang cho MỘT BATCH vector ảnh cùng lúc (1 phép nhân ma
+    # Gắn thuộc tính thời trang cho MỘT BATCH vector ảnh cùng lúc (1 phép nhân ma
     # trận cho cả batch mỗi nhóm thuộc tính, thay vì lặp từng ảnh) — dùng hàm này khi
     # indexing theo batch để tận dụng tối đa.
     def predict_all_attributes_batch(self, image_embeddings: list[list[float]]) -> list[dict]:

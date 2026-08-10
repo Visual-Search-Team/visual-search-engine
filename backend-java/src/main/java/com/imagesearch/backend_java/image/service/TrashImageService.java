@@ -10,6 +10,7 @@ import com.imagesearch.backend_java.index.repository.IndexingJobItemRepository;
 import com.imagesearch.backend_java.index.service.IndexingJobService;
 import com.imagesearch.backend_java.search.repository.BookmarkRepository;
 import com.imagesearch.backend_java.search.repository.ImageOcrRepository;
+import com.imagesearch.backend_java.search.repository.SearchHistoryRepository;
 import com.imagesearch.backend_java.search.service.QdrantVectorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class TrashImageService {
     private final QdrantVectorService qdrantVectorService;
     private final ImageOcrRepository imageOcrRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final SearchHistoryRepository searchHistoryRepository;
     private final IndexingJobItemRepository indexingJobItemRepository;
     private final IndexingJobService indexingJobService;
 
@@ -208,6 +210,7 @@ public class TrashImageService {
     }
 
     private void deleteDatabaseReferences(Long imageId) {
+        searchHistoryRepository.deleteByImageId(imageId);
         imageOcrRepository.deleteByImageId(imageId);
         bookmarkRepository.deleteByImageId(imageId);
         indexingJobItemRepository.deleteByImage_Id(imageId);

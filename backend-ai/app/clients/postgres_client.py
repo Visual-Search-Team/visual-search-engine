@@ -1,5 +1,5 @@
-from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, Numeric, Text, select, JSON, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy import create_engine, Column, BigInteger, String, Integer, DateTime, JSON, Boolean
+from sqlalchemy.orm import declarative_base, sessionmaker
 import os
 import datetime
 
@@ -30,19 +30,6 @@ class ImageEntity(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
-class ImageOcrEntity(Base):
-    __tablename__ = 'image_ocr'
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    image_id = Column(BigInteger, nullable=False)
-    extracted_text = Column(Text, nullable=True)
-    language = Column(String(20), nullable=True)
-    confidence = Column(Numeric(5, 4), nullable=True)
-    bounding_boxes = Column(JSON, nullable=True)   
-    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-
-
 host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")
 db = os.environ.get("POSTGRES_DB", "imagesearch")
@@ -53,10 +40,3 @@ SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}:{port}
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()

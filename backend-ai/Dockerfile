@@ -21,7 +21,6 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    LORA_WEIGHTS_DIR=/app/lora-weights \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:${PATH}"
 
@@ -44,4 +43,4 @@ RUN chown -R app:app /app /opt/venv
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "mkdir -p /app/base_model_cache /app/ocr_model_cache /app/lora-weights && chown -R app:app /app/base_model_cache /app/ocr_model_cache /app/lora-weights && exec su app -s /bin/sh -c 'uvicorn app.main:app --host 0.0.0.0 --port 8000'"]
+CMD ["sh", "-c", "mkdir -p /app/base_model_cache && chown -R app:app /app/base_model_cache && exec su app -s /bin/sh -c 'uvicorn app.main:app --host 0.0.0.0 --port 8000'"]

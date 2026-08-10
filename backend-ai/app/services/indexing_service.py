@@ -1,13 +1,11 @@
-import gc
 import re
 import logging
 import io
-import json
 import time
 import datetime
 import os
+import torch
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from decimal import Decimal
 from PIL import Image
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -52,7 +50,7 @@ def process_pending_images(db: Session):
     def _download_and_decode(image: ImageEntity) -> Image.Image:
         image_bytes = minio_client_wrapper.download_image(image.storage_path)
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img.thumbnail((1000, 1000))
+        img.thumbnail((512, 512))  # FashionCLIP resize về 224px nội bộ, 512 là đủ
         return img
 
     with ThreadPoolExecutor(max_workers=_DOWNLOAD_WORKERS) as executor:
@@ -96,7 +94,6 @@ def process_pending_images(db: Session):
                     logger.info(f"[MANUAL OVERRIDE] Ghi đè brand='{manual_brand}' cho image id={img_id}")
                     
                     # AI tự động nạp brand này vào từ điển text search (nếu chưa có)
-                    from app.embedding.clip_model import clip_model
                     clip_model.add_dynamic_brand(manual_brand)
                     
                     clean_filename = re.sub(r'\[BRAND\].*?\[BRAND\]', '', filename)
@@ -161,5 +158,9 @@ def process_pending_images(db: Session):
             pass
 
     image_cache_dict.clear()
-    gc.collect()
-    logger.info("[GC] Đã dọn sạch bộ nhớ CLIP sau batch.")
+
+    # Giải phóng VRAM cache nếu đang chạy trên GPU, bỏ qua nếu CPU-only
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    logger.info("[MEM] Đã dọn sạch bộ nhớ sau batch.")

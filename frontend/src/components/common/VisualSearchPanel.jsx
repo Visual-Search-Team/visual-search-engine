@@ -18,12 +18,12 @@ const searchModes = [
     icon: FaAlignLeft,
     placeholder: 'Nhập mô tả hình ảnh bạn muốn tìm...',
   },
-  {
-    id: 'ocr',
-    label: 'Tìm chữ trong ảnh',
-    icon: FaFont,
-    placeholder: 'Nhập nội dung chữ xuất hiện trong ảnh...',
-  },
+  // {
+  //   id: 'ocr',
+  //   label: 'Tìm chữ trong ảnh',
+  //   icon: FaFont,
+  //   placeholder: 'Nhập nội dung chữ xuất hiện trong ảnh...',
+  // },
 ];
 
 export default function VisualSearchPanel() {

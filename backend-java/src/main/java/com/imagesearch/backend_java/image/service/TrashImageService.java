@@ -210,7 +210,7 @@ public class TrashImageService {
     }
 
     private void deleteDatabaseReferences(Long imageId) {
-        searchHistoryRepository.deleteByImageId(imageId);
+        searchHistoryRepository.deleteByQueryImageId(imageId);
         imageOcrRepository.deleteByImageId(imageId);
         bookmarkRepository.deleteByImageId(imageId);
         indexingJobItemRepository.deleteByImage_Id(imageId);

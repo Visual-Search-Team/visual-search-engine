@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { FaTimes } from 'react-icons/fa';
@@ -60,10 +61,10 @@ export default function CropModal({ imageUrl, originalFile, onCancel, onCropComp
         }
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-            <div className="relative flex w-full max-w-4xl flex-col rounded-2xl bg-white p-6 shadow-2xl">
-                <div className="mb-4 flex items-center justify-between">
+            <div className="relative max-h-[95vh] flex w-full max-w-4xl flex-col rounded-2xl bg-white p-6 shadow-2xl">
+                <div className="mb-3 flex shrink-0 items-center justify-between sm:mb-4">
                     <h3 className="text-xl font-bold text-gray-800">Cắt vùng ảnh cần tìm kiếm</h3>
                     <button onClick={onCancel} className="text-gray-500 cursor-pointer hover:text-red-500 transition">
                         <FaTimes className="h-6 w-6" />
@@ -71,7 +72,7 @@ export default function CropModal({ imageUrl, originalFile, onCancel, onCropComp
                 </div>
 
                 {/* Khu vực Crop */}
-                <div className="flex max-h-[60vh] justify-center overflow-auto bg-slate-100 p-2 rounded-xl">
+                <div className="flex min-h-0 flex-1 max-h-[60vh] justify-center overflow-auto bg-slate-100 p-2 rounded-xl">
                     <ReactCrop
                         crop={crop}
                         onChange={(c) => setCrop(c)}
@@ -81,16 +82,16 @@ export default function CropModal({ imageUrl, originalFile, onCancel, onCropComp
                             ref={imgRef}
                             src={imageUrl}
                             alt="Crop area"
-                            className="max-h-[55vh] w-auto object-contain"
+                            className="max-h-[50vh] w-auto object-contain md:max-h-[55vh]"
                         />
                     </ReactCrop>
                 </div>
 
-                <p className="mt-4 text-center text-sm font-bold text-indigo-600">
+                <p className="mt-3 shrink-0 text-center text-xs font-bold text-indigo-600 sm:mt-4 sm:text-sm">
                     * Kéo thả khu vực bạn muốn tìm
                 </p>
 
-                <div className="mt-6 flex justify-end gap-3">
+                <div className="mt-4 flex shrink-0 flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-end sm:gap-3">
                     <button
                         onClick={onCancel}
                         className="rounded-full cursor-pointer px-5 py-2 text-sm font-medium text-gray-600 hover:bg-red-500 transition hover:text-white"
@@ -106,6 +107,7 @@ export default function CropModal({ imageUrl, originalFile, onCancel, onCropComp
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

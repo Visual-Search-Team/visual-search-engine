@@ -23,4 +23,6 @@ public interface SearchHistoryRepository extends JpaRepository<SearchHistory, Lo
     long countByUserId(Long userId);
 
     void deleteByUserId(Long userId);
+
+    void deleteByQueryImageId(Long queryImageId);
 }

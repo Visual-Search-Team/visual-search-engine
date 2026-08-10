@@ -12,13 +12,12 @@ export const CompactSearchBar = ({ className = "" }) => {
   
   const currentType = searchParams.get('type') || 'text';
   const initialQuery = searchParams.get('q') || '';
-  const initialIsOcr = searchParams.get('mode') === 'OCR';
 
   const [query, setQuery] = useState(initialQuery);
   const [selectedFile, setSelectedFile] = useState(
     currentType === 'image' || currentType === 'composed' ? searchStore.imageFile : null
   );
-  const [isOcrMode, setIsOcrMode] = useState(initialIsOcr);
+
   const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -34,7 +33,7 @@ export const CompactSearchBar = ({ className = "" }) => {
   const getSearchMode = () => {
     if (hasImage && hasText) return 'composed';
     if (hasImage) return 'image';
-    if (hasText) return isOcrMode ? 'ocr' : 'semantic';
+    if (hasText) return 'semantic';
     return null;
   };
 
@@ -56,8 +55,7 @@ export const CompactSearchBar = ({ className = "" }) => {
         replace: true,
       });
     } else {
-      const textMode = mode === 'ocr' ? 'OCR' : 'SEMANTIC';
-      navigate(`/search-result?type=text&q=${encodeURIComponent(query.trim())}&mode=${textMode}&page=1&size=20`, {
+      navigate(`/search-result?type=text&q=${encodeURIComponent(query.trim())}&mode=SEMANTIC&page=1&size=20`, {
         replace: true,
       });
     }
@@ -121,7 +119,6 @@ export const CompactSearchBar = ({ className = "" }) => {
     setTempImageUrl(null);
 
     setSelectedFile(croppedFile);
-    setIsOcrMode(false);
     searchStore.imageFile = croppedFile;
 
     if (fileInputRef.current) {
@@ -188,21 +185,7 @@ export const CompactSearchBar = ({ className = "" }) => {
           />
 
           <div className="flex shrink-0 items-center gap-1 md:gap-2 border-l pl-2 md:pl-3 border-gray-200">
-            {/* OCR Toggle */}
-            {!hasImage && (
-              <button
-                type="button"
-                onClick={() => setIsOcrMode(!isOcrMode)}
-                className={`group relative flex cursor-pointer items-center justify-center rounded-full p-2 transition-colors ${
-                  isOcrMode
-                    ? 'bg-indigo-100 text-indigo-600'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-indigo-600'
-                }`}
-                title="Tìm chữ trong ảnh (OCR)"
-              >
-                <FaFont className="size-4 md:size-5" />
-              </button>
-            )}
+
 
             {/* Voice Search */}
             <button

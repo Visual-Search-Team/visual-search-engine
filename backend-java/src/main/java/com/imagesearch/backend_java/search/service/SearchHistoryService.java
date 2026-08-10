@@ -137,10 +137,10 @@ public class SearchHistoryService {
         return switch (type.trim().toLowerCase()) {
             case "image" -> SearchType.IMAGE_TO_IMAGE;
             case "semantic", "senmatic" -> SearchType.TEXT_SEMANTIC;
-            case "ocr", "orc" -> SearchType.TEXT_OCR;
+            case "composed" -> SearchType.COMPOSED;
             default -> throw new SearchException(
                     "INVALID_SEARCH_TYPE",
-                    "Type must be image, semantic or ocr",
+                    "Type must be image, semantic or composed",
                     HttpStatus.BAD_REQUEST
             );
         };

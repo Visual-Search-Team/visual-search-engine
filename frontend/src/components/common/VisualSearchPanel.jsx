@@ -12,7 +12,7 @@ export default function VisualSearchPanel() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [fileError, setFileError] = useState('');
   const [query, setQuery] = useState('');
-  const [isOcrMode, setIsOcrMode] = useState(false);
+
 
   const [showCropModal, setShowCropModal] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState(null);
@@ -37,7 +37,7 @@ export default function VisualSearchPanel() {
   const getSearchMode = () => {
     if (hasImage && hasText) return 'composed';
     if (hasImage) return 'image';
-    if (hasText) return isOcrMode ? 'ocr' : 'semantic';
+    if (hasText) return 'semantic';
     return null;
   };
 
@@ -46,7 +46,7 @@ export default function VisualSearchPanel() {
     switch (mode) {
       case 'composed': return 'Ảnh + Mô tả';
       case 'image': return 'Tìm bằng ảnh';
-      case 'ocr': return 'Tìm chữ trong ảnh (OCR)';
+
       case 'semantic': return 'Tìm bằng mô tả';
       default: return '';
     }
@@ -86,8 +86,7 @@ export default function VisualSearchPanel() {
     URL.revokeObjectURL(tempImageUrl);
     setTempImageUrl(null);
 
-    // Khi có ảnh, tắt OCR mode
-    setIsOcrMode(false);
+
   };
 
   const handleCancelCrop = () => {
@@ -153,12 +152,11 @@ export default function VisualSearchPanel() {
         },
       });
     } else {
-      // semantic or ocr
-      const textMode = mode === 'ocr' ? 'OCR' : 'SEMANTIC';
+      // semantic
       const searchParams = new URLSearchParams({
         type: 'text',
         q: query.trim(),
-        mode: textMode,
+        mode: 'SEMANTIC',
         page: '1',
         size: '20',
       });
@@ -166,7 +164,7 @@ export default function VisualSearchPanel() {
         state: {
           type: 'text',
           query: query.trim(),
-          mode: textMode,
+          mode: 'SEMANTIC',
         },
       });
     }
@@ -289,19 +287,7 @@ export default function VisualSearchPanel() {
             </button>
           </div>
 
-          {/* OCR toggle — chỉ hiện khi không có ảnh */}
-          {!hasImage && hasText && (
-            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm text-gray-600 transition hover:text-gray-800">
-              <input
-                type="checkbox"
-                checked={isOcrMode}
-                onChange={(e) => setIsOcrMode(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <FaFont className="h-3 w-3" />
-              Tìm chữ trong ảnh (OCR)
-            </label>
-          )}
+
         </form>
 
         {/* Gợi ý mode hiện tại */}
@@ -310,7 +296,7 @@ export default function VisualSearchPanel() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
               {getSearchMode() === 'composed' && <><FaImage className="h-3 w-3" /> + <FaFont className="h-3 w-3" /></>}
               {getSearchMode() === 'image' && <FaImage className="h-3 w-3" />}
-              {(getSearchMode() === 'semantic' || getSearchMode() === 'ocr') && <FaFont className="h-3 w-3" />}
+              {getSearchMode() === 'semantic' && <FaFont className="h-3 w-3" />}
               {getModeLabel()}
             </span>
           </div>

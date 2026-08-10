@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
+import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
 import { FiArrowDown } from "react-icons/fi";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
@@ -37,7 +37,6 @@ const getModeLabel = (type, mode) => {
   if (type === "composed") return "Ảnh + Mô tả";
   if (type === "similar") return "Tìm ảnh tương tự";
   if (type === "image") return "Tìm bằng ảnh";
-  if (mode === "OCR") return "Tìm chữ trong ảnh";
   return "Tìm bằng text";
 };
 
@@ -45,7 +44,6 @@ const getDescriptionLabel = (type, mode) => {
   if (type === "composed") return "Kết quả cho ảnh + mô tả";
   if (type === "similar") return "Kết quả tương tự cho ảnh";
   if (type === "image") return "Kết quả cho ảnh";
-  if (mode === "OCR") return "Kết quả cho chữ";
   return "Kết quả cho mô tả";
 };
 
@@ -329,8 +327,6 @@ export const SearchResult = () => {
                   <><FaImage className="h-3.5 w-3.5" /><span>+</span><FaAlignLeft className="h-3.5 w-3.5" /></>
                 ) : type === "image" ? (
                   <FaImage className="h-3.5 w-3.5" />
-                ) : mode === "OCR" ? (
-                  <FaFont className="h-3.5 w-3.5" />
                 ) : (
                   <FaAlignLeft className="h-3.5 w-3.5" />
                 )}

@@ -3,8 +3,6 @@ import apiClient from "./apiClient";
 const SEARCH_HISTORY_ENDPOINTS = ["/search-history", "/search/history"];
 const legacySearchTypeMap = {
   IMAGE_TO_IMAGE: "image",
-  TEXT_SEMANTIC: "semantic",
-  TEXT_OCR: "ocr",
 };
 
 const getLegacyParams = ({ page, size, searchType }) => ({

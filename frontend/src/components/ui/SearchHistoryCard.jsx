@@ -1,4 +1,4 @@
-import { FaAlignLeft, FaClock, FaFont, FaHashtag, FaImage } from "react-icons/fa";
+import { FaAlignLeft, FaClock, FaHashtag, FaImage } from "react-icons/fa";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { ImageWithFallback } from "../common/ImageWithFallback";
 import { formatDateTime } from "../../utils/formatDateTime";
@@ -13,11 +13,6 @@ const searchTypeConfig = {
     label: "Text Semantic",
     Icon: FaAlignLeft,
     className: "bg-emerald-700/10 text-emerald-700",
-  },
-  TEXT_OCR: {
-    label: "Text OCR",
-    Icon: FaFont,
-    className: "bg-sky-700/10 text-sky-700",
   },
 };
 

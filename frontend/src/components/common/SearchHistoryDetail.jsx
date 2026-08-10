@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { FaTimes, FaImage, FaAlignLeft, FaFont, FaClock, FaExpandArrowsAlt, FaFileAlt } from "react-icons/fa";
+import { FaTimes, FaImage, FaAlignLeft, FaClock, FaExpandArrowsAlt, FaFileAlt } from "react-icons/fa";
 import { getSearchHistoryDetail } from "../../services/searchHistoryService";
 import { ImageWithFallback } from "../common/ImageWithFallback";
 import { formatDateTime } from "../../utils/formatDateTime";
@@ -51,11 +51,10 @@ export const SearchHistoryDetailModal = ({ isOpen, onClose, searchId }) => {
 
                             <div className="flex items-center gap-2">
                                 <span className={`px-3 py-1 text-sm font-medium rounded-full flex items-center gap-1
-                  ${isImageSearch ? 'bg-indigo-100 text-indigo-700' :
-                                        data?.searchType === 'TEXT_OCR' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}
+                  ${isImageSearch ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}
                 `}>
-                                    {isImageSearch ? <FaImage /> : data?.searchType === 'TEXT_OCR' ? <FaFont /> : <FaAlignLeft />}
-                                    {isImageSearch ? "Tìm bằng hình ảnh" : data?.searchType === 'TEXT_OCR' ? "Text OCR" : "Text Semantic"}
+                                    {isImageSearch ? <FaImage /> : <FaAlignLeft />}
+                                    {isImageSearch ? "Tìm bằng hình ảnh" : "Text Semantic"}
                                 </span>
                             </div>
 

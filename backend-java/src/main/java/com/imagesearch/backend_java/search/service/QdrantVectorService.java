@@ -140,7 +140,7 @@ public class QdrantVectorService {
      * Response chỉ cần point id và score, payload đang được tắt.
      */
     public JsonObject searchByEmbedding(List<Float> embedding, int limit) throws IOException {
-        return searchByEmbedding(embedding, limit, null);
+        return searchByEmbedding(embedding, limit, null, null);
     }
 
     /**

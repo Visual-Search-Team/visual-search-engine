@@ -8,19 +8,20 @@ import os
 logger = logging.getLogger(__name__)
 
 # Bảng 12 màu cơ bản tương ứng với FashionCLIP
+# Bổ sung nhiều điểm neo (centroids) cho mỗi màu để bao phủ các sắc độ thực tế
 _BASE_COLORS = {
-    "Red": (255, 0, 0),
-    "Blue": (0, 0, 255),
-    "Black": (0, 0, 0),
-    "White": (255, 255, 255),
-    "Yellow": (255, 255, 0),
-    "Green": (0, 128, 0),
-    "Pink": (255, 192, 203),
-    "Grey": (128, 128, 128),
-    "Brown": (165, 42, 42),
-    "Purple": (128, 0, 128),
-    "Orange": (255, 165, 0),
-    "Beige": (245, 245, 220),
+    "Red": [(220, 20, 30), (139, 0, 0), (255, 50, 50)], 
+    "Blue": [(20, 50, 180), (0, 0, 128), (135, 206, 235)],
+    "Black": [(0, 0, 0), (40, 40, 40)],
+    "White": [(255, 255, 255), (240, 240, 240)],
+    "Yellow": [(255, 255, 0), (255, 215, 0), (218, 165, 32)],
+    "Green": [(0, 128, 0), (34, 139, 34), (144, 238, 144), (0, 100, 0)],
+    "Pink": [(255, 192, 203), (255, 105, 180), (219, 112, 147)],
+    "Grey": [(128, 128, 128), (169, 169, 169), (105, 105, 105), (192, 192, 192)],
+    "Brown": [(139, 69, 19), (160, 82, 45), (205, 133, 63), (101, 67, 33)],
+    "Purple": [(128, 0, 128), (147, 112, 219), (75, 0, 130), (221, 160, 221)],
+    "Orange": [(255, 165, 0), (255, 140, 0), (255, 127, 80)],
+    "Beige": [(245, 245, 220), (255, 250, 205), (255, 228, 196), (238, 213, 183)],
 }
 
 class DominantColorExtractor:
@@ -39,11 +40,14 @@ class DominantColorExtractor:
         
         # Chuyển đổi bảng màu sang LAB không gian
         self._lab_colors = {}
-        for name, rgb in _BASE_COLORS.items():
-            # RGB cần có shape (1, 1, 3) dạng uint8 để convert sang LAB
-            rgb_np = np.uint8([[list(rgb)]])
-            lab_np = cv2.cvtColor(rgb_np, cv2.COLOR_RGB2LAB)
-            self._lab_colors[name] = lab_np[0][0]
+        for name, rgb_list in _BASE_COLORS.items():
+            lab_list = []
+            for rgb in rgb_list:
+                # RGB cần có shape (1, 1, 3) dạng uint8 để convert sang LAB
+                rgb_np = np.uint8([[list(rgb)]])
+                lab_np = cv2.cvtColor(rgb_np, cv2.COLOR_RGB2LAB)
+                lab_list.append(lab_np[0][0])
+            self._lab_colors[name] = lab_list
             
         logger.info("DominantColorExtractor initialized.")
 
@@ -52,16 +56,17 @@ class DominantColorExtractor:
         min_dist = float('inf')
         closest_color = None
         
-        for name, base_lab in self._lab_colors.items():
-            # Khoảng cách Euclidean trong không gian LAB rất sát với mắt người
-            dist = np.linalg.norm(lab_val - base_lab)
-            if dist < min_dist:
-                min_dist = dist
-                closest_color = name
-                
+        for name, lab_list in self._lab_colors.items():
+            for base_lab in lab_list:
+                # Khoảng cách Euclidean trong không gian LAB rất sát với mắt người
+                dist = np.linalg.norm(lab_val - base_lab)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_color = name
+                    
         return closest_color
 
-    def get_dominant_colors(self, img: Image.Image, k: int = 5, top_n: int = 2) -> list[str]:
+    def get_dominant_colors(self, img: Image.Image, k: int = 5, top_n: int = 2) -> list[dict]:
         """
         Trích xuất top_n màu chủ đạo của ảnh bằng K-Means trên LAB space sau khi tách nền.
         """
@@ -113,34 +118,42 @@ class DominantColorExtractor:
             counts = np.bincount(labels, minlength=k)
             total = len(labels)
             
-            # Lọc và sắp xếp các cụm
+            # Lọc và lấy thông tin các cụm
             clusters = []
             for i in range(k):
                 if counts[i] > 0:
                     pct = counts[i] / total
+                    color_name = self._rgb_to_color_name(centers[i])
                     clusters.append({
                         "percent": pct,
-                        "lab": centers[i]
+                        "name": color_name
                     })
                     
-            # Sắp xếp theo tỷ lệ giảm dần
-            clusters.sort(key=lambda x: x["percent"], reverse=True)
-            
-            # 6. Map về tên màu và trả về
-            result_colors = []
+            # GỘP CÁC CỤM TRÙNG MÀU
+            # K-Means có thể chia áo màu Xanh dương thành 3 cụm Xanh dương khác nhau (đậm, nhạt).
+            # Ta cần cộng dồn phần trăm của chúng lại trước khi xếp hạng!
+            aggregated_colors = {}
             for cl in clusters:
-                color_name = self._rgb_to_color_name(cl["lab"])
-                # Tránh lặp màu trong kết quả (vd: 2 cụm khác nhau cùng map về "Blue")
-                if color_name not in result_colors:
-                    result_colors.append(color_name)
-                    
-                if len(result_colors) >= top_n:
-                    break
-                    
-            return result_colors if result_colors else ["White"] # Fallback an toàn
+                name = cl["name"]
+                if name not in aggregated_colors:
+                    aggregated_colors[name] = 0.0
+                aggregated_colors[name] += cl["percent"]
+                
+            final_colors = [{"name": k, "percent": float(v)} for k, v in aggregated_colors.items()]
+            
+            # Đưa các cụm màu rực rỡ (không phải Trắng/Đen/Xám) lên ưu tiên 
+            # nếu chúng chiếm một diện tích đáng kể (> 10%) để tránh bóng đổ / lóa sáng
+            def sort_key(x):
+                is_vibrant = x["name"] not in ["Black", "White", "Grey"]
+                is_significant = x["percent"] > 0.1
+                return (is_vibrant and is_significant, x["percent"])
+                
+            final_colors.sort(key=sort_key, reverse=True)
+            
+            return final_colors[:top_n] if final_colors else [{"name": "White", "percent": 1.0}]
             
         except Exception as e:
             logger.error(f"Error in dominant color extraction: {e}")
-            return ["White"] # Fallback an toàn
+            return [{"name": "White", "percent": 1.0}] # Fallback an toàn
 
 color_extractor = DominantColorExtractor()

@@ -205,7 +205,7 @@ public class SearchService {
             EmbeddingResponse embeddingResponse = aiEmbeddingClient.getComposedEmbedding(storagePath, text.trim(), alpha);
             log.info("Get composed embedding success");
 
-            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), embeddingResponse.getNegativeFilters(), pageCriteria.limit());
             SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
                     username,
                     SearchType.COMPOSED,
@@ -238,7 +238,7 @@ public class SearchService {
             log.info("Call AI embedding text");
             EmbeddingResponse embeddingResponse = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
-            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), embeddingResponse.getNegativeFilters(), pageCriteria.limit());
             SearchHistory history = pageCriteria.page() == 0
                     ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
                     : null;
@@ -251,11 +251,11 @@ public class SearchService {
 
 
     private List<SearchResultItem> searchQdrant(List<Float> embedding, int limit) throws IOException {
-        return searchQdrant(embedding, null, limit);
+        return searchQdrant(embedding, null, null, limit);
     }
 
-    private List<SearchResultItem> searchQdrant(List<Float> embedding, Map<String, List<String>> filters, int limit) throws IOException {
-        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit, filters);
+    private List<SearchResultItem> searchQdrant(List<Float> embedding, Map<String, List<String>> filters, Map<String, List<String>> negativeFilters, int limit) throws IOException {
+        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit, filters, negativeFilters);
         return mapQdrantResults(rawResult, null);
     }
 

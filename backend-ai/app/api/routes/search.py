@@ -31,7 +31,7 @@ class ComposedEmbeddingRequest(BaseModel):
 class EmbeddingResponse(BaseModel):
     embedding: list[float]
     filters: dict[str, list[str]] | None = None
-
+    negative_filters: dict[str, list[str]] | None = None
 
 
 @router.post("/image", response_model=EmbeddingResponse)
@@ -69,11 +69,12 @@ async def get_text_embedding(request: TextEmbeddingRequest):
         raise HTTPException(status_code=400, detail="text is required")
         
     try:
+        from app.embedding.query_parser import QueryParser
         embedding = clip_model.get_text_embedding(request.text)
-        filters = clip_model.extract_tags_from_text(request.text)
-        if filters:
-            logger.info(f"[Filter] Bóc tách được filter từ query: {filters}")
-        return {"embedding": embedding, "filters": filters or None}
+        filters, negative_filters, _ = QueryParser.parse_and_clean_query(request.text)
+        if filters or negative_filters:
+            logger.info(f"[Filter] Text search bóc tách filter: {filters}, neg: {negative_filters}")
+        return {"embedding": embedding, "filters": filters or None, "negative_filters": negative_filters or None}
     except Exception as e:
         logger.error(f"Error computing text embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -95,16 +96,21 @@ async def get_composed_embedding(request: ComposedEmbeddingRequest):
         from app.clients.minio_client import minio_client_wrapper
         import io
         from PIL import Image
+        from app.embedding.query_parser import QueryParser
 
         image_bytes = minio_client_wrapper.download_image(request.storagePath)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
         alpha = max(0.0, min(1.0, request.alpha))
-        embedding = clip_model.get_composed_embedding(pil_image, request.text, alpha)
-        filters = clip_model.extract_tags_from_text(request.text)
-        if filters:
-            logger.info(f"[Filter] Bóc tách được filter từ composed query: {filters}")
-        return {"embedding": embedding, "filters": filters or None}
+        
+        # Áp dụng logic ưu tiên Filter
+        filters, negative_filters, remaining_text = QueryParser.parse_and_clean_query(request.text)
+        if filters or negative_filters:
+            logger.info(f"[Filter] Bóc tách được filter từ composed query: {filters} | Neg: {negative_filters} | Text còn lại: '{remaining_text}'")
+            
+        embedding = clip_model.get_composed_embedding(pil_image, remaining_text, alpha)
+        
+        return {"embedding": embedding, "filters": filters or None, "negative_filters": negative_filters or None}
     except Exception as e:
         logger.error(f"Error computing composed embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

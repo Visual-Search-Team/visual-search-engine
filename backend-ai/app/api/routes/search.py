@@ -1,8 +1,9 @@
 import json
 import logging
 from decimal import Decimal
+from typing import Dict, Any, Optional
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request, UploadFile, File, Form
 from pydantic import BaseModel
 
 from app.embedding.clip_model import clip_model
@@ -26,12 +27,13 @@ class ComposedEmbeddingRequest(BaseModel):
     type: str = "composed"
     storagePath: str
     text: str
-    alpha: float = 0.7
+    alpha: float | None = 0.7
 
 class EmbeddingResponse(BaseModel):
     embedding: list[float]
     filters: dict[str, list[str]] | None = None
     negative_filters: dict[str, list[str]] | None = None
+    alpha_used: float | None = None
 
 
 @router.post("/image", response_model=EmbeddingResponse)
@@ -69,11 +71,11 @@ async def get_text_embedding(request: TextEmbeddingRequest):
         raise HTTPException(status_code=400, detail="text is required")
         
     try:
-        embedding = clip_model.get_text_embedding(request.text)
-        filters = QueryParser.extract_tags_from_text(request.text)
+        filters, negative_filters, remaining_text, _ = QueryParser.extract_tags_from_text(request.text, 1.0)
+        embedding = clip_model.get_text_embedding(remaining_text)
         if filters:
             logger.info(f"[Filter] Text search bóc tách filter: {filters}")
-        return {"embedding": embedding, "filters": filters or None, "negative_filters": None}
+        return {"embedding": embedding, "filters": filters or None, "negative_filters": negative_filters or None}
     except Exception as e:
         logger.error(f"Error computing text embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -99,11 +101,21 @@ async def get_composed_embedding(request: ComposedEmbeddingRequest):
         image_bytes = minio_client_wrapper.download_image(request.storagePath)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-        composed_emb = clip_model.get_composed_embedding(pil_image, request.text, request.alpha)
-
-        filters = QueryParser.extract_tags_from_text(request.text)
+        client_alpha_hint = request.alpha if request.alpha is not None else 0.7
+        filters, negative_filters, remaining_text, alpha_used = QueryParser.extract_tags_from_text(request.text, client_alpha_hint)
         
-        return {"embedding": composed_emb, "filters": filters or None, "negative_filters": None}
+        if not remaining_text:
+            logger.info("remaining_text rỗng (chỉ có từ khoá làm filter cứng), bỏ qua text vector.")
+            composed_emb = clip_model.get_image_embedding(pil_image)
+        else:
+            composed_emb = clip_model.get_composed_embedding(pil_image, remaining_text, alpha_used)
+        
+        return {
+            "embedding": composed_emb,
+            "filters": filters or None,
+            "negative_filters": negative_filters or None,
+            "alpha_used": alpha_used
+        }
     except Exception as e:
         logger.error(f"Error computing composed embedding: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=f"Error computing embedding: {e}")

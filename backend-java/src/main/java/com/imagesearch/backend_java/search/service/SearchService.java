@@ -101,7 +101,8 @@ public class SearchService {
                     null,
                     storagePath,
                     queryImage.getId(),
-                    startTime
+                    startTime,
+                    null
             ) : null;
 
             ImageSearchResponse response = new ImageSearchResponse();
@@ -139,7 +140,8 @@ public class SearchService {
                     null,
                     queryImage.getStoragePath(),
                     queryImage.getId(),
-                    startTime
+                    startTime,
+                    null
             ) : null;
 
             ImageSearchResponse response = new ImageSearchResponse();
@@ -214,7 +216,8 @@ public class SearchService {
                     text.trim(),
                     storagePath,
                     queryImage.getId(),
-                    startTime
+                    startTime,
+                    embeddingResponse.getAlphaUsed()
             ) : null;
 
             ImageSearchResponse response = new ImageSearchResponse();
@@ -264,7 +267,7 @@ public class SearchService {
                 results = searchQdrant(embeddingResponse.getEmbedding(), null, null, pageCriteria.limit());
             }
             SearchHistory history = pageCriteria.page() == 0
-                    ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
+                    ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime, null)
                     : null;
             return buildTextResponse(query, "semantic", SearchType.TEXT_SEMANTIC, history, results, pageCriteria);
         } catch (IOException e) {
@@ -386,7 +389,8 @@ public class SearchService {
             String queryText,
             String queryImagePath,
             Long queryImageId,
-            long startTime
+            long startTime,
+            Float alphaUsed
     ) {
         SearchHistory history = SearchHistory.builder()
                 .userId(resolveUserId(username))
@@ -395,6 +399,7 @@ public class SearchService {
                 .queryImagePath(queryImagePath)
                 .queryImageId(queryImageId)
                 .processingTimeMs(System.currentTimeMillis() - startTime)
+                .alphaUsed(alphaUsed)
                 .build();
         return searchHistoryRepository.save(history);
     }

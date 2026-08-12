@@ -50,7 +50,7 @@ public class AiEmbeddingClient {
                 .type("composed")
                 .storagePath(storagePath)
                 .text(text)
-                .alpha(alpha != null ? alpha : 0.7f)
+                .alpha(alpha)
                 .build();
         return getFullEmbeddingResponse(
                 buildUrl(searchConfig.getComposedEmbeddingPath()), request, "composed:" + storagePath + ":" + text

@@ -57,6 +57,9 @@ public class SearchHistory {
     @Column(name = "processing_time_ms")
     private Long processingTimeMs;
 
+    @Column(name = "alpha_used")
+    private Float alphaUsed;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

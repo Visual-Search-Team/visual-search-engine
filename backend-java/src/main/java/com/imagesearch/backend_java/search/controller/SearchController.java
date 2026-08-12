@@ -97,7 +97,7 @@ public class SearchController {
     public BaseResponse<ImageSearchResponse> searchComposed(
             @RequestParam("image") MultipartFile image,
             @RequestParam("text") String text,
-            @RequestParam(value = "alpha", required = false, defaultValue = "0.7") Float alpha,
+            @RequestParam(value = "alpha", required = false) Float alpha,
             @RequestParam(value = "limit", required = false) Integer limit,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "pageSize", required = false) Integer pageSize,

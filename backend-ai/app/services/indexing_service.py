@@ -44,7 +44,7 @@ def process_pending_images(db: Session):
     if not pending_images:
         return
 
-    print(f"\n🔍 [SCAN] Found {len(pending_images)} images with PROCESSING status to index.")
+    print(f"[SCAN] Found {len(pending_images)} images to index.")
     logger.info(f"Found {len(pending_images)} images with PROCESSING status to index.")
     valid_ids = []
     failed_ids = []
@@ -75,32 +75,38 @@ def process_pending_images(db: Session):
     if image_cache_dict:
         try:
             valid_images = [image_cache_dict[image_id] for image_id in valid_ids]
+            
             embeddings = clip_model.get_image_embeddings(valid_images)
-
             attributes_list = clip_model.predict_all_attributes_batch(embeddings)
             attributes_by_id = dict(zip(valid_ids, attributes_list))
             
-            # Ghi đè thuộc tính color bằng K-Means + LAB từ OpenCV & rembg
-            for img_id, img_obj in zip(valid_ids, valid_images):
-                dom_colors_en_details = color_extractor.get_dominant_colors(img_obj)
-                
-                # Dịch sang tiếng Việt
+            # Ghi đè thuộc tính color bằng K-Means + LAB từ OpenCV & rembg (Sử dụng Multi-threading)
+            def _extract_color(img_id, img_obj):
+                dom_colors_en = color_extractor.get_dominant_colors(img_obj)
                 color_dict_vi = ATTRIBUTE_VI_LABELS["color"]
                 
-                # Chỉ lấy mảng tên màu lưu vào "color" để Java filter (VD: ["Đỏ", "Trắng"])
-                dom_colors_vi = [color_dict_vi.get(c["name"], c["name"]) for c in dom_colors_en_details]
-                
-                # Lưu chi tiết phần trăm vào một field riêng để hiển thị UI
+                dom_colors_vi = [color_dict_vi.get(c["name"], c["name"]) for c in dom_colors_en]
                 dom_colors_details_vi = [
                     {"name": color_dict_vi.get(c["name"], c["name"]), "percent": c["percent"]}
-                    for c in dom_colors_en_details
+                    for c in dom_colors_en
                 ]
-                
-                # Lưu ý: thuộc tính metadata_ai trong model cho phép dict tùy ý
-                if img_id in attributes_by_id:
-                    # Gán mảng các màu (top 2 màu) vào thuộc tính 'color'
-                    attributes_by_id[img_id]["color"] = dom_colors_vi
-                    attributes_by_id[img_id]["color_details"] = dom_colors_details_vi
+                return img_id, dom_colors_vi, dom_colors_details_vi
+
+            # Đặt cứng 8 luồng (thread) để giảm tải CPU
+            _COLOR_WORKERS = 8
+            with ThreadPoolExecutor(max_workers=_COLOR_WORKERS) as executor:
+                futures = {
+                    executor.submit(_extract_color, img_id, img_obj): img_id 
+                    for img_id, img_obj in zip(valid_ids, valid_images)
+                }
+                for future in as_completed(futures):
+                    try:
+                        img_id, dom_colors_vi, dom_colors_details_vi = future.result()
+                        if img_id in attributes_by_id:
+                            attributes_by_id[img_id]["color"] = dom_colors_vi
+                            attributes_by_id[img_id]["color_details"] = dom_colors_details_vi
+                    except Exception as e:
+                        logger.error(f"Color extraction failed for image {futures[future]}: {e}")
 
             # Dict lookup O(1) thay vì next() O(n) bên trong vòng lặp -> tránh O(n^2)
             entity_map = {img.id: img for img in pending_images}
@@ -116,7 +122,6 @@ def process_pending_images(db: Session):
                     if match:
                         manual_brand = match.group(1).strip().lower() # Giữ chữ thường như đã thống nhất
                         metadata["brand"] = manual_brand
-                        logger.info(f"[MANUAL OVERRIDE] Ghi đè brand='{manual_brand}' cho image id={img_id}")
                         
                         # AI tự động nạp brand này vào từ điển text search (nếu chưa có)
                         clip_model.add_dynamic_brand(manual_brand)
@@ -145,12 +150,7 @@ def process_pending_images(db: Session):
 
             clip_duration = time.time() - clip_start_time
             speed = len(valid_ids) / clip_duration if clip_duration > 0 else 0
-            print(
-                f"\n========================================\n"
-                f"⏱️ [SPEED CLIP] Xử lý xong {len(valid_ids)} ảnh trong "
-                f"{clip_duration:.2f}s. Tốc độ: {speed:.2f} ảnh/giây.\n"
-                f"========================================\n"
-            )
+            print(f"[SPEED] Processed {len(valid_ids)} images in {clip_duration:.2f}s ({speed:.2f} img/s)")
         except Exception as e:
             logger.error(f"Batch embedding or upsert failed: {e}")
             failed_ids.extend(valid_ids)

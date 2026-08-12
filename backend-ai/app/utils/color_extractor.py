@@ -35,8 +35,8 @@ class DominantColorExtractor:
         )
         os.environ["U2NET_HOME"] = cache_dir # Để rembg lưu model u2net vào cache dir chung
         
-        # u2net là model mặc định của rembg, rất nhẹ và xử lý tách viền áo tốt
-        self.rembg_session = new_session("u2net")
+        # Sử dụng u2netp (bản siêu nhẹ 4.7MB) thay cho u2net để tăng tốc độ trên CPU
+        self.rembg_session = new_session("u2netp")
         
         # Chuyển đổi bảng màu sang LAB không gian
         self._lab_colors = {}

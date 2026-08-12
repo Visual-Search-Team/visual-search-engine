@@ -17,7 +17,7 @@ def backfill():
             ImageEntity.index_status == 'INDEXED'
         ).all()
         
-        print(f"🔍 Tìm thấy {len(images)} ảnh có metadata_ai trong Postgres.")
+        print(f"Tìm thấy {len(images)} ảnh có metadata_ai trong Postgres.")
         
         for img in images:
             payload = {
@@ -34,11 +34,11 @@ def backfill():
                 points=[img.id],
                 wait=True
             )
-            print(f"✅ Đã cập nhật Payload cho ảnh ID = {img.id}")
+            print(f"Đã cập nhật Payload cho ảnh ID = {img.id}")
             
-        print("🎉 Đồng bộ hoàn tất!")
+        print("Đồng bộ hoàn tất!")
     except Exception as e:
-        print(f"❌ Lỗi khi đồng bộ: {e}")
+        print(f"Lỗi khi đồng bộ: {e}")
     finally:
         db.close()
 

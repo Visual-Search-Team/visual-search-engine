@@ -30,18 +30,6 @@ class ImageEntity(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
-class ImageOcrEntity(Base):
-    __tablename__ = 'image_ocr'
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    image_id = Column(BigInteger, nullable=False)
-    extracted_text = Column(Text, nullable=True)
-    language = Column(String(20), nullable=True)
-    confidence = Column(Numeric(5, 4), nullable=True)
-    bounding_boxes = Column(JSON, nullable=True)   
-    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
-
 
 host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")
@@ -51,7 +39,16 @@ password = os.environ.get("POSTGRES_PASSWORD", "postgres")
 
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+import json
+import psycopg.types.json
+
+def custom_json_serializer(obj):
+    return json.dumps(obj, ensure_ascii=False)
+
+# Đăng ký hàm dumps cho psycopg (v3) vì SQLAlchemy psycopg delegate việc này cho driver
+psycopg.types.json.set_json_dumps(custom_json_serializer)
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, json_serializer=custom_json_serializer)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():

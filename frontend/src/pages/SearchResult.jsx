@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
 import { FiArrowDown, FiTrash2 } from "react-icons/fi";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
-import { searchByImage, searchByText } from "../services/searchService";
+import { searchByImage, searchByText, searchComposed } from "../services/searchService";
 import { searchSimilarImages } from "../services/searchSimilarService";
 import { deleteImageByAdmin, deleteImagesByAdmin } from "../services/adminImageService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
@@ -37,16 +37,16 @@ const breakpointColumnsObj = {
 };
 
 const getModeLabel = (type, mode) => {
+  if (type === "composed") return "Ảnh + Mô tả";
   if (type === "similar") return "Tìm ảnh tương tự";
   if (type === "image") return "Tìm bằng ảnh";
-  if (mode === "OCR") return "Tìm chữ trong ảnh";
   return "Tìm bằng text";
 };
 
 const getDescriptionLabel = (type, mode) => {
+  if (type === "composed") return "Kết quả cho ảnh + mô tả";
   if (type === "similar") return "Kết quả tương tự cho ảnh";
   if (type === "image") return "Kết quả cho ảnh";
-  if (mode === "OCR") return "Kết quả cho chữ";
   return "Kết quả cho mô tả";
 };
 
@@ -92,6 +92,7 @@ export const SearchResult = () => {
   const isImageSearch = type === "image";
   const isSimilarSearch = type === "similar";
   const isTextSearch = type === "text";
+  const isComposedSearch = type === "composed";
   const isAdmin = role === "ADMIN";
   const canAdminBulkDelete = isAdmin && !USE_MOCK_SEARCH_RESULTS && (isImageSearch || isTextSearch);
 
@@ -103,14 +104,14 @@ export const SearchResult = () => {
 
   const imageFile = searchState.imageFile || searchStore.imageFile;
 
-  const canSearch = isImageSearch ? !!imageFile : isSimilarSearch ? !!imageId : !!query.trim();
+  const canSearch = isComposedSearch ? (!!imageFile && !!query.trim()) : isImageSearch ? !!imageFile : isSimilarSearch ? !!imageId : !!query.trim();
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const initialPage = Math.max(Number(searchParams.get("page") || 1), 1);
   const searchQueryKey = ["search-results", type, query, mode, size, imageFile?.name, imageId];
 
   const searchQuery = useInfiniteQuery({
-    queryKey: searchQueryKey,
+    queryKey: ["search-results", type, query, mode, size, imageFile?.name, imageId, isComposedSearch],
     initialPageParam: initialPage,
     queryFn: async ({ pageParam = initialPage }) => {
 
@@ -120,6 +121,10 @@ export const SearchResult = () => {
           size,
           searchType: isImageSearch ? "IMAGE_TO_IMAGE" : mode,
         });
+      }
+
+      if (isComposedSearch) {
+        return searchComposed({ image: imageFile, text: query, page: pageParam, size });
       }
 
       if (isSimilarSearch && imageId) {
@@ -286,12 +291,12 @@ export const SearchResult = () => {
   }, [canAdminBulkDelete, searchData.results]);
 
   const previewImageUrl = useMemo(() => {
-    if (isImageSearch && imageFile) return URL.createObjectURL(imageFile);
+    if ((isImageSearch || isComposedSearch) && imageFile) return URL.createObjectURL(imageFile);
     if (isSimilarSearch && searchData?.queryImageUrl) {
       return searchData.queryImageUrl;
     }
     return null;
-  }, [imageFile, isImageSearch, isSimilarSearch, searchData?.queryImageUrl]);
+  }, [imageFile, isImageSearch, isComposedSearch, isSimilarSearch, searchData?.queryImageUrl]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -339,11 +344,13 @@ export const SearchResult = () => {
   const descriptionLabel = getDescriptionLabel(type, mode);
   const descriptionValue = USE_MOCK_SEARCH_RESULTS
     ? "dữ liệu mock"
-    : isSimilarSearch
-      ? `ảnh có ID: #${imageId}`
-      : isImageSearch
-        ? imageFile?.name || "ảnh đã tải lên"
-        : query;
+    : isComposedSearch
+      ? `${imageFile?.name || "ảnh"} + "${query}"`
+      : isSimilarSearch
+        ? `ảnh có ID: #${imageId}`
+        : isImageSearch
+          ? imageFile?.name || "ảnh đã tải lên"
+          : query;
 
   const visibleImageIds = useMemo(
     () => [...new Set(searchData.results.map((item) => item.imageId))],
@@ -475,7 +482,26 @@ export const SearchResult = () => {
               Kết quả tìm kiếm
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              {isImageSearch || isSimilarSearch ? (
+              {isComposedSearch ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-base leading-7 text-gray-700">
+                    {descriptionLabel}:
+                  </span>
+                  <div
+                    className="h-20 w-20 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-sm"
+                  >
+                    <ImageWithFallback
+                      src={previewImageUrl}
+                      imageId={imageFile?.name}
+                      alt={imageFile?.name}
+                      className="h-full w-full object-cover p-1"
+                    />
+                  </div>
+                  <span className="text-base font-medium text-zinc-900">
+                    + "{query}"
+                  </span>
+                </div>
+              ) : isImageSearch || isSimilarSearch ? (
                 <div className="flex items-center gap-3">
                   <span className="text-base leading-7 text-gray-700">
                     {descriptionLabel}:
@@ -486,7 +512,6 @@ export const SearchResult = () => {
                   >
                     <ImageWithFallback
                       src={previewImageUrl}
-                      // src={URL.createObjectURL(imageFile)}
                       imageId={imageFile?.name}
                       alt={imageFile?.name}
                       className="h-full w-full object-cover p-1"
@@ -503,10 +528,10 @@ export const SearchResult = () => {
               )}
 
               <span className="inline-flex items-center gap-2 rounded-full bg-indigo-700/10 px-3 py-1 text-sm font-medium text-indigo-700">
-                {type === "image" ? (
+                {type === "composed" ? (
+                  <><FaImage className="h-3.5 w-3.5" /><span>+</span><FaAlignLeft className="h-3.5 w-3.5" /></>
+                ) : type === "image" ? (
                   <FaImage className="h-3.5 w-3.5" />
-                ) : mode === "OCR" ? (
-                  <FaFont className="h-3.5 w-3.5" />
                 ) : (
                   <FaAlignLeft className="h-3.5 w-3.5" />
                 )}

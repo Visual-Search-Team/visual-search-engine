@@ -14,8 +14,8 @@ const PAGE_SIZE = 20;
 const filters = [
   { label: "Tất cả", value: "" },
   { label: "Tìm bằng hình ảnh", value: "IMAGE_TO_IMAGE" },
+  { label: "Ảnh + Mô tả", value: "COMPOSED" },
   { label: "Tìm bằng mô tả", value: "TEXT_SEMANTIC" },
-  // { label: "Text OCR", value: "TEXT_OCR" },
 ];
 
 const normalizeHistoryResponse = (response) => {
@@ -125,7 +125,7 @@ export const SearchHistory = () => {
               Lịch sử tìm kiếm
             </h1>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Xem lại các truy vấn ảnh, semantic text và OCR text đã thực hiện.
+              Xem lại các truy vấn ảnh và semantic text đã thực hiện.
             </p>
           </div>
 

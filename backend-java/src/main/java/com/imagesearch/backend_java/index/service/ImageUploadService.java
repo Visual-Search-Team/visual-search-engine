@@ -57,7 +57,7 @@ public class ImageUploadService {
                 }
 
                 String checksum = generateChecksum(file);
-                
+
                 // Check if image already exists by checksum
                 if (imageRepository.findByChecksumAndDeletedFalse(checksum).isPresent()) {
                     log.warn("Image with checksum {} already exists", checksum);
@@ -80,11 +80,11 @@ public class ImageUploadService {
                         .width(thumbnail.width())
                         .height(thumbnail.height())
                         .checksum(checksum)
-                        .indexStatus(ImageIndexStatus.PROCESSING)
+                        .indexStatus(ImageIndexStatus.PENDING)
                         .build();
 
                 ImageEntity savedImage = imageRepository.save(image);
-                    savedImages.add(savedImage);
+                savedImages.add(savedImage);
 
                 log.info("Image uploaded successfully: {} (size: {})", originalFileName, fileSize);
 
@@ -110,7 +110,8 @@ public class ImageUploadService {
                         .fileSize(savedImage.getFileSize())
                         .mimeType(savedImage.getMimeType())
                         .thumbnailPath(savedImage.getThumbnailPath())
-                        .thumbnailUrl(savedImage.getThumbnailPath() == null ? null : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
+                        .thumbnailUrl(savedImage.getThumbnailPath() == null ? null
+                                : minIOService.getPresignedFileUrl(savedImage.getThumbnailPath()))
                         .width(savedImage.getWidth())
                         .height(savedImage.getHeight())
                         .status(savedImage.getIndexStatus().name())

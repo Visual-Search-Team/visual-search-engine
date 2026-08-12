@@ -73,7 +73,6 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET}
       LORA_WEIGHTS_DIR: ${LORA_WEIGHTS_DIR}
       BASE_MODEL_CACHE: ${BASE_MODEL_CACHE}
-      OCR_MODEL_CACHE: ${OCR_MODEL_CACHE}
       HF_HOME: ${HF_HOME}
       TORCH_HOME: ${TORCH_HOME}
     depends_on:
@@ -95,6 +94,14 @@ services:
     volumes:
       - base-model-cache:/app/base_model_cache
       - ocr-model-cache:/app/ocr_model_cache
+    deploy:
+      #
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     restart: unless-stopped
 
   backend-java:

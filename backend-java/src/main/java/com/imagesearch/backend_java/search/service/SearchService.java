@@ -16,11 +16,9 @@ import com.imagesearch.backend_java.search.dto.response.EmbeddingResponse;
 import com.imagesearch.backend_java.search.dto.response.ImageSearchResponse;
 import com.imagesearch.backend_java.search.dto.response.SearchResultItem;
 import com.imagesearch.backend_java.search.dto.response.TextSearchResponse;
-import com.imagesearch.backend_java.search.entity.ImageOcr;
 import com.imagesearch.backend_java.search.entity.SearchHistory;
 import com.imagesearch.backend_java.search.exception.ImageUploadException;
 import com.imagesearch.backend_java.search.exception.SearchException;
-import com.imagesearch.backend_java.search.repository.ImageOcrRepository;
 import com.imagesearch.backend_java.search.repository.SearchHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +45,7 @@ public class SearchService {
     private final MinIOService minIOService;
     private final ImageThumbnailService imageThumbnailService;
     private final ImageRepository imageRepository;
-    private final ImageOcrRepository imageOcrRepository;
+
     private final SearchHistoryRepository searchHistoryRepository;
     private final UserRepository userRepository;
     private final AiEmbeddingClient aiEmbeddingClient;
@@ -174,7 +172,67 @@ public class SearchService {
         if ("semantic".equalsIgnoreCase(mode)) {
             return searchTextSemantic(query.trim(), username, startTime, pageCriteria);
         }
-        return searchTextOcr(query.trim(), username, startTime, pageCriteria);
+        throw new SearchException("INVALID_MODE", "Mode must be semantic", HttpStatus.BAD_REQUEST);
+    }
+
+    public ImageSearchResponse searchComposed(MultipartFile image, String text, Float alpha, String username, Integer limit, Integer page, Integer pageSize) {
+        long startTime = System.currentTimeMillis();
+        validateImage(image);
+        if (text == null || text.trim().isEmpty()) {
+            throw new SearchException("QUERY_REQUIRED", "Text query is required for composed search", HttpStatus.BAD_REQUEST);
+        }
+        SearchPageCriteria pageCriteria = resolvePageCriteria(limit, page, pageSize);
+
+        String storagePath = uploadQueryImage(image);
+        String imageUrl = minIOService.getPresignedFileUrl(storagePath);
+
+        try {
+            ImageThumbnailService.ThumbnailResult thumbnail = imageThumbnailService.createThumbnail(image);
+
+            ImageEntity queryImage = ImageEntity.builder()
+                    .uploadedBy(resolveUser(username))
+                    .originalFileName(image.getOriginalFilename())
+                    .storagePath(storagePath)
+                    .thumbnailPath(thumbnail.thumbnailPath())
+                    .mimeType(normalizeContentType(image.getContentType()))
+                    .fileSize(image.getSize())
+                    .width(thumbnail.width())
+                    .height(thumbnail.height())
+                    .indexStatus(null)
+                    .indexedAt(null)
+                    .build();
+            queryImage = imageRepository.save(queryImage);
+
+            log.info("Call AI composed embedding (image + text)");
+            EmbeddingResponse embeddingResponse = aiEmbeddingClient.getComposedEmbedding(storagePath, text.trim(), alpha);
+            log.info("Get composed embedding success");
+
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), embeddingResponse.getNegativeFilters(), pageCriteria.limit());
+            SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
+                    username,
+                    SearchType.COMPOSED,
+                    text.trim(),
+                    storagePath,
+                    queryImage.getId(),
+                    startTime
+            ) : null;
+
+            ImageSearchResponse response = new ImageSearchResponse();
+            response.setSearchId(history == null ? null : history.getId());
+            response.setSearchType(SearchType.COMPOSED.name());
+            response.setQueryImageUrl(imageUrl);
+            response.setQueryText(text.trim());
+            response.setProcessingTimeMs(history == null ? System.currentTimeMillis() - startTime : history.getProcessingTimeMs());
+            applyPage(response, results, pageCriteria);
+            return response;
+        } catch (IOException e) {
+            throw new SearchException("AI_SERVICE_ERROR", "Could not create composed embedding", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        } catch (SearchException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            throw new SearchException("SEARCH_ERROR", "Could not search by composed query", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
     }
 
     private TextSearchResponse searchTextSemantic(String query, String username, long startTime, SearchPageCriteria pageCriteria) {
@@ -191,21 +249,20 @@ public class SearchService {
                 autoAddedViewAngle = true;
             }
 
-            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), filters, pageCriteria.limit());
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), filters, embeddingResponse.getNegativeFilters(), pageCriteria.limit());
             
             // LỚP FALLBACK 1: Nếu 0 kết quả và có chèn ngầm "mặt trước", gỡ riêng "mặt trước" ra
             if (results.isEmpty() && autoAddedViewAngle) {
                 log.warn("Hard filter with view_angle returned 0 results. Dropping view_angle and retrying...");
                 filters.remove("view_angle");
-                results = searchQdrant(embeddingResponse.getEmbedding(), filters, pageCriteria.limit());
+                results = searchQdrant(embeddingResponse.getEmbedding(), filters, embeddingResponse.getNegativeFilters(), pageCriteria.limit());
             }
 
             // LỚP FALLBACK 2: Nếu vẫn 0 kết quả, gỡ toàn bộ các filter còn lại (Semantic thuần)
             if (results.isEmpty() && !filters.isEmpty()) {
                 log.warn("Still 0 results. Fallback to pure semantic search.");
-                results = searchQdrant(embeddingResponse.getEmbedding(), null, pageCriteria.limit());
+                results = searchQdrant(embeddingResponse.getEmbedding(), null, null, pageCriteria.limit());
             }
-            
             SearchHistory history = pageCriteria.page() == 0
                     ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
                     : null;
@@ -215,41 +272,14 @@ public class SearchService {
         }
     }
 
-    private TextSearchResponse searchTextOcr(String query, String username, long startTime, SearchPageCriteria pageCriteria) {
-        log.info("search OCR with query: {}", query);
-        List<ImageOcr> ocrMatches = imageOcrRepository.findByExtractedTextContainingIgnoreCaseOrderByCreatedAtDesc(
-                query,
-                PageRequest.of(0, pageCriteria.limit())
-        );
-        List<Long> imageIds = ocrMatches.stream()
-                .map(ImageOcr::getImageId)
-                .distinct()
-                .toList();
-        Map<Long, ImageEntity> imagesById = imageRepository.findAllByIdInAndDeletedFalse(imageIds).stream()
-                .collect(Collectors.toMap(ImageEntity::getId, Function.identity()));
 
-        List<SearchResultItem> results = new ArrayList<>();
-        int rank = 1;
-        Set<Long> added = new HashSet<>();
-        for (Long imageId : imageIds) {
-            ImageEntity image = imagesById.get(imageId);
-            if (image != null && added.add(imageId)) {
-                results.add(toSearchResultItem(image, null, rank++));
-            }
-        }
-
-        SearchHistory history = pageCriteria.page() == 0
-                ? saveHistory(username, SearchType.TEXT_OCR, query, null, null, startTime)
-                : null;
-        return buildTextResponse(query, "ocr", SearchType.TEXT_OCR, history, results, pageCriteria);
-    }
 
     private List<SearchResultItem> searchQdrant(List<Float> embedding, int limit) throws IOException {
-        return searchQdrant(embedding, null, limit);
+        return searchQdrant(embedding, null, null, limit);
     }
 
-    private List<SearchResultItem> searchQdrant(List<Float> embedding, Map<String, List<String>> filters, int limit) throws IOException {
-        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit, filters);
+    private List<SearchResultItem> searchQdrant(List<Float> embedding, Map<String, List<String>> filters, Map<String, List<String>> negativeFilters, int limit) throws IOException {
+        JsonObject rawResult = qdrantVectorService.searchByEmbedding(embedding, limit, filters, negativeFilters);
         return mapQdrantResults(rawResult, null);
     }
 
@@ -443,8 +473,8 @@ public class SearchService {
         if (query == null || query.trim().isEmpty()) {
             throw new SearchException("QUERY_REQUIRED", "Query is required", HttpStatus.BAD_REQUEST);
         }
-        if (mode == null || (!"semantic".equalsIgnoreCase(mode) && !"ocr".equalsIgnoreCase(mode))) {
-            throw new SearchException("INVALID_MODE", "Mode must be semantic or ocr", HttpStatus.BAD_REQUEST);
+        if (mode == null || (!"semantic".equalsIgnoreCase(mode))) {
+            throw new SearchException("INVALID_MODE", "Mode must be semantic", HttpStatus.BAD_REQUEST);
         }
     }
 

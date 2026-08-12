@@ -17,13 +17,7 @@ export const SearchMethods = () => {
       title: "Mô tả nội dung",
       description: "Sử dụng ngôn ngữ tự nhiên để miêu tả hình ảnh bạn muốn tìm. AI sẽ hiểu ngữ cảnh và trả về kết quả chính xác nhất.",
     },
-    // {
-    //   iconBackgroundClassName: "bg-indigo-500/10",
-    //   iconClassName: "text-indigo-600",
-    //   Icon: FaFont,
-    //   title: "Tìm chữ trong ảnh",
-    //   description: "Trích xuất và tìm kiếm hình ảnh dựa trên văn bản xuất hiện bên trong bức ảnh nhờ công nghệ OCR tiên tiến.",
-    // },
+
   ];
 
   return (

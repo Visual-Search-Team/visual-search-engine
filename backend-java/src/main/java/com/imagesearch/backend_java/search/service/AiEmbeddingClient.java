@@ -45,6 +45,18 @@ public class AiEmbeddingClient {
         return getFullEmbeddingResponse(buildUrl(searchConfig.getTextEmbeddingPath()), request, "text:" + text);
     }
 
+    public EmbeddingResponse getComposedEmbedding(String storagePath, String text, Float alpha) throws IOException {
+        EmbeddingRequest request = EmbeddingRequest.builder()
+                .type("composed")
+                .storagePath(storagePath)
+                .text(text)
+                .alpha(alpha != null ? alpha : 0.7f)
+                .build();
+        return getFullEmbeddingResponse(
+                buildUrl(searchConfig.getComposedEmbeddingPath()), request, "composed:" + storagePath + ":" + text
+        );
+    }
+
     private List<Float> getEmbedding(String url, EmbeddingRequest request, String mockSeed) throws IOException {
         return getFullEmbeddingResponse(url, request, mockSeed).getEmbedding();
     }

@@ -11,6 +11,8 @@ from transformers import CLIPModel, CLIPProcessor, MarianMTModel, MarianTokenize
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 # model FashionCLIP
 _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 
@@ -207,34 +209,22 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
 # sách để khóa cứng Qdrant bằng MATCH_ANY, tránh bốc nhầm sang ngành hàng khác (áo).
 _BROAD_CATEGORY_KEYWORDS: list[str] = ["áo", "quần", "giày", "mũ", "váy", "túi"]
 
-
 class CLIPModelWrapper:
-    def __init__(self, model_name: str = _FASHION_CLIP_NAME):
+    def __init__(self, model_name: str = FASHION_CLIP_NAME):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Đang tải model FashionCLIP: {model_name} trên {self.device}")
 
-        cache_dir = os.path.abspath(_BASE_MODEL_CACHE)
+        cache_dir = os.path.abspath(BASE_MODEL_CACHE)
         os.makedirs(cache_dir, exist_ok=True)
 
-        # Dùng thẳng thư viện transformers chuẩn hóa của HuggingFace,
-        # không còn open_clip (ảnh) hay sentence-transformers + LoRA (chữ) nữa
         self.model = CLIPModel.from_pretrained(model_name, cache_dir=cache_dir).to(self.device).eval()
         self.processor = CLIPProcessor.from_pretrained(model_name, cache_dir=cache_dir)
-
         logger.info("Load FashionCLIP thành công")
 
-        # Load model dịch máy VI->EN, chạy nội bộ, cache chung thư mục với FashionCLIP
-        logger.info(f"Đang tải model dịch thuật: {_VI_EN_TRANSLATOR_NAME}")
-        self.translator_tokenizer = MarianTokenizer.from_pretrained(
-            _VI_EN_TRANSLATOR_NAME, cache_dir=cache_dir
-        )
-        self.translator_model = MarianMTModel.from_pretrained(
-            _VI_EN_TRANSLATOR_NAME, cache_dir=cache_dir
-        ).to(self.device).eval()
-        logger.info("Load model dịch thuật thành công")
+        # Khởi tạo Translator
+        self.translator = ViEnTranslator(device=self.device)
 
-        # Sinh sẵn vector mẫu cho 7 nhóm thuộc tính — chỉ chạy 1 lần lúc khởi động,
-        # nên việc gắn tag cho từng ảnh lúc indexing không tốn thêm chi phí forward pass nào.
+        # Sinh sẵn vector mẫu cho 7 nhóm thuộc tính
         self._attribute_vectors: dict[str, torch.Tensor] = {}
         self._precompute_attribute_vocab_vectors()
 
@@ -270,10 +260,9 @@ class CLIPModelWrapper:
             with torch.inference_mode():
                 feat = self.model.get_text_features(**inputs)
                 feat = F.normalize(feat, dim=-1)
-            self._attribute_vectors[attr_name] = feat  # shape: (num_labels, dim)
+            self._attribute_vectors[attr_name] = feat
         logger.info("Đã sinh xong vector mẫu cho toàn bộ thuộc tính.")
 
-    # Trích xuất vector đặc trưng từ 1 ảnh
     def get_image_embedding(self, img: Image.Image) -> list[float]:
         inputs = self.processor(images=img, return_tensors="pt").to(self.device)
         with torch.inference_mode():
@@ -281,7 +270,6 @@ class CLIPModelWrapper:
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
-    # Trích xuất vector đặc trưng từ nhiều ảnh (theo batch)
     def get_image_embeddings(self, imgs: list[Image.Image]) -> list[list[float]]:
         if not imgs:
             return []
@@ -291,13 +279,8 @@ class CLIPModelWrapper:
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy().tolist()
 
-    # Trích xuất vector đặc trưng từ text được nhập FashionCLIP.
-    # Nếu câu có vẻ là tiếng Việt, dịch sang tiếng Anh trước (FashionCLIP chỉ hiểu tiếng Anh).
     def get_text_embedding(self, text: str) -> list[float]:
-        query_text = text
-        if _looks_vietnamese(text):
-            query_text = self._translate_vi_to_en(text)
-            logger.info(f"[Dịch] '{text}' -> '{query_text}'")
+        query_text = self.translator.translate(text)
 
         inputs = self.processor(
             text=[query_text],
@@ -305,38 +288,41 @@ class CLIPModelWrapper:
             padding=True,
             truncation=True,
         ).to(self.device)
+        
         with torch.inference_mode():
             feat = self.model.get_text_features(**inputs)
             feat = F.normalize(feat, dim=-1)
         return feat.cpu().numpy()[0].tolist()
 
-    # Gắn 7 thuộc tính thời trang cho MỘT vector ảnh (vector đã tính sẵn từ
-    # get_image_embedding/get_image_embeddings, không encode lại ảnh).
+    def get_composed_embedding(self, img: Image.Image, text: str, alpha: float = 0.7) -> list[float]:
+        if not text or not text.strip():
+            logger.info("Text trống sau khi lọc, sử dụng 100% Image Embedding cho query.")
+            return self.get_image_embedding(img)
+
+        img_emb = torch.tensor(self.get_image_embedding(img), device=self.device)
+        txt_emb = torch.tensor(self.get_text_embedding(text), device=self.device)
+        composed = alpha * img_emb + (1.0 - alpha) * txt_emb
+        composed = F.normalize(composed, dim=-1)
+        return composed.cpu().numpy().tolist()
+
     def predict_all_attributes(self, image_embedding: list[float]) -> dict:
         return self.predict_all_attributes_batch([image_embedding])[0]
 
-    # Gắn 7 thuộc tính thời trang cho MỘT BATCH vector ảnh cùng lúc (1 phép nhân ma
-    # trận cho cả batch mỗi nhóm thuộc tính, thay vì lặp từng ảnh) — dùng hàm này khi
-    # indexing theo batch để tận dụng tối đa.
     def predict_all_attributes_batch(self, image_embeddings: list[list[float]]) -> list[dict]:
         if not image_embeddings:
             return []
 
-        img_tensor = torch.tensor(image_embeddings, dtype=torch.float32, device=self.device)  # (B, dim)
+        img_tensor = torch.tensor(image_embeddings, dtype=torch.float32, device=self.device)
 
         results: list[dict] = [dict() for _ in image_embeddings]
         with torch.inference_mode():
             for attr_name, vocab_vectors in self._attribute_vectors.items():
-                # (B, dim) @ (dim, num_labels) -> (B, num_labels).
-                # Cả 2 phía đều đã normalize nên đây chính là cosine similarity.
                 sims = img_tensor @ vocab_vectors.T
                 best_idx = sims.argmax(dim=-1).cpu().tolist()
-                labels = _ATTRIBUTE_VOCAB[attr_name]
-                vi_labels = _ATTRIBUTE_VI_LABELS[attr_name]
+                labels = ATTRIBUTE_VOCAB[attr_name]
+                vi_labels = ATTRIBUTE_VI_LABELS[attr_name]
                 for i, idx in enumerate(best_idx):
                     en_label = labels[idx]
-                    # Việt hóa nhãn trước khi trả về; nếu thiếu trong từ điển thì
-                    # fallback về nhãn tiếng Anh gốc thay vì lỗi.
                     results[i][attr_name] = vi_labels.get(en_label, en_label)
 
         return results
@@ -420,6 +406,5 @@ class CLIPModelWrapper:
                     break
 
         return filters
-
 
 clip_model = CLIPModelWrapper()

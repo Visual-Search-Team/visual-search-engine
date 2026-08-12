@@ -19,6 +19,7 @@ import java.util.List;
         "searchId",
         "searchType",
         "queryImageUrl",
+        "queryText",
         "processingTimeMs",
         "results",
         "page",
@@ -32,6 +33,7 @@ public class ImageSearchResponse extends PageResponseAbstract {
     private Long searchId;
     private String searchType;
     private String queryImageUrl;
+    private String queryText;
     private Long processingTimeMs;
     private List<SearchResultItem> results;
 }

@@ -52,7 +52,6 @@ export const SearchDetailModal = ({ isOpen, result, onClose, onSearchSimilar }) 
   const fileName = result.originalFilename || `Ảnh #${result.imageId}`;
   const dimensions =
     result.width && result.height ? `${result.width} x ${result.height} px` : "Chưa có dữ liệu";
-  const ocrText = result.ocrText || result.extractedText || result.textContent;
   const isMockOnly = result.isMock && !result.canBookmark;
   const canSave = !!result.imageId && !isMockOnly && !saveBookmarkMutation.isPending;
 

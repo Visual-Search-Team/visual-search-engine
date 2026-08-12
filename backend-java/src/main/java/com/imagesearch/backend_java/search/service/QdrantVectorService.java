@@ -147,14 +147,14 @@ public class QdrantVectorService {
      * Tìm kiếm ảnh tương đồng, có thể kèm theo bộ lọc cứng (payload filter) nhắm vào
      * các trường metadata_ai (vd. category, color) đã được bóc tách từ câu tìm kiếm.
      */
-    public JsonObject searchByEmbedding(List<Float> embedding, int limit, Map<String, List<String>> filters) throws IOException {
+    public JsonObject searchByEmbedding(List<Float> embedding, int limit, Map<String, List<String>> filters, Map<String, List<String>> negativeFilters) throws IOException {
         validateEmbedding(embedding);
 
         Map<String, Object> body = new java.util.HashMap<>();
         body.put("vector", embedding);
         body.put("limit", limit);
 
-        JsonObject filterJson = buildPayloadFilter(filters);
+        JsonObject filterJson = buildPayloadFilter(filters, negativeFilters);
         if (filterJson != null) {
             body.put("filter", filterJson);
         }
@@ -174,47 +174,69 @@ public class QdrantVectorService {
     }
 
     /**
-     * Build Qdrant "must" filter khớp chính xác payload metadata_ai.<attr>, dựa theo
-     * filter mà AI service bóc tách từ câu tìm kiếm. YÊU CẦU: point phải có payload
-     * "metadata_ai" được set lúc upsert, nếu không filter này luôn trả về rỗng.
+     * Build Qdrant filter khớp chính xác payload metadata_ai.<attr>, dựa theo
+     * filter và negative filter mà AI service bóc tách từ câu tìm kiếm.
      */
-    private JsonObject buildPayloadFilter(Map<String, List<String>> filters) {
-        if (filters == null || filters.isEmpty()) {
-            return null;
-        }
-
-        JsonArray must = new JsonArray();
-        for (Map.Entry<String, List<String>> entry : filters.entrySet()) {
-            List<String> values = entry.getValue();
-            if (values == null || values.isEmpty()) {
-                continue;
-            }
-
-            JsonObject condition = new JsonObject();
-            condition.addProperty("key", "metadata_ai." + entry.getKey());
-
-            JsonObject match = new JsonObject();
-            if (values.size() == 1) {
-                // Chỉ 1 giá trị: khớp tuyệt đối (MatchValue)
-                match.addProperty("value", values.get(0));
-            } else {
-                // Nhiều giá trị (vd. gom nhóm "quần" -> Quần âu/Quần jean/Quần short):
-                // khớp 1 trong danh sách (MatchAny)
-                JsonArray any = new JsonArray();
-                values.forEach(any::add);
-                match.add("any", any);
-            }
-            condition.add("match", match);
-            must.add(condition);
-        }
-
-        if (must.isEmpty()) {
+    private JsonObject buildPayloadFilter(Map<String, List<String>> filters, Map<String, List<String>> negativeFilters) {
+        boolean hasFilters = filters != null && !filters.isEmpty();
+        boolean hasNegativeFilters = negativeFilters != null && !negativeFilters.isEmpty();
+        
+        if (!hasFilters && !hasNegativeFilters) {
             return null;
         }
 
         JsonObject filterJson = new JsonObject();
-        filterJson.add("must", must);
+
+        if (hasFilters) {
+            JsonArray must = new JsonArray();
+            for (Map.Entry<String, List<String>> entry : filters.entrySet()) {
+                List<String> values = entry.getValue();
+                if (values == null || values.isEmpty()) {
+                    continue;
+                }
+                must.add(createCondition(entry.getKey(), values));
+            }
+            if (!must.isEmpty()) {
+                filterJson.add("must", must);
+            }
+        }
+
+        if (hasNegativeFilters) {
+            JsonArray mustNot = new JsonArray();
+            for (Map.Entry<String, List<String>> entry : negativeFilters.entrySet()) {
+                List<String> values = entry.getValue();
+                if (values == null || values.isEmpty()) {
+                    continue;
+                }
+                mustNot.add(createCondition(entry.getKey(), values));
+            }
+            if (!mustNot.isEmpty()) {
+                filterJson.add("must_not", mustNot);
+            }
+        }
+
+        if (!filterJson.has("must") && !filterJson.has("must_not")) {
+            return null;
+        }
         return filterJson;
+    }
+
+    private JsonObject createCondition(String key, List<String> values) {
+        JsonObject condition = new JsonObject();
+        condition.addProperty("key", "metadata_ai." + key);
+
+        JsonObject match = new JsonObject();
+        if (values.size() == 1) {
+            // Chỉ 1 giá trị: khớp tuyệt đối (MatchValue)
+            match.addProperty("value", values.get(0));
+        } else {
+            // Nhiều giá trị: khớp 1 trong danh sách (MatchAny)
+            JsonArray any = new JsonArray();
+            values.forEach(any::add);
+            match.add("any", any);
+        }
+        condition.add("match", match);
+        return condition;
     }
 
     /**

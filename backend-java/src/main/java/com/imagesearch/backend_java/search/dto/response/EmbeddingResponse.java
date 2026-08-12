@@ -15,8 +15,11 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonPropertyOrder({"embedding", "filters"})
+@JsonPropertyOrder({"embedding", "filters", "negativeFilters", "negative_filters"})
 public class EmbeddingResponse {
     private List<Float> embedding;
     private Map<String, List<String>> filters;
+    
+    @com.fasterxml.jackson.annotation.JsonProperty("negative_filters")
+    private Map<String, List<String>> negativeFilters;
 }

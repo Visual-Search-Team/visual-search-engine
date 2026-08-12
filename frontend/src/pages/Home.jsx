@@ -33,7 +33,7 @@ export default function Home() {
                 Khám phá ngay sức mạnh của AI
               </h2>
               <p className="mt-3 text-gray-600">
-                Đăng nhập để trải nghiệm toàn bộ tính năng tìm kiếm bằng hình ảnh, mô tả và nhận dạng ký tự (OCR).
+                Đăng nhập để trải nghiệm toàn bộ tính năng tìm kiếm bằng hình ảnh và mô tả.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
                 <Link

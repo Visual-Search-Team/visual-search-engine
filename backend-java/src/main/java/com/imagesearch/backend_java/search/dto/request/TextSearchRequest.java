@@ -18,6 +18,6 @@ public class TextSearchRequest {
     private String q;
 
     @NotBlank(message = "Mode is required")
-    @Pattern(regexp = "semantic|ocr", message = "Mode must be semantic or ocr")
+    @Pattern(regexp = "semantic", message = "Mode must be semantic")
     private String mode;
 }

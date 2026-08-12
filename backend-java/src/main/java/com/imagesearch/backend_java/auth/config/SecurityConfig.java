@@ -57,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/admin/stats").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/admin/users").hasRole("ADMIN")
                         .requestMatchers("/admin/indexing-jobs/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/images/**").hasRole("ADMIN")
                         .requestMatchers("/images/upload").hasRole("ADMIN")
                         .requestMatchers("/images/{imageId}").permitAll()
                         .requestMatchers("/images/trash/{imageId}").permitAll()

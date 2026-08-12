@@ -1,20 +1,23 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
-import { FiArrowDown } from "react-icons/fi";
+import { FiArrowDown, FiTrash2 } from "react-icons/fi";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
 import { searchSimilarImages } from "../services/searchSimilarService";
+import { deleteImageByAdmin, deleteImagesByAdmin } from "../services/adminImageService";
 import { ImageWithFallback } from "../components/common/ImageWithFallback";
 import { searchStore } from "../utils/searchStore";
+import { useAuth } from "../contexts/AuthContext";
 import AOS from 'aos';
 import { lazy, Suspense } from "react";
 import { CardSkeleton } from "../components/ui/CardSkeleton";
 import { useInView } from "react-intersection-observer";
 import { CompactSearchBar } from "../components/common/CompactSearchBar";
 import Masonry from 'react-masonry-css';
+import Swal from "sweetalert2";
 
 const SearchResultCard = lazy(() =>
   import("../components/ui/SearchResultCard").then(module => ({ default: module.SearchResultCard }))
@@ -64,18 +67,33 @@ const normalizeSearchResponse = (response) => {
   };
 };
 
+const getApiErrorMessage = (error, fallback) => {
+  return (
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+};
+
 export const SearchResult = () => {
 
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { role } = useAuth();
   const searchState = location.state || {};
   const [selectedResult, setSelectedResult] = useState(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState([]);
 
   const type = searchParams.get("type") || searchState.type || "text";
   const isImageSearch = type === "image";
   const isSimilarSearch = type === "similar";
+  const isTextSearch = type === "text";
+  const isAdmin = role === "ADMIN";
+  const canAdminBulkDelete = isAdmin && !USE_MOCK_SEARCH_RESULTS && (isImageSearch || isTextSearch);
 
   const query = searchParams.get("q") || searchState.query || "";
   const imageId = searchParams.get("imageId") || searchState.imageId || null;
@@ -89,9 +107,10 @@ export const SearchResult = () => {
   const canShowResults = USE_MOCK_SEARCH_RESULTS || canSearch;
 
   const initialPage = Math.max(Number(searchParams.get("page") || 1), 1);
+  const searchQueryKey = ["search-results", type, query, mode, size, imageFile?.name, imageId];
 
   const searchQuery = useInfiniteQuery({
-    queryKey: ["search-results", type, query, mode, size, imageFile?.name, imageId],
+    queryKey: searchQueryKey,
     initialPageParam: initialPage,
     queryFn: async ({ pageParam = initialPage }) => {
 
@@ -151,11 +170,120 @@ export const SearchResult = () => {
     rootMargin: '200px',
   });
 
+  const deleteSelectedMutation = useMutation({
+    mutationFn: deleteImagesByAdmin,
+    onSuccess: async (data, deletedImageIds) => {
+      const deletedCount = Number(data?.deletedCount ?? deletedImageIds?.length ?? 0);
+      const deletedIdSet = new Set(deletedImageIds || []);
+
+      queryClient.setQueryData(searchQueryKey, (oldData) => {
+        if (!oldData?.pages) {
+          return oldData;
+        }
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => {
+            if (!page?.data || !Array.isArray(page.data.results)) {
+              return page;
+            }
+
+            return {
+              ...page,
+              data: {
+                ...page.data,
+                results: page.data.results.filter((item) => !deletedIdSet.has(item.imageId)),
+                totalElements: Math.max(Number(page.data.totalElements ?? 0) - deletedCount, 0),
+              },
+            };
+          }),
+        };
+      });
+
+      setSelectedImageIds([]);
+      setSelectedResult((prev) => (prev && deletedIdSet.has(prev.imageId) ? null : prev));
+
+      await Swal.fire({
+        title: "Xóa thành công",
+        text: `Đã chuyển ${deletedCount} ảnh vào thùng rác.`,
+        icon: "success",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    },
+    onError: async (error) => {
+      await Swal.fire({
+        title: "Xóa thất bại",
+        text: getApiErrorMessage(error, "Không thể xóa ảnh đã chọn."),
+        icon: "error",
+      });
+    },
+  });
+
+  const deleteSingleMutation = useMutation({
+    mutationFn: deleteImageByAdmin,
+    onSuccess: async (_data, deletedImageId) => {
+      const deletedIdSet = new Set([deletedImageId]);
+
+      queryClient.setQueryData(searchQueryKey, (oldData) => {
+        if (!oldData?.pages) {
+          return oldData;
+        }
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => {
+            if (!page?.data || !Array.isArray(page.data.results)) {
+              return page;
+            }
+
+            return {
+              ...page,
+              data: {
+                ...page.data,
+                results: page.data.results.filter((item) => !deletedIdSet.has(item.imageId)),
+                totalElements: Math.max(Number(page.data.totalElements ?? 0) - 1, 0),
+              },
+            };
+          }),
+        };
+      });
+
+      setSelectedImageIds((prev) => prev.filter((id) => id !== deletedImageId));
+      setSelectedResult((prev) => (prev && prev.imageId === deletedImageId ? null : prev));
+
+      await Swal.fire({
+        title: "Xóa thành công",
+        text: `Ảnh #${deletedImageId} đã được chuyển vào thùng rác.`,
+        icon: "success",
+        timer: 1600,
+        showConfirmButton: false,
+      });
+    },
+    onError: async (error) => {
+      await Swal.fire({
+        title: "Xóa thất bại",
+        text: getApiErrorMessage(error, "Không thể xóa ảnh."),
+        icon: "error",
+      });
+    },
+  });
+
   useEffect(() => {
     if (inView && searchQuery.hasNextPage && !searchQuery.isFetchingNextPage) {
       searchQuery.fetchNextPage();
     }
   }, [inView, searchQuery.hasNextPage, searchQuery.isFetchingNextPage, searchQuery.fetchNextPage]);
+
+  useEffect(() => {
+    if (!canAdminBulkDelete) {
+      setSelectedImageIds([]);
+      return;
+    }
+
+    const visibleImageIds = new Set(searchData.results.map((item) => item.imageId));
+    setSelectedImageIds((prev) => prev.filter((id) => visibleImageIds.has(id)));
+  }, [canAdminBulkDelete, searchData.results]);
 
   const previewImageUrl = useMemo(() => {
     if (isImageSearch && imageFile) return URL.createObjectURL(imageFile);
@@ -216,6 +344,83 @@ export const SearchResult = () => {
       : isImageSearch
         ? imageFile?.name || "ảnh đã tải lên"
         : query;
+
+  const visibleImageIds = useMemo(
+    () => [...new Set(searchData.results.map((item) => item.imageId))],
+    [searchData.results]
+  );
+
+  const selectedCount = selectedImageIds.length;
+  const allVisibleSelected = visibleImageIds.length > 0
+    && visibleImageIds.every((id) => selectedImageIds.includes(id));
+
+  const toggleSelectImage = (targetImageId) => {
+    if (!canAdminBulkDelete || deleteSelectedMutation.isPending) {
+      return;
+    }
+
+    setSelectedImageIds((prev) => (
+      prev.includes(targetImageId)
+        ? prev.filter((id) => id !== targetImageId)
+        : [...prev, targetImageId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (!canAdminBulkDelete || deleteSelectedMutation.isPending || visibleImageIds.length === 0) {
+      return;
+    }
+
+    setSelectedImageIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleImageIds.includes(id));
+      }
+
+      const next = new Set(prev);
+      visibleImageIds.forEach((id) => next.add(id));
+      return [...next];
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!canAdminBulkDelete || selectedCount === 0 || deleteSelectedMutation.isPending) {
+      return;
+    }
+
+    const confirmed = await Swal.fire({
+      title: `Xóa ${selectedCount} ảnh đã chọn?`,
+      text: "Ảnh sẽ được chuyển vào thùng rác.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Đồng ý xóa",
+      cancelButtonText: "Hủy",
+      confirmButtonColor: "#dc2626",
+    });
+
+    if (confirmed.isConfirmed) {
+      deleteSelectedMutation.mutate(selectedImageIds);
+    }
+  };
+
+  const handleDeleteSingle = async (targetImageId) => {
+    if (!canAdminBulkDelete || deleteSingleMutation.isPending || deleteSelectedMutation.isPending) {
+      return;
+    }
+
+    const confirmed = await Swal.fire({
+      title: `Xóa ảnh #${targetImageId}?`,
+      text: "Ảnh sẽ được chuyển vào thùng rác.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Đồng ý xóa",
+      cancelButtonText: "Hủy",
+      confirmButtonColor: "#dc2626",
+    });
+
+    if (confirmed.isConfirmed) {
+      deleteSingleMutation.mutate(targetImageId);
+    }
+  };
 
   const handleSearchSimilar = (result) => {
     if (!result?.imageId) return;
@@ -319,6 +524,44 @@ export const SearchResult = () => {
             </div>
           )}
         </div>
+
+        {canAdminBulkDelete && searchData.results.length > 0 && (
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-zinc-800">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                disabled={deleteSelectedMutation.isPending || visibleImageIds.length === 0}
+                className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Chọn toàn bộ ảnh đang hiển thị
+            </label>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedImageIds([])}
+                disabled={selectedCount === 0 || deleteSelectedMutation.isPending}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Bỏ chọn
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={selectedCount === 0 || deleteSelectedMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+              >
+                <FiTrash2 className="h-4 w-4" />
+                {deleteSelectedMutation.isPending
+                  ? "Đang xóa..."
+                  : `Xóa đã chọn (${selectedCount})`}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
 
@@ -364,6 +607,11 @@ export const SearchResult = () => {
                   <SearchResultCard
                     result={result}
                     onViewDetails={setSelectedResult}
+                    isSelectable={canAdminBulkDelete}
+                    isSelected={selectedImageIds.includes(result.imageId)}
+                    onToggleSelect={toggleSelectImage}
+                    showDeleteAction={canAdminBulkDelete}
+                    onDelete={handleDeleteSingle}
                   />
                 </Suspense>
               </div>

@@ -18,6 +18,7 @@ public interface IndexingJobRepository extends JpaRepository<IndexingJobEntity, 
 
     Optional<IndexingJobEntity> findFirstByJobTypeAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
             JobType jobType,
-            LocalDateTime createdAt
-    );
+            LocalDateTime createdAt);
+
+    Page<IndexingJobEntity> findByStatusOrderByCreatedAtDesc(JobStatus status, Pageable pageable);
 }

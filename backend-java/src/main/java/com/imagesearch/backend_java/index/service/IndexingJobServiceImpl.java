@@ -126,15 +126,46 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         return toResponse(job);
     }
 
+    // @Transactional
+    // @Override
+    // public PageResponse<IndexingJobSummaryResponse> getIndexingJobs(Map<String, Object> params) {
+    //     int page = getInt(params, "page", 0);
+    //     int size = getInt(params, "size", 10);
+
+    //     Page<IndexingJobEntity> jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(
+    //             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+    //     );
+    //     jobPage.getContent().forEach(this::refreshJobProgress);
+
+    //     List<IndexingJobSummaryResponse> content = jobPage.getContent().stream()
+    //             .map(this::toSummaryResponse)
+    //             .toList();
+
+    //     return PageResponse.of(content, page, size, jobPage.getTotalElements());
+    // }
+
     @Transactional
     @Override
     public PageResponse<IndexingJobSummaryResponse> getIndexingJobs(Map<String, Object> params) {
         int page = getInt(params, "page", 0);
         int size = getInt(params, "size", 10);
+        String statusStr = (String) params.get("status"); 
 
-        Page<IndexingJobEntity> jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
-        );
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<IndexingJobEntity> jobPage;
+
+        if (statusStr != null && !statusStr.trim().isEmpty()) {
+            try {
+                JobStatus statusEnum = JobStatus.valueOf(statusStr.toUpperCase());
+                jobPage = indexingJobRepository.findByStatusOrderByCreatedAtDesc(statusEnum, pageRequest);
+            } catch (IllegalArgumentException e) {
+                jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+            }
+        } else {
+            // Không lọc trạng thái (ALL)
+            jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+        }
+
         jobPage.getContent().forEach(this::refreshJobProgress);
 
         List<IndexingJobSummaryResponse> content = jobPage.getContent().stream()

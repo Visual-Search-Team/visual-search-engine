@@ -51,13 +51,35 @@ public class IndexingJobController {
         }
     }
 
+    // @GetMapping
+    // public ResponseEntity<BaseResponse<PageResponse<IndexingJobSummaryResponse>>> getIndexingJobs(
+    //         @RequestParam(defaultValue = "0") Integer page,
+    //         @RequestParam(defaultValue = "10") Integer size) {
+    //     try {
+    //         PageResponse<IndexingJobSummaryResponse> response = indexingJobService
+    //                 .getIndexingJobs(Map.of("page", page, "size", size));
+    //         return ResponseEntity.ok(BaseResponse.success(response));
+    //     } catch (Exception ex) {
+    //         log.error("Error fetching indexing jobs", ex);
+    //         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+    //                 .body(BaseResponse.error("INDEXING_JOB_FETCH_ERROR", ex.getMessage()));
+    //     }
+    // }
+
     @GetMapping
     public ResponseEntity<BaseResponse<PageResponse<IndexingJobSummaryResponse>>> getIndexingJobs(
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) String status) { 
         try {
-            PageResponse<IndexingJobSummaryResponse> response = indexingJobService
-                    .getIndexingJobs(Map.of("page", page, "size", size));
+            Map<String, Object> params = new HashMap<>();
+            params.put("page", page);
+            params.put("size", size);
+            if (status != null) {
+                params.put("status", status);
+            }
+
+            PageResponse<IndexingJobSummaryResponse> response = indexingJobService.getIndexingJobs(params);
             return ResponseEntity.ok(BaseResponse.success(response));
         } catch (Exception ex) {
             log.error("Error fetching indexing jobs", ex);

@@ -7,7 +7,7 @@ import { ImageWithFallback } from "../../components/common/ImageWithFallback";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import Swal from "sweetalert2";
 import { ImagePreviewModal } from "../../components/common/ImagePreviewModal";
-import {formatDateTime} from "../../utils/formatDateTime";
+import { formatDateTime } from "../../utils/formatDateTime";
 
 
 const statusStyles = {
@@ -41,11 +41,12 @@ export const AdminJobDetail = () => {
     const [itemPage, setItemPage] = useState(1);
     const [selectedImages, setSelectedImages] = useState([]);
     const [previewImageId, setPreviewImageId] = useState(null);
+    const [statusFilter, setStatusFilter] = useState("ALL");
 
     // 1. Fetch danh sách items của Job
     const itemsQuery = useQuery({
-        queryKey: ["admin-indexing-job-items", jobId, itemPage],
-        queryFn: () => getIndexingJobItems(jobId, { page: itemPage, size: 10 }),
+        queryKey: ["admin-indexing-job-items", jobId, itemPage, statusFilter],
+        queryFn: () => getIndexingJobItems(jobId, { page: itemPage, size: 10, status: statusFilter }),
         refetchInterval: (query) => {
             const statuses = query.state.data?.content?.map((item) => item.status) || [];
             return statuses.some((status) => status === "PENDING" || status === "PROCESSING") ? 5000 : false;
@@ -53,6 +54,12 @@ export const AdminJobDetail = () => {
     });
 
     const selectedJobItems = itemsQuery.data?.content || [];
+
+    // Lọc danh sách item dựa trên statusFilter trước khi render
+    const displayItems = selectedJobItems.filter(item => {
+        if (statusFilter === "ALL") return true;
+        return item.status === statusFilter;
+    });
 
     // 2. Mutation để xóa ảnh
     const deleteMutation = useMutation({
@@ -116,40 +123,57 @@ export const AdminJobDetail = () => {
         });
     };
 
-    const isAllSelected = selectedJobItems.length > 0 && selectedImages.length === selectedJobItems.length;
+
+    const isAllSelected =
+        selectedJobItems.length > 0 &&
+        selectedJobItems.every(item => selectedImages.includes(item.imageId));
 
     return (
         <>
             <div className="p-6">
+
                 {/* Header & Controls */}
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => navigate('/admin/indexing')}
-                            className="flex items-center justify-center cursor-pointer rounded-full p-2 hover:bg-slate-100 transition"
-                        >
-                            <FiArrowLeft className="size-5 text-gray-600" />
-                        </button>
-                        <h1 className="hidden md:block text-[20px] lg:text-2xl font-bold text-gray-800">Chi tiết Job #{jobId}</h1>
+                        <h1 className="md:block text-[18px] lg:text-2xl font-bold text-gray-800">
+                            Chi tiết Job #{jobId}
+                        </h1>
                     </div>
 
                     <button
                         onClick={handleDelete}
                         disabled={selectedImages.length === 0 || deleteMutation.isPending}
-                        className="flex items-center gap-2 cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-gray-300 hover:bg-red-700"
+                        className="flex cursor-pointer items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                         <FiTrash2 className="size-4" />
                         {deleteMutation.isPending ? "Đang xóa..." : `Xóa ảnh (${selectedImages.length})`}
                     </button>
                 </div>
 
-                {/* Main Content Area */}
-                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                {/* BỘ LỌC TRẠNG THÁI */}
+                <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <span className="text-sm font-medium text-gray-700">Lọc trạng thái:</span>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => {
+                            setStatusFilter(e.target.value);
+                            setItemPage(1);
+                        }}
+                        className="cursor-pointer rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                        <option value="ALL">Tất cả trạng thái</option>
+                        <option value="FAILED">Lỗi (FAILED)</option>
+                        <option value="INDEXED">Thành công (INDEXED)</option>
+                        <option value="PENDING">Đang chờ (PENDING)</option>
+                    </select>
+                </div>
 
+                {/* Main Content Area */}
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                     {itemsQuery.isLoading ? (
                         <div className="space-y-3 p-5">
                             {Array.from({ length: 4 }).map((_, index) => (
-                                <div key={index} className="h-12 lg:h-12 h-28 animate-pulse rounded bg-slate-100" />
+                                <div key={index} className="h-28 animate-pulse rounded bg-slate-100 lg:h-12" />
                             ))}
                         </div>
                     ) : itemsQuery.isError ? (
@@ -158,7 +182,7 @@ export const AdminJobDetail = () => {
                         </div>
                     ) : selectedJobItems.length === 0 ? (
                         <div className="px-5 py-10 text-center text-sm text-gray-500">
-                            Job này chưa có item nào.
+                            Không tìm thấy ảnh nào phù hợp.
                         </div>
                     ) : (
                         <>
@@ -168,13 +192,13 @@ export const AdminJobDetail = () => {
                                     type="checkbox"
                                     checked={isAllSelected}
                                     onChange={handleSelectAll}
-                                    className="size-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    className="size-5 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <span className="text-sm font-semibold text-gray-700">Chọn tất cả</span>
                             </div>
 
-                            <div className="w-full lg:overflow-x-auto p-4 lg:p-0 bg-slate-50/50 lg:bg-transparent">
-                                <table className="w-full text-sm block lg:table lg:min-w-[860px] lg:border-separate lg:border-spacing-0">
+                            <div className="w-full bg-slate-50/50 p-4 lg:bg-transparent lg:p-0 lg:overflow-x-auto">
+                                <table className="block w-full text-sm lg:table lg:min-w-[860px] lg:border-separate lg:border-spacing-0">
 
                                     {/* Header (Chỉ hiện trên Laptop) */}
                                     <thead className="hidden lg:table-header-group">
@@ -241,9 +265,13 @@ export const AdminJobDetail = () => {
                                                             className="flex flex-1 flex-col justify-between py-1"
                                                         >
                                                             <div>
-                                                                <div className="flex items-start justify-between gap-2">
-                                                                    <span className="font-bold text-zinc-900 line-clamp-1">#{item.imageId}</span>
-                                                                    <StatusBadge status={item.status} />
+                                                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                                                    <span className="min-w-[50px] font-bold text-zinc-900 truncate">
+                                                                        #{item.imageId}
+                                                                    </span>
+                                                                    <div className="shrink-0">
+                                                                        <StatusBadge status={item.status} />
+                                                                    </div>
                                                                 </div>
 
                                                                 <div className="mt-2 flex flex-col gap-1 text-xs text-gray-500">
@@ -327,24 +355,27 @@ export const AdminJobDetail = () => {
 
                             {/* Phân trang */}
                             <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 text-sm text-gray-600">
-                                <span>{itemsQuery.data?.totalElements ?? selectedJobItems.length} item</span>
+                                <span>
+                                    Tổng cộng {itemsQuery.data?.totalElements ?? selectedJobItems.length} ảnh
+                                    {statusFilter !== "ALL" && " (đã lọc)"}
+                                </span>
                                 <div className="flex items-center gap-3">
                                     <button
                                         disabled={itemPage <= 1}
-                                        onClick={() => {
-                                            setItemPage(c => Math.max(1, c - 1));
-                                        }}
-                                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                        onClick={() => setItemPage(c => Math.max(1, c - 1))}
+                                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50 transition"
                                     >
                                         <FiChevronLeft className="size-4" /> Trước
                                     </button>
-                                    <span>Trang {itemsQuery.data?.page ?? itemPage} / {itemsQuery.data?.totalPages ?? 1}</span>
+
+                                    <span className="font-medium">
+                                        Trang {itemPage} / {itemsQuery.data?.totalPages ?? 1}
+                                    </span>
+
                                     <button
                                         disabled={!itemsQuery.data?.hasNext}
-                                        onClick={() => {
-                                            setItemPage(c => c + 1);
-                                        }}
-                                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
+                                        onClick={() => setItemPage(c => c + 1)}
+                                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-50 transition"
                                     >
                                         Sau <FiChevronRight className="size-4" />
                                     </button>

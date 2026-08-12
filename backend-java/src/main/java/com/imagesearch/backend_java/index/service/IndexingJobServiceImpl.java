@@ -40,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -124,15 +126,46 @@ public class IndexingJobServiceImpl implements IndexingJobService {
         return toResponse(job);
     }
 
+    // @Transactional
+    // @Override
+    // public PageResponse<IndexingJobSummaryResponse> getIndexingJobs(Map<String, Object> params) {
+    //     int page = getInt(params, "page", 0);
+    //     int size = getInt(params, "size", 10);
+
+    //     Page<IndexingJobEntity> jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(
+    //             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+    //     );
+    //     jobPage.getContent().forEach(this::refreshJobProgress);
+
+    //     List<IndexingJobSummaryResponse> content = jobPage.getContent().stream()
+    //             .map(this::toSummaryResponse)
+    //             .toList();
+
+    //     return PageResponse.of(content, page, size, jobPage.getTotalElements());
+    // }
+
     @Transactional
     @Override
     public PageResponse<IndexingJobSummaryResponse> getIndexingJobs(Map<String, Object> params) {
         int page = getInt(params, "page", 0);
         int size = getInt(params, "size", 10);
+        String statusStr = (String) params.get("status"); 
 
-        Page<IndexingJobEntity> jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
-        );
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<IndexingJobEntity> jobPage;
+
+        if (statusStr != null && !statusStr.trim().isEmpty()) {
+            try {
+                JobStatus statusEnum = JobStatus.valueOf(statusStr.toUpperCase());
+                jobPage = indexingJobRepository.findByStatusOrderByCreatedAtDesc(statusEnum, pageRequest);
+            } catch (IllegalArgumentException e) {
+                jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+            }
+        } else {
+            // Không lọc trạng thái (ALL)
+            jobPage = indexingJobRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+        }
+
         jobPage.getContent().forEach(this::refreshJobProgress);
 
         List<IndexingJobSummaryResponse> content = jobPage.getContent().stream()
@@ -192,7 +225,22 @@ public class IndexingJobServiceImpl implements IndexingJobService {
 
         int page = getInt(params, "page", 0);
         int size = getInt(params, "size", 10);
-        Page<IndexingJobItemEntity> itemPage = indexingJobItemRepository.findByIndexingJobId(jobId, PageRequest.of(page, size));
+        String statusStr = (String) params.get("status");
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<IndexingJobItemEntity> itemPage;
+
+        if (statusStr != null && !statusStr.trim().isEmpty()) {
+            try {
+                ImageIndexStatus statusEnum = ImageIndexStatus.valueOf(statusStr.toUpperCase());
+                itemPage = indexingJobItemRepository.findByIndexingJobIdAndStatus(jobId, statusEnum, pageable);
+            } catch (IllegalArgumentException e) {
+                itemPage = indexingJobItemRepository.findByIndexingJobId(jobId, pageable);
+            }
+        } else {
+            itemPage = indexingJobItemRepository.findByIndexingJobId(jobId, pageable);
+        }
+
         List<IndexingJobItemResponse> content = itemPage.getContent().stream()
                 .map(this::toItemResponse)
                 .toList();

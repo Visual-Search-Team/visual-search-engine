@@ -1,7 +1,7 @@
 import { formatScore } from "../../utils/formatScore";
 import { resolveImageUrl } from "../../utils/imageUrl";
 import { ImageWithFallback } from "../common/ImageWithFallback";
-import { FiTrash2 } from "react-icons/fi";
+import { FiTrash2, FiCheck } from "react-icons/fi";
 
 export const SearchResultCard = ({
   result,
@@ -16,33 +16,44 @@ export const SearchResultCard = ({
     result.thumbnailUrl || result.imageUrl || result.thumbnailPath || result.storagePath,
     result.imageId
   );
-  // const fileName = result.originalFilename || `Ảnh #${result.imageId}`;
   const similarityScore = result.similarityScore ?? result.score ?? 0;
 
   const aspectRatioStyle = result.width && result.height
     ? { aspectRatio: `${result.width} / ${result.height}` }
     : {}; 
 
+  const actionVisibilityClasses = isSelected 
+    ? "opacity-100" 
+    : "opacity-100 md:opacity-0 md:group-hover:opacity-100";
+
   return (
     <article
       onClick={() => onViewDetails?.(result)}
-      className={`group relative cursor-pointer overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md ${
-        isSelected ? "ring-2 ring-indigo-500 ring-offset-1" : ""
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl bg-zinc-100 transition-all duration-300 ${
+        isSelected ? "ring-4 ring-indigo-500 scale-[0.98] shadow-md" : "hover:shadow-xl"
       }`}
       style={aspectRatioStyle}
     >
+      <div 
+        className={`pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-black/40 via-transparent to-black/40 transition-opacity duration-300 ${actionVisibilityClasses}`} 
+      />
+
       {isSelectable && (
-        <label
-          className="absolute left-3 top-3 z-20 inline-flex cursor-pointer items-center rounded-md bg-white/90 p-1.5 shadow"
-          onClick={(event) => event.stopPropagation()}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleSelect?.(result.imageId);
+          }}
+          className={`absolute left-3 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-110 ${
+            isSelected
+              ? "border-indigo-500 bg-indigo-500 text-white"
+              : "border-white/80 bg-black/20 text-transparent hover:border-white hover:bg-black/40"
+          } ${actionVisibilityClasses}`}
+          aria-label="Chọn ảnh"
         >
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onToggleSelect?.(result.imageId)}
-            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-        </label>
+          <FiCheck className={`h-4 w-4 transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`} strokeWidth={3} />
+        </button>
       )}
 
       {showDeleteAction && (
@@ -52,9 +63,8 @@ export const SearchResultCard = ({
             event.stopPropagation();
             onDelete?.(result.imageId);
           }}
-          className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md bg-red-600/90 text-white shadow transition hover:bg-red-700"
+          className={`absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white shadow-sm backdrop-blur-md transition-all hover:scale-110 hover:bg-red-500 ${actionVisibilityClasses}`}
           title={`Xóa ảnh #${result.imageId}`}
-          aria-label={`Xóa ảnh #${result.imageId}`}
         >
           <FiTrash2 className="h-4 w-4" />
         </button>
@@ -66,7 +76,10 @@ export const SearchResultCard = ({
           imageId={result.imageId}
           alt={`Ảnh #${result.imageId}`}
           loading="lazy"
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          // Zoom nhẹ ảnh khi hover
+          className={`h-full w-full object-cover transition-transform duration-500 ${
+            isSelected ? "scale-105" : "group-hover:scale-110"
+          }`}
         />
       ) : (
         <div className="flex h-full min-h-[200px] w-full items-center justify-center px-4 text-center text-sm text-gray-500">
@@ -76,7 +89,9 @@ export const SearchResultCard = ({
 
       {/* Hiển thị % tương đồng */}
       {similarityScore > 0 && (
-        <div className="absolute bottom-3 right-3 rounded-full bg-zinc-900/85 px-3 py-1 text-xs font-semibold text-white shadow-sm opacity-90 transition-opacity group-hover:opacity-100">
+        <div 
+          className={`absolute bottom-3 right-3 z-20 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-md transition-opacity duration-300 ${actionVisibilityClasses}`}
+        >
           {formatScore(similarityScore)}
         </div>
       )}

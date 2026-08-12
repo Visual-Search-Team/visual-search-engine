@@ -77,8 +77,11 @@ export const AdminIndexing = () => {
   const [page, setPage] = useState(1);
   const previewUrlsRef = useRef([]);
   const [retryingJobId, setRetryingJobId] = useState(null);
-
   const [selectedJobIds, setSelectedJobIds] = useState([]);
+  
+  const [brandEnabled, setBrandEnabled] = useState(false);
+  const [uploadBrand, setUploadBrand] = useState("");
+
 
   // Thêm state cho bộ lọc Job
   const [jobStatusFilter, setJobStatusFilter] = useState("ALL");
@@ -284,7 +287,13 @@ export const AdminIndexing = () => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
-    const validImages = files.filter(validateFile);
+    const validImages = files.filter(validateFile).map(file => {
+      if (brandEnabled && uploadBrand.trim()) {
+        const newName = `_BRAND_${uploadBrand.trim()}_BRAND_${file.name}`;
+        return new File([file], newName, { type: file.type, lastModified: file.lastModified });
+      }
+      return file;
+    });
     const invalidCount = files.length - validImages.length;
     const previews = validImages.map((file) => {
       const previewUrl = URL.createObjectURL(file);
@@ -360,6 +369,30 @@ export const AdminIndexing = () => {
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
         <div className="border-b border-zinc-200 p-5">
+          <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/30 p-4">
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+              <input 
+                type="checkbox" 
+                checked={brandEnabled} 
+                onChange={e => setBrandEnabled(e.target.checked)} 
+                className="size-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" 
+              />
+              <span className="text-sm font-semibold text-zinc-900">Brand</span>
+            </label>
+            {brandEnabled && (
+              <div className="mt-3">
+                <input 
+                  type="text" 
+                  placeholder="Nhập tên Brand (VD: Owen, Zara...)" 
+                  value={uploadBrand} 
+                  onChange={e => setUploadBrand(e.target.value)} 
+                  className="w-full max-w-sm rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                />
+                <p className="mt-1 text-xs text-gray-500">Mọi ảnh trong lô tải lên lần này sẽ tự động được gán Brand này.</p>
+              </div>
+            )}
+          </div>
+
           <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-300 bg-indigo-50/50 px-6 py-8 text-center transition hover:bg-indigo-50">
             <FiUploadCloud className="size-8 text-indigo-700" />
             <span className="mt-3 text-sm font-semibold text-zinc-900">Upload ảnh trực tiếp để index</span>

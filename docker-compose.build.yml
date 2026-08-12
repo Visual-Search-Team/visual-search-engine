@@ -10,7 +10,11 @@ services:
     command: >
       sh -c "mkdir -p /app/base_model_cache /app/ocr_model_cache /app/lora-weights
       && chown -R app:app /app/base_model_cache /app/ocr_model_cache /app/lora-weights
-      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - WATCHFILES_FORCE_POLLING=true
+    volumes:
+      - ./backend-ai/app:/app/app
 
   backend-java:
     image: ${REGISTRY}/${BACKEND_JAVA_IMAGE}:${IMAGE_TAG}

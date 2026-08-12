@@ -99,17 +99,9 @@ async def get_composed_embedding(request: ComposedEmbeddingRequest):
         image_bytes = minio_client_wrapper.download_image(request.storagePath)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-        image_emb = clip_model.get_image_embedding(pil_image)
-        text_emb = clip_model.get_text_embedding(request.text)
+        composed_emb = clip_model.get_composed_embedding(pil_image, request.text, request.alpha)
 
-        # Alpha blending: embedding = alpha * text_emb + (1 - alpha) * image_emb
-        import numpy as np
-        image_np = np.array(image_emb)
-        text_np = np.array(text_emb)
-        composed_np = request.alpha * text_np + (1.0 - request.alpha) * image_np
-        composed_emb = composed_np.tolist()
-
-        filters = clip_model.extract_tags_from_text(request.text)
+        filters = QueryParser.extract_tags_from_text(request.text)
         
         return {"embedding": composed_emb, "filters": filters or None, "negative_filters": None}
     except Exception as e:

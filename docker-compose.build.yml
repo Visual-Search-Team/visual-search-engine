@@ -10,11 +10,19 @@ services:
     command: >
       sh -c "mkdir -p /app/base_model_cache /app/lora-weights
       && chown -R app:app /app/base_model_cache /app/lora-weights
-      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       - WATCHFILES_FORCE_POLLING=true
+      - WATCHFILES_IGNORE_PATHS=/app/base_model_cache,/app/ocr_model_cache,/app/lora-weights
     volumes:
       - ./backend-ai/app:/app/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
   backend-java:
     image: ${REGISTRY}/${BACKEND_JAVA_IMAGE}:${IMAGE_TAG}

@@ -4,6 +4,7 @@ import logging
 from PIL import Image
 from rembg import remove, new_session
 import os
+from skimage.color import rgb2lab, deltaE_ciede2000
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +44,8 @@ class DominantColorExtractor:
         for name, rgb_list in _BASE_COLORS.items():
             lab_list = []
             for rgb in rgb_list:
-                # RGB cần có shape (1, 1, 3) dạng uint8 để convert sang LAB
-                rgb_np = np.uint8([[list(rgb)]])
-                lab_np = cv2.cvtColor(rgb_np, cv2.COLOR_RGB2LAB)
+                rgb_np = np.uint8([[[rgb[0], rgb[1], rgb[2]]]])
+                lab_np = rgb2lab(rgb_np)
                 lab_list.append(lab_np[0][0])
             self._lab_colors[name] = lab_list
             
@@ -58,15 +58,15 @@ class DominantColorExtractor:
         
         for name, lab_list in self._lab_colors.items():
             for base_lab in lab_list:
-                # Khoảng cách Euclidean trong không gian LAB rất sát với mắt người
-                dist = np.linalg.norm(lab_val - base_lab)
+                # Sử dụng CIEDE2000 thay vì Euclidean distance
+                dist = deltaE_ciede2000(lab_val, base_lab)
                 if dist < min_dist:
                     min_dist = dist
                     closest_color = name
                     
         return closest_color
 
-    def get_dominant_colors(self, img: Image.Image, k: int = 5, top_n: int = 2) -> list[dict]:
+    def get_dominant_colors(self, img: Image.Image, k: int = 5, top_n: int = 3) -> list[dict]:
         """
         Trích xuất top_n màu chủ đạo của ảnh bằng K-Means trên LAB space sau khi tách nền.
         """
@@ -87,6 +87,12 @@ class DominantColorExtractor:
             alpha_channel = masked_img[:, :, 3]
             mask = alpha_channel > 128
             
+            # Khử viền (Halo Effect) do tách nền bằng Erosion
+            mask_uint8 = mask.astype(np.uint8) * 255
+            kernel = np.ones((3, 3), np.uint8)
+            eroded_mask = cv2.erode(mask_uint8, kernel, iterations=1)
+            mask = eroded_mask > 128
+            
             fg_pixels_rgba = masked_img[mask]
             
             # Nếu không tìm thấy vật thể nào (hoặc quá nhỏ), fallback về ảnh gốc không mask
@@ -96,15 +102,24 @@ class DominantColorExtractor:
                 fg_pixels_rgb = fg_pixels_rgba[:, :3]
                 
             # 4. Chuyển sang LAB không gian
-            # fg_pixels_rgb có dạng (N, 3), cvtColor yêu cầu ảnh 2D (H, W, 3)
-            # nên ta reshape thành (1, N, 3)
             fg_pixels_rgb_reshaped = fg_pixels_rgb.reshape(1, -1, 3)
-            fg_pixels_lab = cv2.cvtColor(fg_pixels_rgb_reshaped, cv2.COLOR_RGB2LAB)
+            # Dùng skimage rgb2lab thay vì cv2.cvtColor
+            fg_pixels_lab = rgb2lab(fg_pixels_rgb_reshaped)
             fg_pixels_lab = fg_pixels_lab.reshape(-1, 3)
+            
+            # Lọc các dải màu phi thực tế (Shadows & Highlights)
+            # Chỉ giữ lại các pixel có 15 < L < 95
+            l_channel = fg_pixels_lab[:, 0]
+            valid_idx = (l_channel > 15) & (l_channel < 95)
+            fg_pixels_lab_filtered = fg_pixels_lab[valid_idx]
+            
+            # Nếu lọc xong mà mất hết pixel (ví dụ toàn đen kịt), fallback về chưa lọc
+            if len(fg_pixels_lab_filtered) < 50:
+                fg_pixels_lab_filtered = fg_pixels_lab
             
             # 5. K-Means
             # Chuyển dữ liệu sang float32 cho K-Means
-            pixels_f32 = np.float32(fg_pixels_lab)
+            pixels_f32 = np.float32(fg_pixels_lab_filtered)
             
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
             
@@ -141,16 +156,30 @@ class DominantColorExtractor:
                 
             final_colors = [{"name": k, "percent": float(v)} for k, v in aggregated_colors.items()]
             
-            # Đưa các cụm màu rực rỡ (không phải Trắng/Đen/Xám) lên ưu tiên 
-            # nếu chúng chiếm một diện tích đáng kể (> 10%) để tránh bóng đổ / lóa sáng
-            def sort_key(x):
-                is_vibrant = x["name"] not in ["Black", "White", "Grey"]
-                is_significant = x["percent"] > 0.1
-                return (is_vibrant and is_significant, x["percent"])
+            # 7. Tính điểm (Weighted Scoring)
+            for c in final_colors:
+                weight = 1.0 if c["name"] in ["Black", "White", "Grey"] else 1.5
+                c["score"] = c["percent"] * weight
                 
-            final_colors.sort(key=sort_key, reverse=True)
+            # Sắp xếp theo điểm giảm dần
+            final_colors.sort(key=lambda x: x["score"], reverse=True)
             
-            return final_colors[:top_n] if final_colors else [{"name": "White", "percent": 1.0}]
+            # Nếu mảng rỗng, trả về fallback
+            if not final_colors:
+                return [{"name": "White", "percent": 1.0}]
+                
+            # Linh hoạt số lượng màu trả về
+            # Nếu màu top 1 chiếm > 85%, chỉ trả về 1 màu
+            if final_colors[0]["percent"] > 0.85:
+                return [final_colors[0]]
+                
+            # Nếu không, trả về các màu từ top 2 trở đi nếu tỷ lệ của nó > 15% (hoặc giới hạn top_n)
+            filtered_colors = [final_colors[0]]
+            for c in final_colors[1:]:
+                if c["percent"] > 0.15:
+                    filtered_colors.append(c)
+                    
+            return filtered_colors[:top_n]
             
         except Exception as e:
             logger.error(f"Error in dominant color extraction: {e}")

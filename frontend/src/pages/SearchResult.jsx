@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FaAlignLeft, FaChevronLeft, FaChevronRight, FaFont, FaImage, FaArrowLeft, FaArrowUp, FaCheckCircle } from "react-icons/fa";
-import { FiArrowDown, FiTrash2 } from "react-icons/fi";
+import { FiArrowDown, FiTrash2, FiCheck } from "react-icons/fi";
 import { SearchDetailModal } from "../components/common/SearchDetailModal";
 import { getMockSearchResponse } from "../mocks/searchResultsMock";
 import { searchByImage, searchByText } from "../services/searchService";
@@ -93,7 +93,7 @@ export const SearchResult = () => {
   const isSimilarSearch = type === "similar";
   const isTextSearch = type === "text";
   const isAdmin = role === "ADMIN";
-  const canAdminBulkDelete = isAdmin && !USE_MOCK_SEARCH_RESULTS && (isImageSearch || isTextSearch);
+  const canAdminBulkDelete = isAdmin && !USE_MOCK_SEARCH_RESULTS && (isImageSearch || isTextSearch || isSimilarSearch);
 
   const query = searchParams.get("q") || searchState.query || "";
   const imageId = searchParams.get("imageId") || searchState.imageId || null;
@@ -453,16 +453,6 @@ export const SearchResult = () => {
     <section className="mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8">
 
       <div className="flex w-full items-center mb-4">
-        {/* <div className="hidden md:block md:w-[200px]">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex w-[200px] items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-800 cursor-pointer"
-          >
-            <FaArrowLeft />
-            <span>Quay lại trang chủ</span>
-          </button>
-        </div> */}
 
         <CompactSearchBar className="w-full md:flex-1" />
       </div>
@@ -526,24 +516,47 @@ export const SearchResult = () => {
         </div>
 
         {canAdminBulkDelete && searchData.results.length > 0 && (
-          <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-zinc-800">
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={toggleSelectAllVisible}
-                disabled={deleteSelectedMutation.isPending || visibleImageIds.length === 0}
-                className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Chọn toàn bộ ảnh đang hiển thị
-            </label>
+          <div className={`mb-6 flex flex-col gap-3 rounded-2xl border p-3.5 shadow-sm transition-all sm:flex-row sm:items-center sm:justify-between sm:p-4 ${selectedCount > 0
+              ? "border-indigo-200 bg-indigo-50/80"
+              : "border-gray-200 bg-white"
+            }`}>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between">
+              <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700 hover:text-gray-900">
+                <div className="relative flex shrink-0 items-center">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAllVisible}
+                    disabled={deleteSelectedMutation.isPending || visibleImageIds.length === 0}
+                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-gray-300 transition-all checked:border-indigo-500 checked:bg-indigo-500 hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  />
+                  <FiCheck className="pointer-events-none absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100" strokeWidth={3} />
+                </div>
+                <span className="truncate">
+                  Chọn toàn bộ <span className="hidden sm:inline">({searchData.results.length} ảnh)</span>
+                </span>
+              </label>
+
+              {selectedCount > 0 && (
+                <span className="text-sm font-semibold text-indigo-600 sm:hidden">
+                  Đã chọn: {selectedCount}
+                </span>
+              )}
+            </div>
+
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
+              {selectedCount > 0 && (
+                <span className="hidden text-sm font-semibold text-indigo-600 sm:inline-block">
+                  Đã chọn {selectedCount}
+                </span>
+              )}
+
               <button
                 type="button"
                 onClick={() => setSelectedImageIds([])}
                 disabled={selectedCount === 0 || deleteSelectedMutation.isPending}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-50 sm:flex-none sm:px-4 sm:py-2"
               >
                 Bỏ chọn
               </button>
@@ -552,12 +565,18 @@ export const SearchResult = () => {
                 type="button"
                 onClick={handleDeleteSelected}
                 disabled={selectedCount === 0 || deleteSelectedMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-600 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:flex-none sm:px-4 sm:py-2"
               >
-                <FiTrash2 className="h-4 w-4" />
-                {deleteSelectedMutation.isPending
-                  ? "Đang xóa..."
-                  : `Xóa đã chọn (${selectedCount})`}
+                <FiTrash2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">
+                  {deleteSelectedMutation.isPending
+                    ? "Đang xử lý..."
+                    : <>
+                      <span className="sm:hidden">Xóa</span>
+                      <span className="hidden sm:inline">Xóa đã chọn</span>
+                    </>
+                  }
+                </span>
               </button>
             </div>
           </div>

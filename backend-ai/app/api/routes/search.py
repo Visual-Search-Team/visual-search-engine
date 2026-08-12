@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 from app.embedding.clip_model import clip_model
-
+from app.embedding.query_parser import QueryParser
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/embeddings", tags=["Embeddings"])
@@ -70,7 +70,7 @@ async def get_text_embedding(request: TextEmbeddingRequest):
         
     try:
         embedding = clip_model.get_text_embedding(request.text)
-        filters = clip_model.extract_tags_from_text(request.text)
+        filters = QueryParser.extract_tags_from_text(request.text)
         if filters:
             logger.info(f"[Filter] Text search bóc tách filter: {filters}")
         return {"embedding": embedding, "filters": filters or None, "negative_filters": None}

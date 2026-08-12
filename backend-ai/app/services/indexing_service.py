@@ -16,7 +16,7 @@ from sqlalchemy import select
 from app.clients.postgres_client import ImageEntity
 from app.clients.minio_client import minio_client_wrapper
 from app.embedding.clip_model import clip_model
-from app.embedding.clip_model import _ATTRIBUTE_VI_LABELS as ATTRIBUTE_VI_LABELS
+from app.embedding.constants import ATTRIBUTE_VI_LABELS
 from app.qdrant.client import qdrant_client_wrapper
 from app.utils.color_extractor import color_extractor
 

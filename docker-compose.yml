@@ -76,6 +76,8 @@ services:
       OCR_MODEL_CACHE: ${OCR_MODEL_CACHE}
       HF_HOME: ${HF_HOME}
       TORCH_HOME: ${TORCH_HOME}
+      INDEXING_DOWNLOAD_WORKERS: 64
+      INDEXING_SCAN_LIMIT: 250
     depends_on:
       postgres:
         condition: service_healthy

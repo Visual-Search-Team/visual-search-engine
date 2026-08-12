@@ -51,7 +51,7 @@ _ATTRIBUTE_PROMPT_TEMPLATES: dict[str, str] = {
 _CATEGORY_PROMPTS: dict[str, str] = {
     "T-shirt":    "a plain T-shirt with a round crew neck and no collar, no buttons, simple casual everyday top",
     "Polo shirt": "a polo shirt with a small ribbed polo collar and 2 or 3 buttons at the neck opening, sporty casual style",
-    "Shirt":      "a formal button-up dress shirt with a stiff spread collar and a full button placket running down the front",
+    "Shirt":      "a lightweight formal button-up dress shirt with a stiff spread collar, a full button placket running down the front, worn as a single layer without side hand pockets or ribbed hems",
     "Jersey":     "a sports jersey with team logo, number print, and lightweight mesh or polyester athletic fabric",
     "Activewear shirt": "a plain athletic sports shirt, activewear, gym clothing, breathable fabric, no team logos",
     "Tank top":   "a sleeveless tank top with thin shoulder straps and no sleeves, casual summer wear",
@@ -63,7 +63,7 @@ _CATEGORY_PROMPTS: dict[str, str] = {
     "Skirt":      "a women's skirt, flowing or pleated, worn around the waist and hips",
     "Dress":      "a women's one-piece dress or gown covering the body from shoulder to knee or lower",
     "Sneakers":   "casual athletic sneakers or running shoes with rubber soles and laces",
-    "Jacket":     "an outer jacket, bomber, or blazer worn over other clothing as a layer",
+    "Jacket":     "an outerwear jacket, bomber, harrington, or blazer with a zipper or button front, side hand pockets, and often a ribbed waist hem, worn over a t-shirt or other clothing as an outer layer",
     "Coat":       "a long overcoat or trench coat worn in cold weather, reaching the thigh or knee",
     "Shorts":     "short pants that end above the knee, casual everyday shorts",
     "Hat":        "a hat worn on the head, such as a beanie, bucket hat, or fedora",

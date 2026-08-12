@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.time.LocalDateTime;
 
 @Service
@@ -51,14 +54,21 @@ public class ImageService {
     // Xóa ảnh
     @Transactional
     public void deleteImage(Long imageId) throws Exception {
-        ImageEntity imageEntity = imageRepository.findByIdAndDeletedFalse(imageId)
-                .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
+        softDeleteSingleImage(imageId);
+    }
 
-        imageEntity.setDeleted(true);
-        imageEntity.setDeletedAt(LocalDateTime.now());
-        imageRepository.save(imageEntity);
+    @Transactional
+    public int deleteImagesByAdmin(List<Long> imageIds) {
+        if (imageIds == null || imageIds.isEmpty()) {
+            throw new IllegalStateException("imageIds must not be empty");
+        }
 
-        log.info("Image deleted: {}", imageId);
+        Set<Long> targetIds = new LinkedHashSet<>(imageIds);
+        for (Long imageId : targetIds) {
+            softDeleteSingleImage(imageId);
+        }
+
+        return targetIds.size();
     }
 
     // Lấy URL ảnh
@@ -101,5 +111,16 @@ public class ImageService {
     public ImageEntity getImageMetadataForTrash(Long imageId) {
         return imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found with id: " + imageId));
+    }
+
+    private void softDeleteSingleImage(Long imageId) {
+        ImageEntity imageEntity = imageRepository.findByIdAndDeletedFalse(imageId)
+                .orElseThrow(() -> new IllegalStateException("Image not found or already deleted: " + imageId));
+
+        imageEntity.setDeleted(true);
+        imageEntity.setDeletedAt(LocalDateTime.now());
+        imageRepository.save(imageEntity);
+
+        log.info("Image deleted: {}", imageId);
     }
 }

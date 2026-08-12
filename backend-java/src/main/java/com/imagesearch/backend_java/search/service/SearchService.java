@@ -182,12 +182,27 @@ public class SearchService {
             log.info("Call AI embedding text");
             EmbeddingResponse embeddingResponse = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
-            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
+            Map<String, List<String>> filters = embeddingResponse.getFilters() != null 
+                    ? new java.util.HashMap<>(embeddingResponse.getFilters()) 
+                    : new java.util.HashMap<>();
+            boolean autoAddedViewAngle = false;
+            if (!filters.containsKey("view_angle")) {
+                filters.put("view_angle", java.util.Collections.singletonList("mặt trước"));
+                autoAddedViewAngle = true;
+            }
+
+            List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), filters, pageCriteria.limit());
             
-            // FALLBACK SEMANTIC: Nếu filter cứng không tìm thấy kết quả nào, 
-            // bỏ filter đi và tìm thuần tuý bằng semantic vector để vét cạn.
-            if (results.isEmpty() && embeddingResponse.getFilters() != null && !embeddingResponse.getFilters().isEmpty()) {
-                log.warn("Hard filter returned 0 results. Fallback to pure semantic search.");
+            // LỚP FALLBACK 1: Nếu 0 kết quả và có chèn ngầm "mặt trước", gỡ riêng "mặt trước" ra
+            if (results.isEmpty() && autoAddedViewAngle) {
+                log.warn("Hard filter with view_angle returned 0 results. Dropping view_angle and retrying...");
+                filters.remove("view_angle");
+                results = searchQdrant(embeddingResponse.getEmbedding(), filters, pageCriteria.limit());
+            }
+
+            // LỚP FALLBACK 2: Nếu vẫn 0 kết quả, gỡ toàn bộ các filter còn lại (Semantic thuần)
+            if (results.isEmpty() && !filters.isEmpty()) {
+                log.warn("Still 0 results. Fallback to pure semantic search.");
                 results = searchQdrant(embeddingResponse.getEmbedding(), null, pageCriteria.limit());
             }
             

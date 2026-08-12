@@ -17,7 +17,7 @@ _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 # 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
 # Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
 _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
-    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Cap", "Bag"],
+    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Activewear shirt", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Cap", "Bag"],
     "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
     "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
     "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
@@ -27,6 +27,7 @@ _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
     "sleeve": ["Short sleeve", "Long sleeve", "Sleeveless"],
     "neckline": ["Collared", "Collarless"],
     "brand": ["Nike", "Adidas", "Gucci", "Lacoste", "Chanel", "Louis Vuitton", "Puma", "Manchester United", "Burberry", "Dior", "Balenciaga", "Zara", "H&M", "Unbranded"],
+    "view_angle": ["Front view", "Back view", "Side view"],
 }
 
 # Prompt template riêng cho từng nhóm — cho FashionCLIP ngữ cảnh rõ ràng hơn là chỉ
@@ -42,6 +43,7 @@ _ATTRIBUTE_PROMPT_TEMPLATES: dict[str, str] = {
     "sleeve": "a photo of a {label} clothing item",
     "neckline": "a photo of a clothing item with a {label} neckline",
     "brand": "a photo of a {label} brand clothing item",
+    "view_angle": "a {label} photo of the clothing item",
 }
 
 # Prompt mô tả chi tiết riêng cho từng loại category — giúp FashionCLIP phân biệt
@@ -51,6 +53,7 @@ _CATEGORY_PROMPTS: dict[str, str] = {
     "Polo shirt": "a polo shirt with a small ribbed polo collar and 2 or 3 buttons at the neck opening, sporty casual style",
     "Shirt":      "a formal button-up dress shirt with a stiff spread collar and a full button placket running down the front",
     "Jersey":     "a sports jersey with team logo, number print, and lightweight mesh or polyester athletic fabric",
+    "Activewear shirt": "a plain athletic sports shirt, activewear, gym clothing, breathable fabric, no team logos",
     "Tank top":   "a sleeveless tank top with thin shoulder straps and no sleeves, casual summer wear",
     "Crop top":   "a short crop top shirt cut to expose the midriff, ending well above the waist",
     "Sweater":    "a warm knitted sweater or pullover made of wool or knit fabric, long sleeves",
@@ -150,7 +153,7 @@ _ATTRIBUTE_ALIASES: dict[str, dict[str, str]] = {
 # Có thể chỉnh lại chữ cho tự nhiên hơn tùy gu, đây chỉ là bản dịch mặc định hợp lý.
 _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     "category": {
-        "T-shirt": "áo thun", "Polo shirt": "áo polo", "Shirt": "áo sơ mi", "Jersey": "áo đá bóng", "Tank top": "áo ba lỗ", "Crop top": "áo croptop", "Sweater": "áo len", "Hoodie": "áo hoodie", "Jeans": "quần jean", "Trousers": "quần âu",
+        "T-shirt": "áo thun", "Polo shirt": "áo polo", "Shirt": "áo sơ mi", "Jersey": "áo đá bóng", "Activewear shirt": "áo thể thao", "Tank top": "áo ba lỗ", "Crop top": "áo croptop", "Sweater": "áo len", "Hoodie": "áo hoodie", "Jeans": "quần jean", "Trousers": "quần âu",
         "Skirt": "chân váy", "Dress": "váy đầm", "Sneakers": "giày sneaker",
         "Jacket": "áo khoác", "Coat": "áo choàng", "Shorts": "quần short",
         "Hat": "mũ", "Cap": "mũ lưỡi trai", "Bag": "túi xách",
@@ -166,7 +169,7 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     },
     "style": {
         "Casual": "thường ngày", "Formal": "trang trọng", "Vintage": "cổ điển",
-        "Streetwear": "đường phố", "Sportswear": "thể thao", "Y2K": "phong cách y2k",
+        "Streetwear": "đường phố", "Sportswear": "phong cách thể thao", "Y2K": "phong cách y2k",
         "Minimalist": "tối giản",
     },
     "material": {
@@ -191,6 +194,9 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
         "Chanel": "chanel", "Louis Vuitton": "louis vuitton", "Puma": "puma", 
         "Manchester United": "manchester united", "Burberry": "burberry", "Dior": "dior", 
         "Balenciaga": "balenciaga", "Zara": "zara", "H&M": "h&m", "Unbranded": "không rõ hãng"
+    },
+    "view_angle": {
+        "Front view": "mặt trước", "Back view": "mặt sau", "Side view": "mặt ngang",
     },
 }
 
@@ -364,10 +370,6 @@ class CLIPModelWrapper:
         clean_text = normalized.translate(str.maketrans('', '', string.punctuation))
         padded = f" {clean_text} "
         
-        # Xử lý từ đồng nghĩa/viết tắt trước khi match
-        padded = padded.replace(" mu ", " manchester united ")
-        padded = padded.replace(" lv ", " louis vuitton ")
-
         # Alias Mapping: Đổi các từ lóng thành từ chuẩn trong từ điển VI_LABELS.
         # Cả alias_key và standard_val đều được NFC-normalize khi so khớp.
         for attr_name, aliases in _ATTRIBUTE_ALIASES.items():

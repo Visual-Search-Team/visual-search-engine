@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,7 +56,8 @@ public class IndexingJobController {
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
         try {
-            PageResponse<IndexingJobSummaryResponse> response = indexingJobService.getIndexingJobs(Map.of("page", page, "size", size));
+            PageResponse<IndexingJobSummaryResponse> response = indexingJobService
+                    .getIndexingJobs(Map.of("page", page, "size", size));
             return ResponseEntity.ok(BaseResponse.success(response));
         } catch (Exception ex) {
             log.error("Error fetching indexing jobs", ex);
@@ -105,9 +107,16 @@ public class IndexingJobController {
     public ResponseEntity<BaseResponse<PageResponse<IndexingJobItemResponse>>> getJobItems(
             @PathVariable Long jobId,
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) String status) {
         try {
-            PageResponse<IndexingJobItemResponse> response = indexingJobService.getJobItems(jobId, Map.of("page", page, "size", size));
+            Map<String, Object> params = new HashMap<>();
+            params.put("page", page);
+            params.put("size", size);
+            if (status != null)
+                params.put("status", status);
+
+            PageResponse<IndexingJobItemResponse> response = indexingJobService.getJobItems(jobId, params);
             return ResponseEntity.ok(BaseResponse.success(response));
         } catch (Exception ex) {
             log.error("Error fetching indexing job items", ex);
@@ -123,8 +132,7 @@ public class IndexingJobController {
             Map<String, Object> payload = Map.of(
                     "id", response.getId(),
                     "status", response.getStatus(),
-                    "progressPercentage", response.getProgressPercentage()
-            );
+                    "progressPercentage", response.getProgressPercentage());
             return ResponseEntity.ok(BaseResponse.success(payload));
         } catch (Exception ex) {
             log.error("Error fetching indexing job status", ex);
@@ -134,7 +142,8 @@ public class IndexingJobController {
     }
 
     @PostMapping("/retry")
-    public ResponseEntity<BaseResponse<IndexingJobResponse>> retryIndexingJob(@RequestBody IndexingJobRetryRequest request) {
+    public ResponseEntity<BaseResponse<IndexingJobResponse>> retryIndexingJob(
+            @RequestBody IndexingJobRetryRequest request) {
         try {
             return ResponseEntity.ok(BaseResponse.success(indexingJobService.retryIndexing(request.getJobId())));
         } catch (Exception ex) {
@@ -151,12 +160,10 @@ public class IndexingJobController {
         try {
             int deletedCount = indexingJobService.deleteImagesFromJob(
                     jobId,
-                    request == null ? null : request.getImageIds()
-            );
+                    request == null ? null : request.getImageIds());
             return ResponseEntity.ok(BaseResponse.success(Map.of(
                     "jobId", jobId,
-                    "deletedCount", deletedCount
-            )));
+                    "deletedCount", deletedCount)));
         } catch (Exception ex) {
             log.error("Error deleting images from job {}", jobId, ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -186,8 +193,7 @@ public class IndexingJobController {
             List<Long> jobIds = request == null ? null : request.getJobIds();
             int deletedCount = indexingJobService.deleteJobsAndImages(jobIds);
             return ResponseEntity.ok(BaseResponse.success(Map.of(
-                    "deletedCount", deletedCount
-            )));
+                    "deletedCount", deletedCount)));
         } catch (Exception ex) {
             log.error("Error deleting jobs", ex);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

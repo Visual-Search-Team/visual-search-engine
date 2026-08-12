@@ -42,11 +42,12 @@ export const getIndexingJobs = async ({ page = 1, size = 10 } = {}) => {
   return normalizePage(unwrapResponse(response));
 };
 
-export const getIndexingJobItems = async (jobId, { page = 1, size = 10 } = {}) => {
+export const getIndexingJobItems = async (jobId, { page = 1, size = 10, status } = {}) => {
   const response = await apiClient.get(`/admin/indexing-jobs/${jobId}/items`, {
     params: {
       page: Math.max(Number(page) - 1, 0),
       size,
+      ...(status && status !== "ALL" && { status }),
     },
   });
 

@@ -26,4 +26,6 @@ public interface IndexingJobItemRepository extends JpaRepository<IndexingJobItem
     void deleteByImage_Id(Long imageId);
 
     void deleteByIndexingJobId(Long jobId);
+
+    Page<IndexingJobItemEntity> findByIndexingJobIdAndStatus(Long jobId, ImageIndexStatus status, Pageable pageable);
 }

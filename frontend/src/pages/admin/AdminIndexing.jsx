@@ -83,10 +83,16 @@ export const AdminIndexing = () => {
   const [uploadBrand, setUploadBrand] = useState("");
 
 
+  // Thêm state cho bộ lọc Job
+  const [jobStatusFilter, setJobStatusFilter] = useState("ALL");
 
   const jobsQuery = useQuery({
-    queryKey: ["admin-indexing-jobs", page],
-    queryFn: () => getIndexingJobs({ page, size: 10 }),
+    queryKey: ["admin-indexing-jobs", page, jobStatusFilter],
+    queryFn: () => getIndexingJobs({
+      page,
+      size: 10,
+      status: jobStatusFilter === "ALL" ? undefined : jobStatusFilter
+    }),
     refetchInterval: (query) => {
       const jobs = query.state.data?.content || [];
       return jobs.some((job) => job.status === "RUNNING" || job.status === "PENDING") ? 5000 : false;
@@ -520,30 +526,55 @@ export const AdminIndexing = () => {
       </div>
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 p-5 flex items-center justify-between">
-          <div className="flex flex-col gap-1 items-start">
+        <div className="flex flex-col gap-4 border-b border-zinc-200 p-4 sm:p-5 md:flex-row md:items-start md:justify-between">
+
+          {/* CỘT TRÁI (Tiêu đề + Lọc + Mobile Checkbox) */}
+          <div className="flex flex-col gap-3">
             <h3 className="text-base font-semibold text-zinc-900">Danh sách indexing job</h3>
-            <div className="flex items-center gap-3 border-b border-zinc-200 bg-slate-50 py-3 lg:hidden">
+
+            {/* Khối Lọc trạng thái */}
+            <div className="flex items-center gap-2">
+              <span className="whitespace-nowrap text-sm font-medium text-gray-700">Lọc trạng thái:</span>
+              <select
+                value={jobStatusFilter}
+                onChange={(e) => {
+                  setJobStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full max-w-[200px] cursor-pointer rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="ALL">Tất cả</option>
+                <option value="PENDING">PENDING</option>
+                <option value="RUNNING">RUNNING</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="FAILED">FAILED</option>
+                <option value="PARTIALLY_FAILED">PARTIALLY_FAILED</option>
+              </select>
+            </div>
+
+            {/* Checkbox "Chọn tất cả" */}
+            <div className="mt-1 flex items-center gap-3 rounded-lg border border-zinc-200 bg-slate-50 p-3 lg:hidden">
               <input
                 type="checkbox"
-                className="size-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                className="size-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
                 checked={isAllCurrentPageSelected}
                 onChange={(e) => handleSelectAllCurrentPage(e.target.checked)}
                 disabled={jobs.length === 0}
               />
               <span className="text-[15px] font-semibold text-gray-700">Chọn tất cả</span>
             </div>
-
           </div>
 
-          {/* NÚT XÓA NHIỀU */}
+          {/* CỘT PHẢI (Nút Xóa) */}
           <button
             onClick={handleConfirmBulkDelete}
             disabled={selectedJobIds.length === 0 || deleteMultipleJobsMutation.isPending}
-            className={`flex cursor-pointer items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors
-              ${selectedJobIds.length > 0 && !deleteMultipleJobsMutation.isPending
-                ? "bg-rose-600 text-white hover:bg-rose-700 shadow-sm"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"}`}
+            className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors md:w-auto md:py-2
+            ${selectedJobIds.length > 0 && !deleteMultipleJobsMutation.isPending
+                ? "bg-rose-600 text-white shadow-sm hover:bg-rose-700"
+                : "cursor-not-allowed bg-gray-100 text-gray-400"
+              }
+        `}
           >
             {deleteMultipleJobsMutation.isPending ? (
               <FiRotateCcw className="size-4 animate-spin" />

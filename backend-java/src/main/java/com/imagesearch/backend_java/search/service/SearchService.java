@@ -56,9 +56,11 @@ public class SearchService {
 
     // Ngưỡng "rớt đài": nếu score giảm đột ngột hơn mức này so với điểm liền trước,
     // coi như phần còn lại là hàng dạt (AI phân loại nhầm bị ép lấy cho đủ limit).
-    private static final float ELBOW_DROP_THRESHOLD = 0.04f;
+    // Đã hạ xuống 0.08f (FashionCLIP có khoảng cách score hẹp).
+    private static final float ELBOW_DROP_THRESHOLD = 0.08f;
     // Ngưỡng tuyệt đối: score thấp hơn mức này thì luôn bị loại dù không rớt đột ngột.
-    private static final float MIN_ABSOLUTE_SCORE = 0.22f;
+    // Đã hạ xuống 0.12f để không lỡ mất kết quả đúng khi có Hard Filter.
+    private static final float MIN_ABSOLUTE_SCORE = 0.12f;
 
     public ImageSearchResponse searchByImage(MultipartFile image, String username, Integer limit, Integer page, Integer pageSize) {
         long startTime = System.currentTimeMillis();
@@ -181,6 +183,14 @@ public class SearchService {
             EmbeddingResponse embeddingResponse = aiEmbeddingClient.getTextEmbedding(query);
             log.info("Get embedding text success");
             List<SearchResultItem> results = searchQdrant(embeddingResponse.getEmbedding(), embeddingResponse.getFilters(), pageCriteria.limit());
+            
+            // FALLBACK SEMANTIC: Nếu filter cứng không tìm thấy kết quả nào, 
+            // bỏ filter đi và tìm thuần tuý bằng semantic vector để vét cạn.
+            if (results.isEmpty() && embeddingResponse.getFilters() != null && !embeddingResponse.getFilters().isEmpty()) {
+                log.warn("Hard filter returned 0 results. Fallback to pure semantic search.");
+                results = searchQdrant(embeddingResponse.getEmbedding(), null, pageCriteria.limit());
+            }
+            
             SearchHistory history = pageCriteria.page() == 0
                     ? saveHistory(username, SearchType.TEXT_SEMANTIC, query, null, null, startTime)
                     : null;

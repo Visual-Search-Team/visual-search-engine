@@ -37,10 +37,8 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
 
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
-COPY --from=builder /opt/venv /opt/venv
-COPY app ./app
-
-RUN chown -R app:app /app /opt/venv
+COPY --from=builder --chown=app:app /opt/venv /opt/venv
+COPY --chown=app:app app ./app
 
 EXPOSE 8000
 

@@ -5,6 +5,8 @@ import json
 import time
 import datetime
 import os
+import re
+import torch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from PIL import Image
@@ -76,14 +78,34 @@ def process_pending_images(db: Session):
             attributes_list = clip_model.predict_all_attributes_batch(embeddings)
             attributes_by_id = dict(zip(valid_ids, attributes_list))
 
+            # Dict lookup O(1) thay vì next() O(n) bên trong vòng lặp -> tránh O(n^2)
+            entity_map = {img.id: img for img in pending_images}
+
             payloads = []
             for img_id in valid_ids:
-                img_entity = next(i for i in pending_images if i.id == img_id)
+                img_entity = entity_map[img_id]
+                filename = img_entity.original_filename or ""
+                
+                metadata = attributes_by_id.get(img_id)
+                if metadata:
+                    match = re.search(r'_BRAND_(.*?)_BRAND_', filename)
+                    if match:
+                        manual_brand = match.group(1).strip().lower() # Giữ chữ thường như đã thống nhất
+                        metadata["brand"] = manual_brand
+                        logger.info(f"[MANUAL OVERRIDE] Ghi đè brand='{manual_brand}' cho image id={img_id}")
+                        
+                        # AI tự động nạp brand này vào từ điển text search (nếu chưa có)
+                        clip_model.add_dynamic_brand(manual_brand)
+                        
+                        clean_filename = re.sub(r'_BRAND_.*?_BRAND_', '', filename)
+                        img_entity.original_filename = clean_filename
+                        filename = clean_filename
+
                 payloads.append({
                     "image_id": img_entity.id,
-                    "original_filename": img_entity.original_filename,
+                    "original_filename": filename,
                     "uploaded_by": img_entity.uploaded_by,
-                    "metadata_ai": attributes_by_id.get(img_id)
+                    "metadata_ai": metadata
                 })
 
             qdrant_client_wrapper.upsert_vectors(point_ids=valid_ids, vectors=embeddings, payloads=payloads)
@@ -136,5 +158,9 @@ def process_pending_images(db: Session):
             pass
 
     image_cache_dict.clear()
-    gc.collect()
-    logger.info("[GC] Đã dọn sạch bộ nhớ CLIP sau batch.")
+
+    # Giải phóng VRAM cache nếu đang chạy trên GPU, bỏ qua nếu CPU-only
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    logger.info("[MEM] Đã dọn sạch bộ nhớ sau batch.")

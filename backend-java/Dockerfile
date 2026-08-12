@@ -13,8 +13,7 @@ WORKDIR /app
 
 RUN groupadd --system app && useradd --system --gid app --create-home app
 
-COPY --from=build /workspace/target/*.jar /app/app.jar
-RUN chown -R app:app /app
+COPY --chown=app:app --from=build /workspace/target/*.jar /app/app.jar
 
 USER app
 

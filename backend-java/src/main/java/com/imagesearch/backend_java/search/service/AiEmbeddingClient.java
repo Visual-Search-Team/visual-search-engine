@@ -37,6 +37,14 @@ public class AiEmbeddingClient {
                 .getEmbedding();
     }
 
+    /**
+     * Trả về toàn bộ EmbeddingResponse (embedding + filters dự đoán zero-shot)
+     * cho ảnh truy vấn — dùng cho Image Search để áp Hard Filter vào Qdrant.
+     */
+    public EmbeddingResponse getImageEmbeddingResponse(EmbeddingRequest request) throws IOException {
+        return getFullEmbeddingResponse(buildUrl(searchConfig.getImageEmbeddingPath()), request, "image:" + request.getStoragePath());
+    }
+
     public EmbeddingResponse getTextEmbedding(String text) throws IOException {
         EmbeddingRequest request = EmbeddingRequest.builder()
                 .type("text")

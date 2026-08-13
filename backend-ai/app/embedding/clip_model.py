@@ -58,8 +58,8 @@ _CATEGORY_PROMPTS: dict[str, str] = {
     "Crop top":   "a short crop top shirt cut to expose the midriff, ending well above the waist",
     "Sweater":    "a warm knitted sweater or pullover made of wool or knit fabric, long sleeves",
     "Hoodie":     "a hooded sweatshirt with a hood and a large front kangaroo pocket, casual streetwear",
-    "Jeans":      "blue denim jeans pants with stitched pockets and a zipper fly closure",
-    "Trousers":   "formal tailored dress trousers or slacks with a pressed crease and belt loops",
+    "Jeans":      "long blue denim jeans pants covering the entire leg down to the ankle, with stitched pockets and a zipper fly closure",
+    "Trousers":   "long formal tailored dress trousers or slacks covering the entire leg down to the ankle, with a pressed crease and belt loops, not short pants",
     "Skirt":      "a women's skirt, flowing or pleated, worn around the waist and hips",
     "Dress":      "a women's one-piece dress or gown covering the body from shoulder to knee or lower",
     "Sneakers":   "casual athletic sneakers or running shoes with rubber soles and laces",
@@ -71,7 +71,7 @@ _CATEGORY_PROMPTS: dict[str, str] = {
         "floor-length front and back panels split into two high side slits at the waist, "
         "always worn over loose flowing wide-leg trousers visible underneath, unlike western dresses"
     ),
-    "Shorts":     "short pants that end above the knee, casual everyday shorts",
+    "Shorts":     "short pants that end above the knee and expose the lower legs, casual everyday shorts, not long trousers",
     "Hat":        "a hat worn on the head, such as a beanie, bucket hat, or fedora",
     "Cap":        "a baseball cap or snapback hat with a structured front panel and a curved brim",
     "Bag":        "a handbag, shoulder bag, backpack, or purse used for carrying personal items",
@@ -137,6 +137,8 @@ _FASHION_GLOSSARY = {
     "chấm bi": "polka dot",
     "rằn ri": "camouflage",
     "ô vuông": "plaid",
+    "kẻ ô": "plaid",
+    "kẻ sọc": "striped",
     "cổ lọ": "turtleneck",
     "cổ tim": "v-neck",
     "cổ tròn": "crew neck",
@@ -154,16 +156,20 @@ _FASHION_GLOSSARY = {
 # Giá trị value phải khớp chính xác với value trong _ATTRIBUTE_VI_LABELS
 _ATTRIBUTE_ALIASES: dict[str, dict[str, str]] = {
     "category": {
-        "áo phông": "áo thun", "quần đùi": "quần short", "quần bò": "quần jean",
+        "áo phông": "áo thun", "quần đùi": "quần short", "quần ngố": "quần short", "quần bò": "quần jean",
         "váy xếp cả": "chân váy", "áo 2 dây": "áo ba lỗ", "áo hai dây": "áo ba lỗ",
         "áo sát nách": "áo ba lỗ",
         "sơ mi": "áo sơ mi", "polo": "áo polo", "hoodie": "áo hoodie",
         "croptop": "áo croptop", "sneaker": "giày sneaker",
         "áo vest": "đồ vest", "suit": "đồ vest", "âu phục": "đồ vest", "blazer": "đồ vest",
-        "áo dài truyền thống": "áo dài", "áo dài cách tân": "áo dài"
+        "áo dài truyền thống": "áo dài", "áo dài cách tân": "áo dài",
+        "quần tây": "quần âu"
     },
     "color": {
         "sữa": "be", "trắng ngà": "be", "kem": "be", "vàng chanh": "vàng", "đỏ đô": "đỏ"
+    },
+    "pattern": {
+        "kẻ ô": "caro", "kẻ caro": "caro", "kẻ vuông": "caro", "ô vuông": "caro", "sọc caro": "caro"
     },
     "sleeve": {
         "tay ngắn": "ngắn tay",

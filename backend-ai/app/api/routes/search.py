@@ -48,7 +48,16 @@ async def get_image_embedding(request: ImageEmbeddingRequest, background_tasks: 
         
         embedding = clip_model.get_image_embedding(pil_image)
 
-        return {"embedding": embedding}
+        # Zero-shot prediction toàn bộ thuộc tính của ảnh query.
+        # Dùng cho Two-stage retrieval: Re-ranking (Soft filter) ở backend-java.
+        # Không dùng làm Hard filter vì dễ bị false negative.
+        attrs = clip_model.predict_all_attributes(embedding)
+        filters: dict = {}
+        for k in ["category", "color", "pattern", "style", "sleeve", "neckline", "gender"]:
+            if attrs.get(k):
+                filters[k] = [attrs[k]]
+
+        return {"embedding": embedding, "filters": filters if filters else None}
     except Exception as e:
         logger.error(f"Error computing image embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

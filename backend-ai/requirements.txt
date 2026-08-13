@@ -23,3 +23,6 @@ peft==0.12.0
 # Translation
 sentencepiece
 sacremoses
+
+# LLM Fallback — Gemini API để suy luận ngữ nghĩa cho các truy vấn trừu tượng
+google-generativeai>=0.8.0

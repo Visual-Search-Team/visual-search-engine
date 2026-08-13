@@ -76,7 +76,28 @@ async def get_text_embedding(request: TextEmbeddingRequest):
         filters = clip_model.extract_tags_from_text(request.text)
         if filters:
             logger.info(f"[Filter] Bóc tách được filter từ query: {filters}")
+
+        # --- LLM Fallback (Tầng 2) ---
+        # Chỉ kích hoạt khi Tầng 1 không bóc được danh mục cụ thể nào.
+        # Điều này có nghĩa là người dùng đang tìm theo phong cách trừu tượng
+        # (ví dụ: "old money", "đồ đi biển") chứ không phải loại đồ cụ thể.
+        if not filters.get("category"):
+            try:
+                from app.services.llm_intent_parser import parse_fashion_intent
+                llm_filters = await parse_fashion_intent(request.text)
+                if llm_filters:
+                    logger.info(f"[LLM Fallback] Bổ sung filter từ Gemini: {llm_filters}")
+                    # Hợp nhất: LLM chỉ điền vào những key mà Tầng 1 chưa bóc được.
+                    # Tầng 1 vẫn có quyền ưu tiên tuyệt đối (gender, color, etc).
+                    for k, v in llm_filters.items():
+                        if k not in filters:
+                            filters[k] = v
+            except Exception as e:
+                # LLM lỗi thì im lặng, không ảnh hưởng đến kết quả Tầng 1
+                logger.warning(f"[LLM Fallback] Bỏ qua do lỗi: {e}")
+
         return {"embedding": embedding, "filters": filters or None}
     except Exception as e:
         logger.error(f"Error computing text embedding: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+

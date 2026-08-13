@@ -17,7 +17,7 @@ _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 # 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
 # Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
 _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
-    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Activewear shirt", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Suit", "Ao Dai", "Shorts", "Hat", "Cap", "Bag"],
+    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Activewear shirt", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Nightgown", "Sneakers", "Jacket", "Coat", "Suit", "Ao Dai", "Shorts", "Hat", "Cap", "Bag"],
     "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
     "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
     "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
@@ -54,16 +54,17 @@ _CATEGORY_PROMPTS: dict[str, str] = {
     "Shirt":      "a lightweight formal button-up dress shirt with a stiff spread collar, a full button placket running down the front, worn as a single layer without side hand pockets, not a blazer, not a suit jacket",
     "Jersey":     "a sports jersey with team logo, number print, and lightweight mesh or polyester athletic fabric",
     "Activewear shirt": "a plain athletic sports shirt, activewear, gym clothing, breathable fabric, no team logos",
-    "Tank top":   "a sleeveless tank top with thin shoulder straps and no sleeves, casual summer wear",
+    "Tank top":   "a short sleeveless tank top or camisole shirt with thin shoulder straps, ending at the waist or stomach, not covering the legs, casual summer wear or lingerie sleepwear",
     "Crop top":   "a short crop top shirt cut to expose the midriff, ending well above the waist",
     "Sweater":    "a warm knitted sweater or pullover made of wool or knit fabric, long sleeves",
     "Hoodie":     "a hooded sweatshirt with a hood and a large front kangaroo pocket, casual streetwear",
     "Jeans":      "long blue denim jeans pants covering the entire leg down to the ankle, with stitched pockets and a zipper fly closure",
     "Trousers":   "long formal tailored dress trousers or slacks covering the entire leg down to the ankle, with a pressed crease and belt loops, not short pants",
     "Skirt":      "a women's skirt, flowing or pleated, worn around the waist and hips",
-    "Dress":      "a women's one-piece dress or gown covering the body from shoulder to knee or lower",
+    "Dress":      "a women's formal or casual dress, such as an evening gown, sundress, or cocktail dress, covering the body from shoulder to knee or lower, not sleepwear, not lingerie",
+    "Nightgown":  "a women's nightgown or slip dress sleepwear, lingerie, usually made of silk, satin or lace, with thin spaghetti straps, worn for sleeping in bed, relaxed fit, not a formal evening gown, not a casual sundress",
     "Sneakers":   "casual athletic sneakers or running shoes with rubber soles and laces",
-    "Jacket":     "a casual outerwear jacket such as a bomber, denim jacket, leather jacket, or windbreaker, typically featuring a zip closure down the front, a stand or round collar without lapels, and a ribbed elastic waist hem",
+    "Jacket":     "a casual outerwear jacket such as a bomber, Harrington jacket, denim jacket, leather jacket, or windbreaker, typically featuring a zip closure down the front, can have a flat turn-down collar or a stand collar, and a ribbed elastic waist hem, casual everyday wear",
     "Coat":       "a long overcoat or trench coat worn in cold weather, reaching the thigh or knee",
     "Suit":       "a tailored suit jacket or blazer featuring a structured V-neck lapel collar, structured padded shoulders, a single or double-breasted button closure, and flap pockets, often worn over a dress shirt and tie, displayed on a mannequin or person",
     "Ao Dai": (
@@ -87,6 +88,24 @@ _NECKLINE_PROMPTS: dict[str, str] = {
         "such as a round crew neck, V-neck, scoop neck, boat neck, or ribbed knit neckband "
         "with no fabric folding outward"
     ),
+}
+
+_SLEEVE_PROMPTS: dict[str, list[str]] = {
+    "Long sleeve": [
+        "a clothing item covering the entire arm down to the wrists",
+        "long sleeves with cuffs resting near the wrist or lower forearm",
+        "the fabric covers most of the arm, exposing only the hands or a tiny bit of the lower wrist",
+        "a long sleeve shirt with sleeves slightly rolled up at the bottom edge",
+    ],
+    "Short sleeve": [
+        "a clothing item with short sleeves ending cleanly above the elbow",
+        "at least half of the lower arm and forearm is completely bare skin",
+        "short sleeves, the entire lower arm from the elbow to the hand is exposed",
+    ],
+    "Sleeveless": [
+        "a sleeveless clothing item with no sleeves at all, exposing the entire arm and shoulders",
+        "a tank top or vest with completely bare shoulders and arms",
+    ]
 }
 
 # Thư mục cache model, tránh phải tải lại mỗi lần build docker
@@ -156,9 +175,14 @@ _FASHION_GLOSSARY = {
 # Giá trị value phải khớp chính xác với value trong _ATTRIBUTE_VI_LABELS
 _ATTRIBUTE_ALIASES: dict[str, dict[str, str]] = {
     "category": {
+        "đầm": "váy đầm", "váy": "váy đầm",
+        "áo thun có cổ": "áo polo", "áo phông có cổ": "áo polo",
+        "áo có cổ dài tay": "áo sơ mi", "áo sơ mi có cổ": "áo sơ mi",
+        "áo có cổ": "áo polo",
         "áo phông": "áo thun", "quần đùi": "quần short", "quần ngố": "quần short", "quần bò": "quần jean",
         "váy xếp cả": "chân váy", "áo 2 dây": "áo ba lỗ", "áo hai dây": "áo ba lỗ",
         "áo sát nách": "áo ba lỗ",
+        "váy ngủ": "váy đầm ngủ", "đầm ngủ": "váy đầm ngủ",
         "sơ mi": "áo sơ mi", "polo": "áo polo", "hoodie": "áo hoodie",
         "croptop": "áo croptop", "sneaker": "giày sneaker",
         "áo vest": "đồ vest", "suit": "đồ vest", "âu phục": "đồ vest", "blazer": "đồ vest",
@@ -184,7 +208,7 @@ _ATTRIBUTE_ALIASES: dict[str, dict[str, str]] = {
 _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
     "category": {
         "T-shirt": "áo thun", "Polo shirt": "áo polo", "Shirt": "áo sơ mi", "Jersey": "áo đá bóng", "Activewear shirt": "áo thể thao", "Tank top": "áo ba lỗ", "Crop top": "áo croptop", "Sweater": "áo len", "Hoodie": "áo hoodie", "Jeans": "quần jean", "Trousers": "quần âu",
-        "Skirt": "chân váy", "Dress": "váy đầm", "Sneakers": "giày sneaker",
+        "Skirt": "chân váy", "Dress": "váy đầm", "Nightgown": "váy đầm ngủ", "Sneakers": "giày sneaker",
         "Jacket": "áo khoác", "Coat": "áo choàng", "Shorts": "quần short",
         "Hat": "mũ", "Cap": "mũ lưỡi trai", "Bag": "túi xách", "Suit": "đồ vest", "Ao Dai": "áo dài",
     },
@@ -235,7 +259,7 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
 # nhãn category cụ thể nào (vd. "quần màu đen" không khớp "Quần jean"/"Quần âu"...).
 # Trong trường hợp đó, gom TẤT CẢ nhãn category có chứa từ khóa này lại thành 1 danh
 # sách để khóa cứng Qdrant bằng MATCH_ANY, tránh bốc nhầm sang ngành hàng khác (áo).
-_BROAD_CATEGORY_KEYWORDS: list[str] = ["áo", "quần", "giày", "mũ", "váy", "túi"]
+_BROAD_CATEGORY_KEYWORDS: list[str] = ["áo", "quần", "giày", "mũ", "váy", "túi", "đầm"]
 
 
 class CLIPModelWrapper:
@@ -297,6 +321,25 @@ class CLIPModelWrapper:
     def _precompute_attribute_vocab_vectors(self):
         logger.info("Đang sinh vector mẫu cho 7 nhóm thuộc tính thời trang...")
         for attr_name, labels in _ATTRIBUTE_VOCAB.items():
+            if attr_name == "sleeve":
+                # Prompt Ensembling đặc biệt cho tay áo (sleeve)
+                sleeve_feats = []
+                for label in labels:
+                    label_prompts = _SLEEVE_PROMPTS.get(label, [f"a photo of a {label} clothing item"])
+                    self._validate_prompt_length(label_prompts, attr_name)
+                    inputs = self.processor(
+                        text=label_prompts, return_tensors="pt", padding=True, truncation=True, max_length=77
+                    ).to(self.device)
+                    with torch.inference_mode():
+                        feat = self.model.get_text_features(**inputs)
+                        # Tính trung bình cộng các vector của cùng 1 nhãn
+                        avg_feat = feat.mean(dim=0, keepdim=True)
+                        avg_feat = F.normalize(avg_feat, dim=-1)
+                        sleeve_feats.append(avg_feat)
+                self._attribute_vectors[attr_name] = torch.cat(sleeve_feats, dim=0)
+                continue
+
+            # Các thuộc tính bình thường (1 câu prompt / 1 nhãn)
             if attr_name == "category":
                 prompts = [_CATEGORY_PROMPTS.get(label, f"a photo of a {label}") for label in labels]
             elif attr_name == "neckline":

@@ -87,16 +87,23 @@ public class SearchService {
                     .build();
             queryImage = imageRepository.save(queryImage);
 
-            log.info("start call api AI embedding image");
-
-            List<Float> embedding = aiEmbeddingClient.getImageEmbedding(EmbeddingRequest.builder()
+            EmbeddingResponse embeddingResponse = aiEmbeddingClient.getImageEmbeddingResponse(EmbeddingRequest.builder()
                     .type("image")
                     .imageUrl(imageUrl)
                     .storagePath(storagePath)
                     .mimeType(queryImage.getMimeType())
                     .build());
             log.info("Get embedding success");
-            List<SearchResultItem> results = searchQdrant(embedding, pageCriteria.limit());
+            
+            List<Float> embedding = embeddingResponse.getEmbedding();
+            Map<String, List<String>> queryFilters = embeddingResponse.getFilters();
+            
+            // Lấy lượng ứng viên lớn hơn (vd: limit x 3 hoặc tối đa 50) để re-rank
+            int fetchLimit = Math.max(pageCriteria.limit() * 3, 50);
+            List<SearchResultItem> rawResults = searchQdrant(embedding, fetchLimit);
+            
+            // Re-rank bằng hybrid score (Cosine + Attribute Overlap)
+            List<SearchResultItem> results = rerankByAttributes(rawResults, queryFilters, pageCriteria.limit());
             SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
                     username,
                     SearchType.IMAGE_TO_IMAGE,
@@ -130,11 +137,26 @@ public class SearchService {
                 .orElseThrow(() -> new SearchException("IMAGE_NOT_FOUND", "Image not found", HttpStatus.NOT_FOUND));
 
         try {
-            // Request one extra hit because the source point itself is normally the closest result.
-            JsonObject rawResult = qdrantVectorService.searchByPointId(imageId, pageCriteria.limit() + 1);
-            List<SearchResultItem> results = mapQdrantResults(rawResult, imageId).stream()
-                    .limit(pageCriteria.limit())
-                    .toList();
+            // Lấy lượng ứng viên lớn hơn (vd: limit x 3 hoặc tối đa 50) để re-rank
+            int fetchLimit = Math.max(pageCriteria.limit() * 3, 50);
+            JsonObject rawResult = qdrantVectorService.searchByPointId(imageId, fetchLimit + 1);
+            List<SearchResultItem> rawResults = mapQdrantResults(rawResult, imageId);
+            
+            // Lấy attributes của ảnh gốc từ Database để làm query filters
+            Map<String, List<String>> queryFilters = null;
+            if (queryImage.getMetadataAi() != null && !queryImage.getMetadataAi().isEmpty()) {
+                try {
+                    com.google.gson.JsonObject json = com.google.gson.JsonParser.parseString(queryImage.getMetadataAi()).getAsJsonObject();
+                    queryFilters = new java.util.HashMap<>();
+                    for (String key : json.keySet()) {
+                        queryFilters.put(key, List.of(json.get(key).getAsString()));
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse metadataAi of original image", e);
+                }
+            }
+            
+            List<SearchResultItem> results = rerankByAttributes(rawResults, queryFilters, pageCriteria.limit());
             SearchHistory history = pageCriteria.page() == 0 ? saveHistory(
                     username,
                     SearchType.IMAGE_TO_IMAGE,
@@ -347,6 +369,7 @@ public class SearchService {
                 .width(image.getWidth())
                 .height(image.getHeight())
                 .mimeType(image.getMimeType())
+                .metadataAi(image.getMetadataAi())
                 .build();
     }
 
@@ -476,5 +499,78 @@ public class SearchService {
     }
 
     private record SearchPageCriteria(int limit, int page, int pageSize) {
+    }
+
+    private List<SearchResultItem> rerankByAttributes(
+            List<SearchResultItem> candidates,
+            Map<String, List<String>> queryAttributes,
+            int finalLimit
+    ) {
+        if (queryAttributes == null || queryAttributes.isEmpty() || candidates.isEmpty()) {
+            return candidates.stream().limit(finalLimit).toList();
+        }
+
+        List<String> keysToMatch = List.of("category", "color", "pattern", "sleeve", "neckline");
+
+        for (SearchResultItem item : candidates) {
+            String metadataJson = item.getMetadataAi();
+            if (metadataJson == null || metadataJson.isEmpty()) {
+                item.setSimilarityScore(0.75f * (item.getSimilarityScore() != null ? item.getSimilarityScore() : 0f));
+                continue;
+            }
+
+            com.google.gson.JsonObject candidateAttrs = null;
+            try {
+                candidateAttrs = com.google.gson.JsonParser.parseString(metadataJson).getAsJsonObject();
+            } catch (Exception e) {
+                // Ignore parse error
+            }
+
+            if (candidateAttrs == null) {
+                item.setSimilarityScore(0.75f * (item.getSimilarityScore() != null ? item.getSimilarityScore() : 0f));
+                continue;
+            }
+
+            int matchCount = 0;
+            for (String key : keysToMatch) {
+                List<String> qVals = queryAttributes.get(key);
+                if (qVals == null || qVals.isEmpty()) continue;
+                
+                String qStr = qVals.get(0);
+                String cStr = candidateAttrs.has(key) && !candidateAttrs.get(key).isJsonNull() 
+                                ? candidateAttrs.get(key).getAsString() : null;
+
+                if (qStr != null && cStr != null && qStr.equalsIgnoreCase(cStr)) {
+                    matchCount++;
+                }
+            }
+            
+            float attrOverlap = (float) matchCount / keysToMatch.size();
+            float cosineScore = item.getSimilarityScore() != null ? item.getSimilarityScore() : 0f;
+            float hybridScore = 0.75f * cosineScore + 0.25f * attrOverlap;
+            item.setSimilarityScore(hybridScore);
+        }
+
+        // Sort descending by new hybrid score and re-assign rank position
+        List<SearchResultItem> sorted = candidates.stream()
+                .sorted((a, b) -> Float.compare(b.getSimilarityScore(), a.getSimilarityScore()))
+                .limit(finalLimit)
+                .toList();
+                
+        for (int i = 0; i < sorted.size(); i++) {
+            sorted.get(i).setRankPosition(i + 1);
+        }
+        
+        return sorted;
+    }
+
+    private String extractFirstString(Object val) {
+        if (val == null) return null;
+        if (val instanceof String s) return s;
+        if (val instanceof List<?> l && !l.isEmpty()) {
+            Object first = l.get(0);
+            return first != null ? first.toString() : null;
+        }
+        return val.toString();
     }
 }

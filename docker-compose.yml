@@ -78,6 +78,7 @@ services:
       TORCH_HOME: ${TORCH_HOME}
       INDEXING_DOWNLOAD_WORKERS: 64
       INDEXING_SCAN_LIMIT: 250
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

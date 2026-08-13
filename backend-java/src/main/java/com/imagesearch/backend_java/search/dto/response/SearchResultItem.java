@@ -33,4 +33,6 @@ public class SearchResultItem {
     private Integer width;
     private Integer height;
     private String mimeType;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String metadataAi;
 }

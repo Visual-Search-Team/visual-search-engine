@@ -17,7 +17,7 @@ _FASHION_CLIP_NAME = "patrickjohncyh/fashion-clip"
 # 7 kho từ vựng thuộc tính thời trang dùng để gắn tag zero-shot.
 # Giá trị ở đây cũng chính là giá trị được lưu vào metadata_ai (JSON) trong Postgres.
 _ATTRIBUTE_VOCAB: dict[str, list[str]] = {
-    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Activewear shirt", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Shorts", "Hat", "Cap", "Bag"],
+    "category": ["T-shirt", "Polo shirt", "Shirt", "Jersey", "Activewear shirt", "Tank top", "Crop top", "Sweater", "Hoodie", "Jeans", "Trousers", "Skirt", "Dress", "Sneakers", "Jacket", "Coat", "Suit", "Ao Dai", "Shorts", "Hat", "Cap", "Bag"],
     "color": ["Red", "Blue", "Black", "White", "Yellow", "Green", "Pink", "Grey", "Brown", "Purple", "Orange", "Beige"],
     "pattern": ["Solid", "Striped", "Plaid", "Floral", "Polka dot", "Graphic print", "Camouflage"],
     "style": ["Casual", "Formal", "Vintage", "Streetwear", "Sportswear", "Y2K", "Minimalist"],
@@ -51,7 +51,7 @@ _ATTRIBUTE_PROMPT_TEMPLATES: dict[str, str] = {
 _CATEGORY_PROMPTS: dict[str, str] = {
     "T-shirt":    "a plain T-shirt with a round crew neck and no collar, no buttons, simple casual everyday top",
     "Polo shirt": "a polo shirt with a small ribbed polo collar and 2 or 3 buttons at the neck opening, sporty casual style",
-    "Shirt":      "a lightweight formal button-up dress shirt with a stiff spread collar, a full button placket running down the front, worn as a single layer without side hand pockets or ribbed hems",
+    "Shirt":      "a lightweight formal button-up dress shirt with a stiff spread collar, a full button placket running down the front, worn as a single layer without side hand pockets, not a blazer, not a suit jacket",
     "Jersey":     "a sports jersey with team logo, number print, and lightweight mesh or polyester athletic fabric",
     "Activewear shirt": "a plain athletic sports shirt, activewear, gym clothing, breathable fabric, no team logos",
     "Tank top":   "a sleeveless tank top with thin shoulder straps and no sleeves, casual summer wear",
@@ -63,12 +63,30 @@ _CATEGORY_PROMPTS: dict[str, str] = {
     "Skirt":      "a women's skirt, flowing or pleated, worn around the waist and hips",
     "Dress":      "a women's one-piece dress or gown covering the body from shoulder to knee or lower",
     "Sneakers":   "casual athletic sneakers or running shoes with rubber soles and laces",
-    "Jacket":     "an outerwear jacket, bomber, harrington, or blazer with a zipper or button front, side hand pockets, and often a ribbed waist hem, worn over a t-shirt or other clothing as an outer layer",
+    "Jacket":     "a casual outerwear jacket such as a bomber, denim jacket, leather jacket, or windbreaker, typically featuring a zip closure down the front, a stand or round collar without lapels, and a ribbed elastic waist hem",
     "Coat":       "a long overcoat or trench coat worn in cold weather, reaching the thigh or knee",
+    "Suit":       "a tailored suit jacket or blazer featuring a structured V-neck lapel collar, structured padded shoulders, a single or double-breasted button closure, and flap pockets, often worn over a dress shirt and tie, displayed on a mannequin or person",
+    "Ao Dai": (
+        "a traditional Vietnamese Ao Dai, a long fitted tunic dress with a mandarin collar, "
+        "floor-length front and back panels split into two high side slits at the waist, "
+        "always worn over loose flowing wide-leg trousers visible underneath, unlike western dresses"
+    ),
     "Shorts":     "short pants that end above the knee, casual everyday shorts",
     "Hat":        "a hat worn on the head, such as a beanie, bucket hat, or fedora",
     "Cap":        "a baseball cap or snapback hat with a structured front panel and a curved brim",
     "Bag":        "a handbag, shoulder bag, backpack, or purse used for carrying personal items",
+}
+
+_NECKLINE_PROMPTS: dict[str, str] = {
+    "Collared": (
+        "a clothing item with a separate fabric collar piece sewn around the neckline "
+        "that folds over or stands up, such as a shirt collar, polo collar, or lapel collar"
+    ),
+    "Collarless": (
+        "a clothing item with a plain neckline and no separate folded collar piece, "
+        "such as a round crew neck, V-neck, scoop neck, boat neck, or ribbed knit neckband "
+        "with no fabric folding outward"
+    ),
 }
 
 # Thư mục cache model, tránh phải tải lại mỗi lần build docker
@@ -125,7 +143,11 @@ _FASHION_GLOSSARY = {
     "có cổ": "collared",
     "không cổ": "collarless",
     "ngắn tay": "short sleeve",
-    "dài tay": "long sleeve"
+    "dài tay": "long sleeve",
+    "áo vest": "suit jacket",
+    "đồ vest": "suit",
+    "âu phục": "suit",
+    "áo dài": "ao dai"
 }
 
 # Alias mở rộng cho bộ lọc (Hard Filter). 
@@ -136,7 +158,9 @@ _ATTRIBUTE_ALIASES: dict[str, dict[str, str]] = {
         "váy xếp cả": "chân váy", "áo 2 dây": "áo ba lỗ", "áo hai dây": "áo ba lỗ",
         "áo sát nách": "áo ba lỗ",
         "sơ mi": "áo sơ mi", "polo": "áo polo", "hoodie": "áo hoodie",
-        "croptop": "áo croptop", "sneaker": "giày sneaker"
+        "croptop": "áo croptop", "sneaker": "giày sneaker",
+        "áo vest": "đồ vest", "suit": "đồ vest", "âu phục": "đồ vest", "blazer": "đồ vest",
+        "áo dài truyền thống": "áo dài", "áo dài cách tân": "áo dài"
     },
     "color": {
         "sữa": "be", "trắng ngà": "be", "kem": "be", "vàng chanh": "vàng", "đỏ đô": "đỏ"
@@ -156,7 +180,7 @@ _ATTRIBUTE_VI_LABELS: dict[str, dict[str, str]] = {
         "T-shirt": "áo thun", "Polo shirt": "áo polo", "Shirt": "áo sơ mi", "Jersey": "áo đá bóng", "Activewear shirt": "áo thể thao", "Tank top": "áo ba lỗ", "Crop top": "áo croptop", "Sweater": "áo len", "Hoodie": "áo hoodie", "Jeans": "quần jean", "Trousers": "quần âu",
         "Skirt": "chân váy", "Dress": "váy đầm", "Sneakers": "giày sneaker",
         "Jacket": "áo khoác", "Coat": "áo choàng", "Shorts": "quần short",
-        "Hat": "mũ", "Cap": "mũ lưỡi trai", "Bag": "túi xách",
+        "Hat": "mũ", "Cap": "mũ lưỡi trai", "Bag": "túi xách", "Suit": "đồ vest", "Ao Dai": "áo dài",
     },
     "color": {
         "Red": "đỏ", "Blue": "xanh dương", "Black": "đen", "White": "trắng",
@@ -255,17 +279,30 @@ class CLIPModelWrapper:
             )
         return self.translator_tokenizer.batch_decode(translated_ids, skip_special_tokens=True)[0]
 
+    def _validate_prompt_length(self, prompts: list[str], attr_name: str, max_tokens: int = 77):
+        for p in prompts:
+            n_tokens = len(self.processor.tokenizer(p)["input_ids"])
+            if n_tokens > max_tokens:
+                logger.warning(
+                    f"[CLIP] Prompt '{attr_name}' vượt {max_tokens} token (đang có {n_tokens} token), "
+                    f"sẽ bị CLIP tự cắt cuối câu: '{p[:60]}...'"
+                )
+
     def _precompute_attribute_vocab_vectors(self):
         logger.info("Đang sinh vector mẫu cho 7 nhóm thuộc tính thời trang...")
         for attr_name, labels in _ATTRIBUTE_VOCAB.items():
             if attr_name == "category":
                 prompts = [_CATEGORY_PROMPTS.get(label, f"a photo of a {label}") for label in labels]
+            elif attr_name == "neckline":
+                prompts = [_NECKLINE_PROMPTS.get(label, f"a photo of a {label} neckline") for label in labels]
             else:
                 template = _ATTRIBUTE_PROMPT_TEMPLATES[attr_name]
                 prompts = [template.format(label=label) for label in labels]
                 
+            self._validate_prompt_length(prompts, attr_name)
+
             inputs = self.processor(
-                text=prompts, return_tensors="pt", padding=True, truncation=True
+                text=prompts, return_tensors="pt", padding=True, truncation=True, max_length=77
             ).to(self.device)
             with torch.inference_mode():
                 feat = self.model.get_text_features(**inputs)
@@ -304,6 +341,7 @@ class CLIPModelWrapper:
             return_tensors="pt",
             padding=True,
             truncation=True,
+            max_length=77
         ).to(self.device)
         with torch.inference_mode():
             feat = self.model.get_text_features(**inputs)

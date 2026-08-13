@@ -15,18 +15,18 @@ const numberFormatter = new Intl.NumberFormat("vi-VN");
 
 const statCards = [
   {
-    key: "indexed",
-    label: "Ảnh đã index",
-    description: "Tổng số ảnh đã embedding và lưu vector thành công.",
-    icon: FiCheckCircle,
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-  {
     key: "totalUsers",
     label: "Người dùng",
     description: "Tổng số tài khoản hiện có trong hệ thống.",
     icon: FiUsers,
     tone: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  {
+    key: "indexed",
+    label: "Ảnh đã index",
+    description: "Tổng số ảnh đã embedding và lưu vector thành công.",
+    icon: FiCheckCircle,
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
   {
     key: "totalImages",
@@ -90,6 +90,15 @@ export default function AdminDashboard() {
   const statsQuery = useQuery({
     queryKey: ["admin-dashboard-stats"],
     queryFn: getAdminStats,
+    refetchInterval: (query) => {
+      const stats = query.state.data; 
+      
+      if (stats?.processing > 0 || stats?.pending > 0) {
+        return 2000;
+      }
+      return 30000;
+    },
+    refetchIntervalInBackground: true,
   });
 
   const stats = statsQuery.data ?? {};

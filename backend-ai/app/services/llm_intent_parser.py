@@ -58,18 +58,18 @@ Chỉ được dùng các giá trị có trong từ điển sau:
 QUAN TRỌNG:
 - Trả về ĐÚNG định dạng JSON, không có markdown, không có giải thích.
 - Mỗi key là một mảng các giá trị (có thể nhiều hơn 1 category nếu phong cách đó có nhiều loại áo phù hợp).
-- Chỉ trả về các key có kết quả, bỏ qua key nào không liên quan.
+- Chỉ tập trung SUY LUẬN THỂ LOẠI (category) và PHONG CÁCH (style). TUYỆT ĐỐI KHÔNG tự bịa ra hoặc ép buộc màu sắc (color) hay họa tiết (pattern) để tránh làm hẹp kết quả tìm kiếm.
 - Nếu câu tìm kiếm không liên quan đến thời trang, trả về: {{}}
 
 Ví dụ:
 - Input: "phong cách old money nam"
-- Output: {{"category": ["áo sơ mi", "áo polo", "đồ vest", "quần âu"], "color": ["trắng", "be", "đen", "nâu"], "style": ["trang trọng", "cổ điển"]}}
+- Output: {{"category": ["áo sơ mi", "áo polo", "đồ vest", "quần âu"], "style": ["trang trọng", "cổ điển"]}}
 
 - Input: "đồ đi biển nữ"
-- Output: {{"category": ["váy đầm", "áo ba lỗ", "quần short", "áo croptop"], "color": ["trắng", "hồng", "xanh dương"], "pattern": ["hoa", "chấm bi"]}}
+- Output: {{"category": ["váy đầm", "áo ba lỗ", "quần short", "áo croptop"]}}
 
 - Input: "phong cách dark academia"
-- Output: {{"category": ["áo len", "áo sơ mi", "đồ vest", "áo khoác"], "color": ["nâu", "đen", "xám", "be"], "style": ["cổ điển", "trang trọng"]}}
+- Output: {{"category": ["áo len", "áo sơ mi", "đồ vest", "áo khoác"], "style": ["cổ điển", "trang trọng"]}}
 """
 
 

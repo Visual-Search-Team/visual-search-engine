@@ -28,7 +28,17 @@ cd VisualSearchEngine
 
 ## 4. Cau hinh bien moi truong
 
-### 4.1 backend-ai
+### 4.1 Cấu hình chung
+
+Tạo file `.env` ở thư mục gốc từ file mẫu (file `.env` không được commit), sau đó thay toàn bộ giá trị `change-this-*` và `generate-*` bằng giá trị riêng:
+
+```bash
+copy .env.example .env
+```
+
+Đặc biệt, `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD` và `APP_ADMIN_PASSWORD` phải là giá trị mới, đủ mạnh. Khóa `GEMINI_API_KEY` chỉ đặt trong `.env` nếu tính năng LLM được sử dụng.
+
+### 4.2 backend-ai
 
 Tao file `.env` trong `backend-ai` (khong commit file nay):
 
@@ -41,7 +51,7 @@ POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=imagesearch
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+POSTGRES_PASSWORD=giá-trị-trùng-với-file-.env-gốc
 
 QDRANT_URL=http://qdrant:6333
 QDRANT_COLLECTION=images
@@ -49,7 +59,7 @@ QDRANT_COLLECTION=images
 BACKEND_JAVA_URL=http://backend-java:8080
 ```
 
-### 4.2 backend-java
+### 4.3 backend-java
 
 Backend Java dang doc bien moi truong tu Docker Compose, chua bat buoc file `.env` rieng.
 Neu can local profile rieng, co the tao `backend-java/.env` de luu bien tuy chinh (khong commit).

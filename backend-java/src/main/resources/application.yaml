@@ -8,7 +8,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/imagesearch}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -29,15 +29,15 @@ server:
     context-path: /visual-search/v1
 
 jwt:
-  secret: ${JWT_SECRET:1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij}
+  secret: ${JWT_SECRET}
   access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:86400000}
   refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:604800000}
 
 app:
   admin:
-    username: ${APP_ADMIN_USERNAME:admin}
-    email: ${APP_ADMIN_EMAIL:admin@example.com}
-    password: ${APP_ADMIN_PASSWORD:admin123}
+    username: ${APP_ADMIN_USERNAME}
+    email: ${APP_ADMIN_EMAIL}
+    password: ${APP_ADMIN_PASSWORD}
   bookmark:
     cleanup:
       enabled: ${BOOKMARK_CLEANUP_ENABLED:true}
@@ -77,7 +77,7 @@ minio:
   # MINIO_ENDPOINT=http://minio:9000 so the backend reaches the MinIO container.
   url: ${MINIO_ENDPOINT:http://localhost:9000}
   public-url: ${MINIO_PUBLIC_URL:${MINIO_ENDPOINT:http://localhost:9000}}
-  access-key: ${MINIO_ACCESS_KEY:admin}
-  secret-key: ${MINIO_SECRET_KEY:password123}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
   bucket-name: ${MINIO_BUCKET:images}
   presigned-url-expiration-seconds: ${MINIO_PRESIGNED_URL_EXPIRATION_SECONDS:3600}

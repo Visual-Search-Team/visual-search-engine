@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 	postgres_port: int = 5432
 	postgres_db: str = "imagesearch"
 	postgres_user: str = "postgres"
-	postgres_password: str = "postgres"
+	postgres_password: str
 
 	qdrant_url: str = "http://qdrant:6333"
 	qdrant_collection: str = "images"

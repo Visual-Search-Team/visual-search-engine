@@ -47,7 +47,7 @@ host = os.environ.get("POSTGRES_HOST", "postgres")
 port = os.environ.get("POSTGRES_PORT", "5432")
 db = os.environ.get("POSTGRES_DB", "imagesearch")
 user = os.environ.get("POSTGRES_USER", "postgres")
-password = os.environ.get("POSTGRES_PASSWORD", "postgres")
+password = os.environ["POSTGRES_PASSWORD"]
 
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 

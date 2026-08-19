@@ -8,8 +8,8 @@ class MinIOClientWrapper:
     def __init__(self):
         # Read from environment variables
         endpoint = os.environ.get("MINIO_ENDPOINT", "http://minio:9000")
-        access_key = os.environ.get("MINIO_ACCESS_KEY", "admin")
-        secret_key = os.environ.get("MINIO_SECRET_KEY", "password123")
+        access_key = os.environ["MINIO_ACCESS_KEY"]
+        secret_key = os.environ["MINIO_SECRET_KEY"]
         self.bucket = os.environ.get("MINIO_BUCKET", "images")
         
         # Remove http:// or https:// from endpoint for the python minio client
